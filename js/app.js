@@ -1,0 +1,10814 @@
+const state = {
+  sidebarCollapsed: false,
+  assistantCollapsed: false,
+  assistantExpanded: false,
+  theme: localStorage.getItem("jdr-theme") || "light",
+  gameTheme: localStorage.getItem("jdr-game-theme") || "l5r",
+  selectedSystem: localStorage.getItem("jdr-selected-system") || "l5r1",
+  currentView: "dashboard",
+  gameMode: false,
+  campaignId: null,
+  campaign: null,
+  campaigns: [],
+  sessions: [],
+  session: null,
+  scene: null,
+  characters: [],
+  plots: [],
+  factions: [],
+  items: [],
+  informations: [],
+  scenarios: [],
+  documents: [],
+  relations: [],
+  scenes: [],
+  events: [],
+  notes: [],
+  notesFilter: "all",
+  characterFilter: "active",
+  characterSearch: "",
+  locationSearch: "",
+  editingPortrait: null,
+  editingAdvantages: [],
+  editingDisadvantages: [],
+  editingEquipment: [],
+  originalEquipmentIds: [],
+  lastCharacterProfession: null,
+  locations: [],
+  locationMap: new Map()
+};
+
+const alerts = [
+  { type: "warning", icon: "⚠", title: "Notes non traitées", detail: "Les notes rapides pourront être converties en événements après la séance." },
+  { type: "info", icon: "ℹ", title: "1 intrigue sans mise à jour", detail: "Visites mystérieuses : aucune activité depuis la séance 11." },
+  { type: "danger", icon: "!", title: "Contrôle de continuité", detail: "Alerte de démonstration : vérification d’une localisation contradictoire." }
+];
+
+const viewTitles = {
+  session: "Séance",
+  scenes: "Scènes",
+  timeline: "Chronologie",
+  notes: "Notes",
+  characters: "Personnages",
+  locations: "Lieux",
+  factions: "Factions",
+  items: "Objets",
+  plots: "Intrigues",
+  scenarios: "Scénarios",
+  events: "Événements",
+  maps: "Cartes",
+  documents: "Documents",
+  rules: "Règles",
+  systemLibrary: "Bibliothèque JDR",
+  combat: "Combats",
+  generators: "Générateurs",
+  campaign: "Campagne"
+};
+
+const SYSTEM_PROFILES = {
+  l5r1: {
+    id: "l5r1",
+    label: "L5R 1re édition",
+    skillMode: "rank",
+    skillMin: 0,
+    skillMax: 10,
+    characteristics: [
+      ["stamina", "Endurance", 2, "Terre"],
+      ["willpower", "Volonté", 2, "Terre"],
+      ["strength", "Force", 2, "Eau"],
+      ["perception", "Perception", 2, "Eau"],
+      ["agility", "Agilité", 2, "Feu"],
+      ["intelligence", "Intelligence", 2, "Feu"],
+      ["reflexes", "Réflexes", 2, "Air"],
+      ["awareness", "Intuition / Awareness", 2, "Air"],
+      ["void", "Vide", 2, "Vide"]
+    ],
+    skills: [
+      "Athlétisme","Bataille","Calligraphie","Cérémonie du thé","Chasse","Commerce",
+      "Connaissance : Bushido","Connaissance : Histoire","Connaissance : Shugenja",
+      "Courtisan","Commerce","Défense","Discrétion","Équitation","Étiquette","Héraldique",
+      "Iaijutsu","Investigation","Jiujutsu","Kenjutsu","Kyujutsu","Méditation",
+      "Poésie","Sincérité","Théologie","Artisanat","Forge","Médecine","Herboristerie",
+      "Représentation","Connaissance : agriculture"
+    ],
+    characterStyles: ["masculin","feminin","neutre"],
+    locationStyles: ["castle","village","temple","inn","road","district"]
+  },
+
+  dnd5: {
+    id: "dnd5",
+    label: "D&D 5e",
+    skillMode: "proficiency",
+    characteristics: [
+      ["strength","Force",10,"Caractéristiques"],
+      ["dexterity","Dextérité",10,"Caractéristiques"],
+      ["constitution","Constitution",10,"Caractéristiques"],
+      ["intelligence","Intelligence",10,"Caractéristiques"],
+      ["wisdom","Sagesse",10,"Caractéristiques"],
+      ["charisma","Charisme",10,"Caractéristiques"]
+    ],
+    skills: [
+      "Acrobaties","Arcanes","Athlétisme","Discrétion","Dressage","Escamotage",
+      "Histoire","Intimidation","Investigation","Médecine","Nature","Perception",
+      "Perspicacité","Persuasion","Religion","Représentation","Survie","Tromperie"
+    ],
+    characterStyles: ["masculin","feminin","neutre"],
+    locationStyles: ["city","village","inn","castle","ruins","forest","dungeon"]
+  },
+
+  vampire2: {
+    id: "vampire2",
+    label: "Vampire : la Mascarade V2",
+    skillMode: "rank",
+    skillMin: 0,
+    skillMax: 5,
+    characteristics: [
+      ["strength","Force",1,"Physique"],
+      ["dexterity","Dextérité",1,"Physique"],
+      ["stamina","Vigueur",1,"Physique"],
+      ["charisma","Charisme",1,"Social"],
+      ["manipulation","Manipulation",1,"Social"],
+      ["appearance","Apparence",1,"Social"],
+      ["perception","Perception",1,"Mental"],
+      ["intelligence","Intelligence",1,"Mental"],
+      ["wits","Astuce",1,"Mental"]
+    ],
+    skills: [
+      "Vigilance","Athlétisme","Bagarre","Esquive","Empathie","Expression",
+      "Intimidation","Commandement","Connaissance de la rue","Subterfuge",
+      "Animaux","Artisanats","Conduite","Étiquette","Armes à feu","Mêlée",
+      "Représentation","Sécurité","Furtivité","Survie","Bureaucratie",
+      "Informatique","Finance","Investigation","Droit","Linguistique",
+      "Médecine","Occultisme","Politique","Science"
+    ],
+    characterStyles: ["masculin","feminin","neutre"],
+    locationStyles: ["club","hotel","street","mansion","warehouse","church","underground"]
+  },
+
+  ward: {
+    id: "ward",
+    label: "W.A.R.D. — Livre V29.123",
+    skillMode: "rank",
+    skillMin: 0,
+    skillMax: 4,
+    characteristics: [
+      ["strength","Force",1,"Physique"],
+      ["dexterity","Dextérité",1,"Physique"],
+      ["stamina","Vigueur",1,"Physique"],
+      ["charisma","Charisme",1,"Social"],
+      ["manipulation","Manipulation",1,"Social"],
+      ["appearance","Apparence",1,"Social"],
+      ["perception","Perception",1,"Mental"],
+      ["intelligence","Intelligence",1,"Mental"],
+      ["wits","Astuce",1,"Mental"]
+    ],
+    skills: [
+      "Armes de mêlée","Arts martiaux (choisir un art martial)","Bagarre","Esquive",
+      "Explosifs","Mitrailleuse","Tactique","Tir : Armes automatiques",
+      "Tir : Fusil","Tir : Pistolet","Athlétisme","Baratin","Bureaucratie",
+      "Cartographie","Commandement","Comptabilité","Conduite","Cryptologie",
+      "Déguisement","Diplomatie","Discrétion","Électricité","Électronique",
+      "Éloquence","Enseignement","Escalade","Étiquette","Évasion","Falsification",
+      "Filature","Furtivité","Imagerie numérique","Informatique","Interroger",
+      "Intuition","Investigation","Langue étrangère","Médecine","Médecine légale",
+      "Négociation","Navigation","Natation","Observation","Occultisme","Orientation",
+      "Parachutisme","Parapsychologie","Persuasion","Photographie","Pilotage de drones",
+      "Pilotage d’avion","Pilotage d’hélicoptère","Plongée","Premiers secours",
+      "Programmation","Recherche","Réparation","Réseau / Télécommunications",
+      "Serrurerie","Suivi de piste","Survie","Ufologie","Vigilance","Astronomie",
+      "Astrophysique","Biologie","Chimie","Géologie / Géophysique",
+      "IA / Analyse prédictive","Mathématiques appliquées","Météorologie",
+      "Neurosciences","Physique","Physique nucléaire","Sciences environnementales",
+      "Anthropologie","Droit","Économie / Finance","Histoire","Histoire militaire",
+      "Linguistique","Politique","Psychologie","Relations internationales","Sociologie",
+      "Ingénierie (choisir une spécialité)","Ingénierie aérospatiale",
+      "Ingénierie biomédicale","Ingénierie des réseaux","Ingénierie des télécoms",
+      "Ingénierie du bâtiment","Ingénierie électronique"
+    ],
+    characterStyles: ["masculin","feminin","neutre"],
+    locationStyles: ["base","site","laboratory","safehouse","office","field"]
+  },
+
+  generic: {
+    id: "generic",
+    label: "Générique",
+    skillMode: "rank",
+    skillMin: 0,
+    skillMax: 5,
+    characteristics: [
+      ["strength","Force",1,"Générique"],
+      ["agility","Agilité",1,"Générique"],
+      ["mind","Esprit",1,"Générique"],
+      ["social","Social",1,"Générique"]
+    ],
+    skills: [],
+    characterStyles: ["masculin","feminin","neutre"],
+    locationStyles: ["city","village","building","wilderness","neutral"]
+  }
+};
+
+const CHARACTER_CONTEXT_CONFIG = {
+  l5r1: {
+    label: "Rokugan — statut, école et fonction",
+    fields: [
+      { key:"socialStatus", label:"Origine / statut social", type:"select", options:[
+        ["samurai","Samouraï de clan / impérial"],["ronin","Rōnin"],["monk","Moine / religieux"],
+        ["heimin","Heimin — bonge / gens du commun"],["hinin","Hinin / eta — hors de l’ordre céleste"]
+      ]},
+      { key:"clan", label:"Clan / allégeance", type:"select", options:[
+        ["dragon","Dragon"],["crane","Grue"],["crab","Crabe"],["lion","Lion"],
+        ["phoenix","Phénix"],["scorpion","Scorpion"],["unicorn","Licorne"],
+        ["imperial","Familles impériales"],["mantis","Mante"],["fox","Renard"],["badger","Blaireau"],["centipede","Mille-Pattes"],["ronin","Sans clan / aucune"]
+      ]},
+      { key:"profession", label:"École / formation", type:"dependentProfession" },
+      { key:"occupation", label:"Fonction(s) / activité(s)", type:"multiselect", options:[
+        ["warrior","Guerrier / bushi"],["magistrate","Magistrat / enquêteur"],["courtier","Courtisan / diplomate"],
+        ["shugenja","Shugenja / prêtre"],["monk","Moine"],["yojimbo","Yojimbo / garde du corps"],
+        ["officer","Officier / commandant"],["scout","Éclaireur / pisteur"],["ashigaru","Ashigaru / soldat paysan"],
+        ["farmer","Paysan / cultivateur"],["fisher","Pêcheur"],["artisan","Artisan"],["smith","Forgeron"],
+        ["carpenter","Charpentier / bâtisseur"],["merchant","Marchand / colporteur"],["innkeeper","Aubergiste / tenancier"],
+        ["servant","Serviteur / domestique"],["porter","Porteur / manœuvre"],["sailor","Marin / batelier"],
+        ["miner","Mineur / carrier"],["woodcutter","Bûcheron"],["healer","Guérisseur / herboriste"],
+        ["messenger","Messager / courrier"],["stablehand","Palefrenier"],["entertainer","Artiste / saltimbanque"],
+        ["geisha","Geisha / artiste de maison de thé"],["criminal","Criminel / contrebandier"],["bandit","Bandit / brigand"],
+        ["gravedigger","Fossoyeur / préparateur des morts"],["tanner","Tanneur / travailleur du cuir"],
+        ["executioner","Bourreau"],["laborer","Journalier / travailleur non qualifié"]
+      ]},
+      { key:"l5rTattooHistoricalAccess", label:"Accès exceptionnel aux tatouages", type:"select", options:[["","Non"],["historical","Oui — trait historique / validation MJ"]] },
+      { key:"l5rTattoos", label:"Tatouages Ise Zumi", type:"multiselect", options:[["Araignée","Araignée"],["Bambou","Bambou"],["Caméléon","Caméléon"],["Campanule","Campanule"],["Chauve-souris","Chauve-souris"],["Chrysanthème","Chrysanthème"],["Corneille","Corneille"],["Crabe","Crabe"],["Croissant de lune","Croissant de lune"],["Dragon","Dragon"],["Faucon","Faucon"],["Fleur de cerisier / Sakura","Fleur de cerisier / Sakura"],["Grue","Grue"],["Guêpe","Guêpe"],["Libellule","Libellule"],["Licorne","Licorne"],["Lion","Lion"],["Maranta","Maranta"],["Masque blanc","Masque blanc"],["Mille-pattes","Mille-pattes"],["Montagne","Montagne"],["Nuage","Nuage"],["Océan","Océan"],["Papillon","Papillon"],["Phénix","Phénix"],["Pin","Pin"],["Pleine lune","Pleine lune"],["Rossignol","Rossignol"],["Scorpion","Scorpion"],["Singe","Singe"],["Soleil","Soleil"],["Tigre","Tigre"],["Tortue","Tortue"]]},
+      { key:"l5rSpellAcquisitionMode", label:"Gestion des sorts", type:"select", options:[["creation","Création — parchemins de départ"],["learned","Progression — apprentissage / recherche"]] },
+      { key:"l5rSpells", label:"Sorts / parchemins connus", type:"multiselect", options:[["Sensation","Sensation"],["Communion","Communion"],["Invocation","Invocation"],["Appel des animaux","Appel des animaux"],["Énergie neutralisante","Énergie neutralisante"],["Essence de la Terre","Essence de la Terre"],["Étreinte de Kenro-Ji-Jin","Étreinte de Kenro-Ji-Jin"],["Main fatale du temps","Main fatale du temps"],["Murmures de la Terre","Murmures de la Terre"],["Orage de roche","Orage de roche"],["Poing de la Terre","Poing de la Terre"],["Prison de bois","Prison de bois"],["Protection contre les oni","Protection contre les oni"],["Rempart de la Terre","Rempart de la Terre"],["Voie de la Terre","Voie de la Terre"],["Bénédiction de Inari","Bénédiction de Inari"],["Derrière le voile du sommeil","Derrière le voile du sommeil"],["Don de Suikinjin","Don de Suikinjin"],["Échange d’énergie","Échange d’énergie"],["Étreinte de Suitengu","Étreinte de Suitengu"],["Maître de la rivière furieuse","Maître de la rivière furieuse"],["Malédiction du chacal","Malédiction du chacal"],["Mur de bambou","Mur de bambou"],["Ouvrir les flots","Ouvrir les flots"],["Roue de la fortune","Roue de la fortune"],["Souffle de la brume","Souffle de la brume"],["Vengeance karmique","Vengeance karmique"],["Bénédiction de Osano-Wo","Bénédiction de Osano-Wo"],["Courroux de feu","Courroux de feu"],["Courroux de Osano-Wo","Courroux de Osano-Wo"],["Essence du Feu","Essence du Feu"],["Furie de l’élément","Furie de l’élément"],["Lumière de Amaterasu","Lumière de Amaterasu"],["Pureté de Shinsei","Pureté de Shinsei"],["Rempart de Feu","Rempart de Feu"],["Les yeux du phénix","Les yeux du phénix"],["Appel de l’oiseau","Appel de l’oiseau"],["Champion de l’au-delà","Champion de l’au-delà"],["Don du vent","Don du vent"],["Entrevoir l’ombre de l’âme","Entrevoir l’ombre de l’âme"],["Marcher entre les étoiles","Marcher entre les étoiles"],["Miroir réfléchissant","Miroir réfléchissant"],["Mugissement de Isora","Mugissement de Isora"],["Regarder dans l’âme","Regarder dans l’âme"],["Rempart d’Air","Rempart d’Air"],["Sagesse du vent","Sagesse du vent"],["Souffle de Osano-Wo","Souffle de Osano-Wo"],["Suivre la voie","Suivre la voie"],["Vol de la flèche","Vol de la flèche"],["Contempler le Vide","Contempler le Vide"],["Deviner le futur","Deviner le futur"],["Essence du Vide","Essence du Vide"],["Présence spirituelle","Présence spirituelle"],["Profondeur du Vide","Profondeur du Vide"],["Vents du changement","Vents du changement"]]},
+      { key:"l5rCustomSpells", label:"Autres sorts / parchemins", type:"text", placeholder:"Sorts du livre de base ou autres suppléments non encore présents dans le catalogue…" },
+      { key:"artisanSpecialty", label:"Spécialité d’Artisanat", type:"select", options:[
+        ["","— À choisir si Artisan est sélectionné —"],["pottery","Poterie / céramique"],["weaving","Tissage / textile"],
+        ["leather","Travail du cuir"],["woodwork","Travail du bois"],["carpentry","Charpenterie / menuiserie"],
+        ["painting","Peinture / décoration"],["lacquer","Laque"],["jewelry","Bijouterie / orfèvrerie"],["other","Autre spécialité d’Artisanat"]
+      ]},
+      { key:"responsibilities", label:"Fonction(s) / responsabilité(s)", type:"multiselect", options:[
+        ["village_head","Chef de village"],["foreman","Contremaître / chef d’équipe"],
+        ["workshop_head","Responsable d’atelier"],["warehouse_head","Responsable d’entrepôt"],
+        ["harvest_head","Responsable des récoltes"],["caravan_head","Responsable de caravane"],
+        ["local_steward","Intendant local"],["doshi","Dōshin / auxiliaire local"],
+        ["budoka","Budōka / homme d’armes heimin"],["ashigaru_duty","Service ashigaru"]
+      ]}
+    ]
+  },
+  dnd5: {
+    label: "D&D — ascendance et classe",
+    fields: [
+      { key:"ancestry", label:"Ascendance", type:"select", options:[
+        ["human","Humain"],["elf","Elfe"],["dwarf","Nain"],["halfling","Halfelin"],["half_elf","Demi-elfe"],["half_orc","Demi-orque"],["dragonborn","Drakéide"],["gnome","Gnome"],["tiefling","Tieffelin"]
+      ]},
+      { key:"profession", label:"Classe", type:"select", options:[
+        ["barbarian","Barbare"],["bard","Barde"],["cleric","Clerc"],["druid","Druide"],
+        ["fighter","Guerrier"],["monk","Moine"],["paladin","Paladin"],["ranger","Rôdeur"],
+        ["rogue","Roublard"],["sorcerer","Ensorceleur"],["warlock","Sorcier"],["wizard","Magicien"]
+      ]}
+    ]
+  },
+  vampire2: {
+    label: "Vampire — pays, clan et activité",
+    fields: [
+      { key:"country", label:"Pays / culture", type:"select", options:[
+        ["france","France"],["usa","États-Unis"],["uk","Royaume-Uni"],
+        ["germany","Allemagne"],["italy","Italie"],["spain","Espagne"],["east_europe","Europe de l’Est"]
+      ]},
+      { key:"clan", label:"Clan", type:"select", options:[
+        ["ventrue","Ventrue"],["toreador","Toreador"],["brujah","Brujah"],["caitiff","Caitiff / Sans-clan"],
+        ["gangrel","Gangrel"],["malkavian","Malkavian"],["nosferatu","Nosferatu"],["tremere","Tremere"]
+      ]},
+      { key:"profession", label:"Activité / couverture", type:"select", options:[
+        ["executive","Cadre / dirigeant"],["artist","Artiste"],["investigator","Enquêteur"],
+        ["academic","Universitaire / chercheur"],["criminal","Milieu criminel"],["journalist","Journaliste"],
+        ["doctor","Médecin / soignant"],["lawyer","Avocat / juriste"],["police","Policier / détective"],
+        ["military","Militaire / vétéran"],["politician","Politicien / élu"],["clergy","Clergé / religieux"],
+        ["tech","Informaticien / ingénieur"],["socialite","Mondain / héritier"],["club_owner","Patron de club / restaurateur"],
+        ["security","Sécurité privée"],["occultist","Occultiste / ésotériste"],["student","Étudiant"],
+        ["street","Marginal / rue"]
+      ]}
+    ]
+  },
+  ward: {
+    label: "W.A.R.D. — nature, profession, organisation et faction",
+    fields: [
+      { key:"nature", label:"Nature du personnage", type:"select", options:[["human","Humain"],["nonhuman","Non-humain"]] },
+      { key:"alienSpecies", label:"Espèce / origine non humaine", type:"select", options:[["unknown","Inconnue / non identifiée"],["atriant","Atriant — diaspora extraterrestre"],["saurian","Saurien — civilisation préhumaine liée à la Terre"],["vaelna","Vael’na / Réticulan — extraterrestre (profil chiffré en reconstruction)"],["deep_one","Profond — civilisation marine préhumaine N1 (mécanique à auditer)"],["other","Autre / personnalisée"]] },
+      { key:"faction", label:"Appartenance factionnelle", type:"select", options:[["none","Aucune"],["unknown","Inconnue / à déterminer"],["ward","W.A.R.D."],["majestic","MAJESTIC / MJ-12"],["dae","DAE — France"],["custodia","CUSTODIA — Vatican"],["kagami","KAGAMI — Japon"],["obsidian","Consortium Obsidienne"],["other","Autre faction / personnalisée"]] },
+      { key:"factionDetail", label:"Faction / cellule / couverture (précision)", type:"text", placeholder:"Nom libre, cellule, degré de connaissance…" },
+      { key:"country", label:"Pays", type:"select", options:[
+        ["usa","États-Unis"],["france","France"],["uk","Royaume-Uni"],
+        ["germany","Allemagne"],["canada","Canada"],["eu","Union européenne"],
+        ["international","International"],["japan","Japon"],["italy","Italie"],["spain","Espagne"]
+      ]},
+      { key:"region", label:"État / région", type:"text", placeholder:"Ex. Texas, Bretagne, Ontario…" },
+      { key:"agency", label:"Agence / organisation", type:"dependentWardAgency" },
+      { key:"profession", label:"Profession principale / profil mécanique", type:"dependentWardProfession" },
+      { key:"wardSectors", label:"Secteur(s) civil(s)", type:"multiselect", options:[
+        ["administration","Administration / service public"],["health","Santé / médico-social"],["education","Enseignement / formation"],["research","Recherche / sciences"],
+        ["industry","Industrie / production"],["construction","BTP / construction"],["mining","Mines / carrières"],["energy","Énergie / réseaux"],
+        ["transport","Transport"],["logistics","Logistique / entreposage"],["maritime","Maritime / portuaire"],["aviation","Aéronautique / aéroportuaire"],
+        ["agriculture","Agriculture / forêt / pêche"],["commerce","Commerce / distribution"],["finance","Finance / assurance / comptabilité"],["it","Informatique / télécoms"],
+        ["security","Sécurité privée"],["emergency","Secours / incendie"],["media","Médias / communication"],["legal","Droit / justice"],
+        ["hospitality","Hôtellerie / restauration"],["craft","Artisanat"],["culture","Culture / patrimoine"],["personal","Services aux personnes"]
+      ] },
+      { key:"wardTrades", label:"Métier(s) / activités", type:"multiselect", options:[
+        ["administrator","Agent administratif"],["manager","Cadre / responsable"],["accountant","Comptable"],["lawyer","Juriste / avocat"],["teacher","Enseignant / formateur"],
+        ["researcher","Chercheur"],["doctor","Médecin"],["nurse","Infirmier / soignant"],["paramedic","Secouriste / ambulancier"],["pharmacist","Pharmacien"],
+        ["engineer","Ingénieur"],["technician","Technicien de maintenance"],["electrician","Électricien"],["mechanic","Mécanicien"],["machinist","Usineur / opérateur machine"],
+        ["worker","Ouvrier de production"],["builder","Ouvrier du BTP"],["carpenter","Charpentier / menuisier"],["plumber","Plombier / chauffagiste"],["welder","Soudeur"],
+        ["miner","Mineur / carrier"],["heavy_operator","Conducteur d’engins"],["driver","Chauffeur / conducteur"],["rail","Agent ferroviaire"],["warehouse","Magasinier / préparateur"],
+        ["dockworker","Docker / manutentionnaire portuaire"],["sailor","Marin / pêcheur"],["pilot","Pilote civil"],["air_tech","Technicien aéronautique"],["farmer","Agriculteur / éleveur"],
+        ["forester","Forestier"],["shopkeeper","Commerçant"],["sales","Vendeur / commercial"],["banker","Banque / assurance"],["developer","Développeur / informaticien"],
+        ["network","Technicien réseau / télécoms"],["cyber","Spécialiste cybersécurité"],["security_guard","Agent de sécurité"],["firefighter","Pompier"],["journalist","Journaliste"],
+        ["photographer","Photographe / vidéaste"],["librarian","Bibliothécaire / documentaliste"],["archivist","Archiviste"],["hotel","Hôtelier / réceptionniste"],["cook","Cuisinier"],
+        ["server","Serveur / personnel de salle"],["artisan","Artisan"],["cleaner","Entretien / nettoyage"],["caregiver","Aide à la personne"],["custom","Autre métier"]
+      ] },
+      { key:"wardSpecialties", label:"Spécialité(s)", type:"text", placeholder:"Ex. automatismes, forage, urgences, réseaux, patrimoine…" },
+      { key:"wardFunctions", label:"Fonction(s) / responsabilité(s)", type:"multiselect", options:[
+        ["team_lead","Chef d’équipe"],["foreman","Contremaître"],["supervisor","Superviseur"],["workshop_manager","Responsable d’atelier"],["site_manager","Responsable de site"],
+        ["department_head","Chef de service"],["project_manager","Chef de projet"],["shift_lead","Chef de poste / quart"],["safety_officer","Responsable sécurité"],["union_rep","Représentant du personnel"],
+        ["trainer","Formateur / tuteur"],["owner","Propriétaire / exploitant"],["director","Directeur / dirigeant"],["expert","Référent / expert technique"],["volunteer","Bénévole / réserviste civil"]
+      ] },
+      { key:"careerHistory", label:"Parcours professionnel antérieur", type:"text", placeholder:"Anciens métiers, employeurs, fonctions, changements de carrière…" },
+      { key:"orientation", label:"Orientation", type:"dependentWardOrientation" }
+    ]
+  },
+
+  generic: {
+    label: "Contexte générique",
+    fields: [
+      { key:"culture", label:"Culture", type:"text", placeholder:"Culture / origine" },
+      { key:"profession", label:"Profession", type:"text", placeholder:"Profession / rôle" }
+    ]
+  }
+};
+
+const LOCATION_CONTEXT_CONFIG = {
+  l5r1: {
+    label: "Territoire de Rokugan",
+    fields: [
+      { key:"clan", label:"Territoire / clan", type:"select", options:[
+        ["dragon","Dragon"],["crane","Grue"],["crab","Crabe"],["lion","Lion"],
+        ["phoenix","Phénix"],["scorpion","Scorpion"],["unicorn","Licorne"],
+        ["imperial","Territoire impérial"],["ronin","Territoire neutre"]
+      ]},
+      { key:"environment", label:"Environnement", type:"select", options:[
+        ["mountain","Montagne"],["forest","Forêt"],["plain","Plaine"],["coast","Côte / rivière"],
+        ["city","Ville"],["border","Frontière"],["shadowlands","Proximité Outremonde"]
+      ]}
+    ]
+  },
+  dnd5: {
+    label: "Culture et environnement fantastiques",
+    fields: [
+      { key:"culture", label:"Culture dominante", type:"select", options:[
+        ["human","Humaine"],["elven","Elfique"],["dwarven","Naine"],
+        ["halfling","Halfeline"],["cosmopolitan","Cosmopolite"]
+      ]},
+      { key:"environment", label:"Environnement", type:"select", options:[
+        ["plain","Plaine"],["forest","Forêt"],["mountain","Montagne"],["coast","Côte"],
+        ["underground","Souterrain"],["swamp","Marais"],["desert","Désert"]
+      ]}
+    ]
+  },
+  vampire2: {
+    label: "Monde des Ténèbres — géographie urbaine",
+    fields: [
+      { key:"country", label:"Pays", type:"select", options:[
+        ["france","France"],["usa","États-Unis"],["uk","Royaume-Uni"],
+        ["germany","Allemagne"],["italy","Italie"],["spain","Espagne"],["east_europe","Europe de l’Est"]
+      ]},
+      { key:"region", label:"État / région / ville", type:"text", placeholder:"Ex. Paris, Illinois, Berlin…" },
+      { key:"district", label:"Quartier / ambiance", type:"select", options:[
+        ["downtown","Centre-ville"],["industrial","Industriel"],["wealthy","Quartier riche"],
+        ["nightlife","Vie nocturne"],["suburb","Banlieue"],["oldtown","Vieille ville"]
+      ]}
+    ]
+  },
+  ward: {
+    label: "Implantation contemporaine",
+    fields: [
+      { key:"country", label:"Pays", type:"select", options:[
+        ["usa","États-Unis"],["france","France"],["uk","Royaume-Uni"],
+        ["japan","Japon"],["germany","Allemagne"],["italy","Italie"],["spain","Espagne"]
+      ]},
+      { key:"region", label:"État / région", type:"text", placeholder:"Ex. Nevada, Loire, Hokkaidō…" },
+      { key:"setting", label:"Environnement", type:"select", options:[
+        ["urban","Urbain"],["rural","Rural"],["military","Militaire"],["research","Scientifique"],
+        ["coastal","Littoral"],["mountain","Montagne"],["remote","Isolé"]
+      ]}
+    ]
+  },
+  generic: {
+    label: "Environnement générique",
+    fields: [
+      { key:"region", label:"Région", type:"text", placeholder:"Région" },
+      { key:"environment", label:"Environnement", type:"text", placeholder:"Environnement" }
+    ]
+  }
+};
+
+const L5R_SOURCE_POLICY = Object.freeze({
+  authority:["Décisions MJ/utilisateur","Livre de base L5R 1e","Suppléments officiels L5R 1e","Contenu d’autres éditions adapté aux règles 1e","Contenu maison / MJ"],
+  defaultOrigin:"canon"
+});
+
+const L5R_PROFESSIONS_BY_CLAN = {
+  dragon: [
+    ["mirumoto_bushi","Bushi Mirumoto"],["kitsuki_investigator","Enquêteur Kitsuki"],
+    ["agasha_shugenja","Shugenja Agasha"],["togashi_monk","Moine Togashi"]
+  ],
+  crane: [
+    ["kakita_bushi","Bushi Kakita"],["doji_courtier","Courtisan Doji"],
+    ["asahina_shugenja","Shugenja Asahina"],["daidoji_bushi","Bushi Daidoji"]
+  ],
+  crab: [
+    ["hida_bushi","Bushi Hida"],["hiruma_scout","Éclaireur Hiruma"],
+    ["kuni_shugenja","Shugenja Kuni"],["yasuki_courtier","Courtisan Yasuki"]
+  ],
+  lion: [
+    ["akodo_bushi","Bushi Akodo"],["matsu_bushi","Bushi Matsu"],
+    ["ikoma_courtier","Courtisan Ikoma"],["kitsu_shugenja","Shugenja Kitsu"]
+  ],
+  phoenix: [
+    ["shiba_bushi","Bushi Shiba"],["isawa_shugenja","Shugenja Isawa"],["isawa_ishiken","Ishiken Isawa — Shugenja du Vide"],["asako_courtier","Courtisan Asako"]
+  ],
+  scorpion: [
+    ["bayushi_bushi","Bushi Bayushi"],["bayushi_courtier","Courtisan Bayushi"],
+    ["shosuro_infiltrator","Infiltrateur Shosuro"],["soshi_shugenja","Shugenja Soshi"]
+  ],
+  unicorn: [
+    ["shinjo_bushi","Bushi Shinjo"],["utaku_bushi","Bushi Utaku"],
+    ["ide_courtier","Courtisan Ide"],["iuchi_shugenja","Shugenja Iuchi"]
+  ],
+  mantis: [["no_school","Formation de Clan Mineur — corpus mécanique à documenter"]],
+  fox: [["no_school","Formation de Clan Mineur — corpus mécanique à documenter"]],
+  badger: [["no_school","Formation de Clan Mineur — corpus mécanique à documenter"]],
+  centipede: [["no_school","Formation de Clan Mineur — corpus mécanique à documenter"]],
+  imperial: [
+    ["seppun_guard","Garde Seppun"],["otomo_courtier","Courtisan Otomo"],["miya_herald","Héraut Miya"]
+  ],
+  ronin: [
+    ["no_school","Sans école / formation professionnelle"],["ronin_bushi","Bushi rōnin"],
+    ["ronin_scout","Éclaireur rōnin"],["ronin_courtier","Courtisan sans maître"],
+    ["ronin_shugenja","Shugenja autodidacte / rōnin"]
+  ]
+};
+
+const L5R_COMMON_OCCUPATION_PRESETS = {
+  farmer:{skills:{"Connaissance : agriculture":3,"Athlétisme":1,"Commerce":1}},
+  fisher:{skills:{"Artisanat":3,"Athlétisme":2},specialties:{"Artisanat":["Pêche"]}},
+  artisan:{skills:{"Artisanat":3,"Commerce":2,"Méditation":1}},
+  smith:{skills:{"Forge":3,"Artisanat":2,"Commerce":1},specialties:{"Artisanat":["travail du métal"]}},
+  carpenter:{skills:{"Artisanat":3,"Athlétisme":2},specialties:{"Artisanat":["charpenterie / menuiserie"]}},
+  merchant:{skills:{"Commerce":3,"Sincérité":2,"Étiquette":1,"Investigation":1}},
+  innkeeper:{skills:{"Commerce":2,"Sincérité":2,"Investigation":1,"Étiquette":1}},
+  servant:{skills:{"Étiquette":2,"Discrétion":2,"Athlétisme":1}},
+  porter:{skills:{"Athlétisme":3}},
+  sailor:{skills:{"Artisanat":2,"Athlétisme":2},specialties:{"Artisanat":["navigation / métier de marin"]}},
+  miner:{skills:{"Athlétisme":2,"Artisanat":2},specialties:{"Artisanat":["extraction minière"]}},
+  woodcutter:{skills:{"Athlétisme":2,"Artisanat":2,"Chasse":1},specialties:{"Artisanat":["travail du bois"]}},
+  healer:{skills:{"Médecine":3,"Herboristerie":2,"Investigation":1}},
+  messenger:{skills:{"Athlétisme":2,"Chasse":2,"Étiquette":1}},
+  stablehand:{skills:{"Équitation":2,"Athlétisme":2,"Chasse":1}},
+  ashigaru:{skills:{"Kenjutsu":2,"Défense":1,"Athlétisme":2,"Bataille":1}},
+  entertainer:{skills:{"Représentation":3,"Sincérité":2,"Poésie":1}},
+  geisha:{skills:{"Représentation":2,"Étiquette":2,"Sincérité":2,"Poésie":1,"Cérémonie du thé":1}},
+  criminal:{skills:{"Discrétion":2,"Investigation":1,"Jiujutsu":1,"Sincérité":1}},
+  bandit:{skills:{"Kenjutsu":1,"Jiujutsu":2,"Discrétion":2,"Chasse":1}},
+  gravedigger:{skills:{"Athlétisme":2,"Discrétion":1}},
+  tanner:{skills:{"Artisanat":3,"Commerce":1},specialties:{"Artisanat":["travail du cuir"]}},
+  executioner:{skills:{"Kenjutsu":2,"Athlétisme":2,"Jiujutsu":1}},
+  laborer:{skills:{"Athlétisme":2}},
+  warrior:{skills:{"Kenjutsu":2,"Défense":1,"Athlétisme":1}},
+  magistrate:{skills:{"Investigation":2,"Étiquette":1,"Sincérité":1}},
+  courtier:{skills:{"Courtisan":2,"Étiquette":2,"Sincérité":1}},
+  shugenja:{skills:{"Théologie":2,"Méditation":2,"Calligraphie":1}},
+  monk:{skills:{"Jiujutsu":2,"Méditation":2,"Théologie":1}},
+  yojimbo:{skills:{"Kenjutsu":2,"Défense":2,"Investigation":1}},
+  officer:{skills:{"Bataille":2,"Kenjutsu":1,"Étiquette":1}},
+  scout:{skills:{"Chasse":2,"Discrétion":2,"Athlétisme":1,"Kyujutsu":1}}
+};
+
+function l5rOccupationValues(value) {
+  if (Array.isArray(value)) return value.filter(Boolean);
+  if (value === null || value === undefined || value === "") return [];
+  return [value];
+}
+const L5R_RESPONSIBILITY_PRESETS = {
+  village_head:{skills:{"Étiquette":2,"Sincérité":2,"Commerce":1,"Investigation":1}},
+  foreman:{skills:{"Artisanat":1,"Athlétisme":1,"Sincérité":1,"Investigation":1}},
+  workshop_head:{skills:{"Artisanat":2,"Commerce":1,"Sincérité":1}},
+  warehouse_head:{skills:{"Commerce":2,"Investigation":1,"Sincérité":1}},
+  harvest_head:{skills:{"Connaissance : agriculture":2,"Sincérité":1,"Commerce":1}},
+  caravan_head:{skills:{"Commerce":2,"Équitation":1,"Investigation":1,"Sincérité":1}},
+  local_steward:{skills:{"Commerce":2,"Étiquette":2,"Sincérité":1,"Investigation":1}},
+  doshi:{skills:{"Investigation":2,"Jiujutsu":1,"Kenjutsu":1,"Sincérité":1}},
+  budoka:{skills:{"Kenjutsu":2,"Défense":1,"Athlétisme":1}},
+  ashigaru_duty:{skills:{"Kenjutsu":1,"Défense":1,"Athlétisme":1,"Bataille":1}}
+};
+
+
+const L5R_SAMURAI_FUNCTIONS = new Set(["warrior","magistrate","courtier","shugenja","monk","yojimbo","officer","scout","artisan","smith","healer","messenger","entertainer"]);
+const L5R_HEIMIN_JOBS = new Set(["ashigaru","farmer","fisher","artisan","smith","carpenter","merchant","innkeeper","servant","porter","sailor","miner","woodcutter","healer","messenger","stablehand","entertainer","geisha","laborer"]);
+const L5R_HININ_JOBS = new Set(["servant","porter","entertainer","criminal","bandit","gravedigger","tanner","executioner","laborer"]);
+function l5rOccupationOptions(status, options){
+  const allowed=status==="samurai"?L5R_SAMURAI_FUNCTIONS:status==="heimin"?L5R_HEIMIN_JOBS:status==="hinin"?L5R_HININ_JOBS:null;
+  return allowed ? options.filter(([v])=>allowed.has(v)) : options;
+}
+function l5rIsShugenjaSchool(profession){ return /shugenja|ishiken/.test(String(profession||"")); }
+function l5rIsIshikenSchool(profession){ return profession==="isawa_ishiken"; }
+function l5rIsTogashiSchool(profession){ return profession==="togashi_monk"; }
+const L5R_SPELL_CATALOG = [
+  {name:"Sensation",element:"Commun",mastery:1,tn:"5",casting:"2 actions",duration:"Instantanée",concentration:"Inutile",raises:"Précision, temps d’incantation",effect:"Détecte la présence d’une matière, d’un objet ou d’un phénomène associé à l’élément choisi.",access:"shugenja",group:"base",source:"Référentiel 1e — §27.4B.1"},
+  {name:"Communion",element:"Commun",mastery:1,tn:"5",casting:"1 action",duration:"1 tour",concentration:"Soutenue",raises:"Importance/précision des informations, temps d’incantation",effect:"Permet de communiquer avec un esprit élémentaire proche et de lui poser une question ; la réponse dépend de la nature de l’élément.",access:"shugenja",group:"base",source:"Référentiel 1e — §27.4B.1"},
+  {name:"Invocation",element:"Commun",mastery:1,tn:"10",casting:"Variable",duration:"Permanente",concentration:"Inutile",raises:"Volume, temps d’incantation",effect:"Crée une petite quantité de l’élément choisi ; le volume peut être accru par des augmentations.",access:"shugenja",group:"base",source:"Référentiel 1e — §27.4B.1"},
+  {name:"Contre-sort",element:"Commun",mastery:1,tn:"10",casting:"1 action",duration:"Instantanée",concentration:"Inutile",raises:"Puissance",effect:"Contre un sort avec l’élément opposé ; peut augmenter le ND d’un sort en cours ou dissiper un effet magique actif.",access:"shugenja",group:"base",source:"Référentiel 1e — §27.4B.1"},
+  {name:"Courage des Sept Tonnerres",element:"Terre",mastery:7,tn:"15",casting:"2 actions",duration:"10 tours",access:"shugenja",group:"livre-base"},
+  {name:"Évocation des éléments",element:"Terre",mastery:4,tn:"10",casting:"1 action",duration:"8 tours",access:"shugenja",group:"livre-base"},
+  {name:"Feux de la forge",element:"Terre",mastery:3,tn:"5",casting:"1 action",duration:"Permanente",access:"shugenja",group:"livre-base"},
+  {name:"Frappe à la racine",element:"Terre",mastery:4,tn:"Terre cible × 5",casting:"2 actions",duration:"10 tours",access:"shugenja",group:"livre-base"},
+  {name:"Frappe de Jade",element:"Terre",mastery:4,tn:"10",casting:"1 action",duration:"Instantanée",access:"shugenja",group:"livre-base"},
+  {name:"Glyphe de protection élémentaire",element:"Terre",mastery:2,tn:"5",casting:"2 actions",duration:"4 tours",access:"shugenja",group:"livre-base"},
+  {name:"Lame immortelle",element:"Terre",mastery:6,tn:"30",casting:"1 heure",duration:"Permanente",access:"shugenja",group:"livre-base"},
+  {name:"Paralysie de la Terre",element:"Terre",mastery:5,tn:"5",casting:"1 action",duration:"1 tour",access:"shugenja",group:"livre-base"},
+  {name:"Protection bienveillante de Shinsei",element:"Terre",mastery:7,tn:"20",casting:"3 actions",duration:"Jusqu’au lever du soleil",access:"shugenja",group:"livre-base"},
+  {name:"Répartir nos forces",element:"Terre",mastery:7,tn:"15",casting:"3 actions",duration:"10 tours",access:"shugenja",group:"livre-base"},
+  {name:"Tetsubo de la Terre",element:"Terre",mastery:3,tn:"10",casting:"3 actions",duration:"10 tours",access:"shugenja",group:"livre-base"},
+  {name:"Tombe de Jade",element:"Terre",mastery:6,tn:"Terre cible × 5",casting:"3 actions",duration:"Variable",access:"shugenja",group:"livre-base"},
+  {name:"Toucher de Jurojin",element:"Terre",mastery:3,tn:"Variable",casting:"10 actions",duration:"Instantanée",access:"shugenja",group:"livre-base"},
+  {name:"Tremblement de Terre",element:"Terre",mastery:3,tn:"15",casting:"5 actions",duration:"5 tours",access:"shugenja",group:"livre-base"},
+  {name:"Volonté absolue",element:"Terre",mastery:4,tn:"10",casting:"2 actions",duration:"3 tours",access:"shugenja",group:"livre-base"},
+  {name:"Bassin réfléchissant",element:"Eau",mastery:5,tn:"10",casting:"5 actions",duration:"3 minutes",access:"shugenja",group:"livre-base"},
+  {name:"Bénédiction de la pureté",element:"Eau",mastery:3,tn:"10",casting:"20 minutes",duration:"Instantanée",access:"shugenja",group:"livre-base"},
+  {name:"Bō de l’Eau",element:"Eau",mastery:4,tn:"10",casting:"3 actions",duration:"10 tours",access:"shugenja",group:"livre-base"},
+  {name:"Cœur de la nature",element:"Eau",mastery:3,tn:"15",casting:"4 actions",duration:"1 mois",access:"shugenja",group:"livre-base"},
+  {name:"Liens spirituels",element:"Eau",mastery:5,tn:"10",casting:"3 actions",duration:"10 tours",access:"shugenja",group:"livre-base"},
+  {name:"Paix de l’esprit",element:"Eau",mastery:3,tn:"10",casting:"4 actions",duration:"Instantanée",access:"shugenja",group:"livre-base"},
+  {name:"Pluie torrentielle",element:"Eau",mastery:6,tn:"30",casting:"5 actions",duration:"1 heure",access:"shugenja",group:"livre-base"},
+  {name:"Reflets de P’an Ku",element:"Eau",mastery:3,tn:"10",casting:"5 actions",duration:"5 actions",access:"shugenja",group:"livre-base"},
+  {name:"Rempart d’Eau",element:"Eau",mastery:6,tn:"10",casting:"2 actions",duration:"5 minutes",access:"shugenja",group:"livre-base"},
+  {name:"Revers de Fortune",element:"Eau",mastery:4,tn:"10",casting:"3 actions",duration:"10 tours",access:"shugenja",group:"livre-base"},
+  {name:"Transfert d’énergies",element:"Eau",mastery:5,tn:"Anneau cible × 5",casting:"3 actions",duration:"3 tours",access:"shugenja",group:"livre-base"},
+  {name:"Voie vers la paix intérieure",element:"Eau",mastery:4,tn:"5",casting:"2 actions",duration:"Permanente",access:"shugenja",group:"livre-base"},
+  {name:"Ailes de Feu",element:"Feu",mastery:4,tn:"10",casting:"3 actions",duration:"2 minutes",access:"shugenja",group:"livre-base"},
+  {name:"Bénédiction d’Amaterasu",element:"Feu",mastery:2,tn:"5",casting:"3 actions",duration:"Selon augmentations",access:"shugenja",group:"livre-base"},
+  {name:"Cœur de l’Enfer",element:"Feu",mastery:7,tn:"15",casting:"5 actions",duration:"Instantanée",access:"shugenja",group:"livre-base"},
+  {name:"Colère d’Amaterasu",element:"Feu",mastery:5,tn:"10",casting:"2 actions",duration:"Instantanée",access:"shugenja",group:"livre-base"},
+  {name:"Combustion",element:"Feu",mastery:3,tn:"5",casting:"3 actions",duration:"Instantanée",access:"shugenja",group:"livre-base"},
+  {name:"Feu intérieur",element:"Feu",mastery:5,tn:"15",casting:"3 actions",duration:"Instantanée",access:"shugenja",group:"livre-base"},
+  {name:"Feux de la destruction",element:"Feu",mastery:6,tn:"10",casting:"2 actions",duration:"Instantanée",access:"shugenja",group:"livre-base"},
+  {name:"Feux purificateurs",element:"Feu",mastery:4,tn:"10",casting:"2 actions",duration:"Honneur cible en tours",access:"shugenja",group:"livre-base"},
+  {name:"Fureur d’Osano-Wo",element:"Feu",mastery:5,tn:"5",casting:"2 actions",duration:"Instantanée",access:"shugenja",group:"livre-base"},
+  {name:"Glyphe de protection contre le mal",element:"Feu",mastery:3,tn:"10",casting:"5 actions",duration:"1 journée",access:"shugenja",group:"livre-base"},
+  {name:"Katana de Feu",element:"Feu",mastery:4,tn:"10",casting:"3 actions",duration:"10 tours",access:"shugenja",group:"livre-base"},
+  {name:"Lame acérée",element:"Feu",mastery:4,tn:"5",casting:"2 actions",duration:"2 tours",access:"shugenja",group:"livre-base"},
+  {name:"Poing d’Osano-Wo",element:"Feu",mastery:7,tn:"25",casting:"1 heure",duration:"1 heure",access:"shugenja",group:"livre-base"},
+  {name:"Brumes d’illusion",element:"Air",mastery:7,tn:"10",casting:"2 actions",duration:"1 minute",access:"shugenja",group:"livre-base"},
+  {name:"Commander à l’esprit",element:"Air",mastery:6,tn:"Volonté cible × 5",casting:"1 action",duration:"1 ordre",access:"shugenja",group:"livre-base"},
+  {name:"Diversion aérienne",element:"Air",mastery:4,tn:"15",casting:"1 action",duration:"5 tours",access:"shugenja",group:"livre-base"},
+  {name:"Écho messager",element:"Air",mastery:4,tn:"15",casting:"6 actions",duration:"Spéciale",access:"shugenja",group:"livre-base"},
+  {name:"Essence de l’Air",element:"Air",mastery:4,tn:"15",casting:"3 actions",duration:"1 minute",access:"shugenja",group:"livre-base"},
+  {name:"Influence de Benten",element:"Air",mastery:3,tn:"10",casting:"3 actions",duration:"1 heure",access:"shugenja",group:"livre-base"},
+  {name:"Influence de la Nature",element:"Air",mastery:3,tn:"10",casting:"1 action",duration:"1 question",access:"shugenja",group:"livre-base"},
+  {name:"Invocation du Vent",element:"Air",mastery:4,tn:"10",casting:"3 actions",duration:"4 tours",access:"shugenja",group:"livre-base"},
+  {name:"L’Art de la Tromperie",element:"Air",mastery:5,tn:"10",casting:"3 actions",duration:"30 minutes",access:"shugenja",group:"livre-base"},
+  {name:"Lumière du Seigneur Lune",element:"Air",mastery:2,tn:"5",casting:"2 actions",duration:"5 actions",access:"shugenja",group:"livre-base"},
+  {name:"Manteau de Nuit",element:"Air",mastery:3,tn:"10",casting:"2 actions",duration:"1 jour",access:"shugenja",group:"livre-base"},
+  {name:"Percer l’Esprit",element:"Air",mastery:6,tn:"Volonté cible × 5",casting:"3 actions",duration:"30 secondes",access:"shugenja",group:"livre-base"},
+  {name:"Percer les Ombres",element:"Air",mastery:4,tn:"5",casting:"4 actions",duration:"10 tours",access:"shugenja",group:"livre-base"},
+  {name:"Révélations de Shorihotsu",element:"Air",mastery:3,tn:"Niveau de Maîtrise du sort ciblé × 5",casting:"5 actions",duration:"Instantanée",access:"shugenja",group:"livre-base"},
+  {name:"Secrets du Vent",element:"Air",mastery:5,tn:"10",casting:"6 actions",duration:"10 minutes",access:"shugenja",group:"livre-base"},
+  {name:"Sommeil du Vent",element:"Air",mastery:4,tn:"15",casting:"1 action",duration:"1 heure",access:"shugenja",group:"livre-base"},
+  {name:"Tornade",element:"Air",mastery:4,tn:"15",casting:"2 actions",duration:"6 tours",access:"shugenja",group:"livre-base"},
+  {name:"Tranquillité de l’Air",element:"Air",mastery:5,tn:"5",casting:"1 action",duration:"10 tours",access:"shugenja",group:"livre-base"},
+  {name:"Vents de murmures",element:"Air",mastery:3,tn:"Intelligence cible × 5",casting:"1 action",duration:"Instantanée",access:"shugenja",group:"livre-base"},
+  {name:"Vitesse du Vent",element:"Air",mastery:6,tn:"15",casting:"4 actions",duration:"12 actions",access:"shugenja",group:"livre-base"},
+  {name:"Yari de l’Air",element:"Air",mastery:4,tn:"10",casting:"3 actions",duration:"10 tours",access:"shugenja",group:"livre-base"},
+  {name:"Appel des animaux",element:"Terre",mastery:3,tn:"15",casting:"5 actions",duration:"10 tours",access:"shugenja",group:"supplement-1e"},
+  {name:"Énergie neutralisante",element:"Terre",mastery:3,tn:"15",casting:"2 actions",duration:"Terre × 5 tours",access:"shugenja",group:"supplement-1e"},
+  {name:"Étreinte de Kenro-Ji-Jin",element:"Terre",mastery:4,tn:"10",casting:"5 actions",duration:"Terre en heures",access:"shugenja",group:"supplement-1e"},
+  {name:"Main fatale du temps",element:"Terre",mastery:4,tn:"10",casting:"2 actions",duration:"Permanente",access:"shugenja",group:"supplement-1e"},
+  {name:"Orage de roche",element:"Terre",mastery:5,tn:"20",casting:"3 actions",duration:"1 action",access:"shugenja",group:"supplement-1e"},
+  {name:"Murmures de la Terre",element:"Terre",mastery:5,tn:"20",casting:"10 actions",duration:"Terre en heures rokugani",access:"shugenja",group:"supplement-1e"},
+  {name:"Poing de la Terre",element:"Terre",mastery:7,tn:"25",casting:"2 actions",duration:"10 tours",access:"shugenja",group:"supplement-1e"},
+  {name:"Prison de bois",element:"Terre",mastery:6,tn:"25",casting:"4 actions",duration:"Permanente",access:"shugenja",group:"supplement-1e"},
+  {name:"Protection contre les oni",element:"Terre",mastery:7,tn:"30",casting:"Variable",duration:"Instantanée",access:"shugenja",group:"supplement-1e"},
+  {name:"Rempart de la Terre",element:"Terre",mastery:6,tn:"10",casting:"3 actions",duration:"1 heure",access:"shugenja",group:"supplement-1e"},
+  {name:"Voie de la Terre",element:"Terre",mastery:4,tn:"10",casting:"4 actions",duration:"Terre × 5 tours",access:"shugenja",group:"supplement-1e"},
+  {name:"Bénédiction d’Inari",element:"Eau",mastery:3,tn:"15",casting:"1 action",duration:"Permanente",access:"shugenja",group:"supplement-1e"},
+  {name:"Derrière le voile du sommeil",element:"Eau",mastery:3,tn:"15",casting:"2 actions",duration:"1 message",access:"shugenja",group:"supplement-1e"},
+  {name:"Don de Sukunijin",element:"Eau",mastery:5,tn:"Spécial",casting:"1 action",duration:"Instantanée",access:"shugenja",group:"supplement-1e"},
+  {name:"Échange d’énergie",element:"Eau",mastery:6,tn:"20",casting:"4 actions",duration:"Eau + 5 actions",access:"shugenja",group:"supplement-1e"},
+  {name:"Étreinte de Suitengu",element:"Eau",mastery:6,tn:"20",casting:"7 actions",duration:"Permanente",access:"shugenja",group:"supplement-1e"},
+  {name:"Maître de la rivière furieuse",element:"Eau",mastery:5,tn:"15",casting:"4 actions",duration:"1 tour",access:"shugenja",group:"supplement-1e"},
+  {name:"Malédiction du chacal",element:"Eau",mastery:5,tn:"15",casting:"4 actions",duration:"1 heure",access:"shugenja",group:"supplement-1e"},
+  {name:"Mur de bambou",element:"Eau",mastery:4,tn:"10",casting:"1 action",duration:"30 minutes",access:"shugenja",group:"supplement-1e"},
+  {name:"Ouvrir les flots",element:"Eau",mastery:4,tn:"10",casting:"3 actions",duration:"Concentration",access:"shugenja",group:"supplement-1e"},
+  {name:"Roue de la fortune",element:"Eau",mastery:6,tn:"20",casting:"7 actions",duration:"Eau + 10 tours",access:"shugenja",group:"supplement-1e"},
+  {name:"Souffle de la brume",element:"Eau",mastery:6,tn:"15",casting:"5 actions",duration:"2 heures par shugenja",access:"shugenja",group:"supplement-1e"},
+  {name:"Vengeance karmique",element:"Eau",mastery:3,tn:"15",casting:"2 actions",duration:"Eau en tours",access:"shugenja",group:"supplement-1e"},
+  {name:"Bénédiction d’Osano-Wo",element:"Feu",mastery:5,tn:"10",casting:"3 actions",duration:"Feu × 5 minutes",access:"shugenja",group:"supplement-1e"},
+  {name:"Courroux de Feu",element:"Feu",mastery:4,tn:"10",casting:"3 actions",duration:"Instantanée",access:"shugenja",group:"supplement-1e"},
+  {name:"Courroux d’Osano-Wo",element:"Feu",mastery:5,tn:"15",casting:"3 actions",duration:"Instantanée",access:"shugenja",group:"supplement-1e"},
+  {name:"Essence du Feu",element:"Feu",mastery:3,tn:"10",casting:"1 action",duration:"1 coup",access:"shugenja",group:"supplement-1e"},
+  {name:"Furie de l’Élément",element:"Feu",mastery:7,tn:"25",casting:"10 actions",duration:"1 tour",access:"shugenja",group:"supplement-1e"},
+  {name:"Lumière d’Amaterasu",element:"Feu",mastery:5,tn:"20",casting:"4 actions",duration:"Feu en tours",access:"shugenja",group:"supplement-1e"},
+  {name:"Pureté de Shinsei",element:"Feu",mastery:2,tn:"Variable",casting:"1 action",duration:"Instantanée",access:"shugenja",group:"supplement-1e"},
+  {name:"Les Yeux du Phénix",element:"Feu",mastery:5,tn:"20",casting:"2 actions",duration:"Feu en actions",access:"shugenja",group:"supplement-1e"},
+  {name:"Rempart de Feu",element:"Feu",mastery:6,tn:"10",casting:"2 actions",duration:"5 tours",access:"shugenja",group:"supplement-1e"},
+  {name:"Appel de l’oiseau",element:"Air",mastery:4,tn:"15",casting:"5 actions",duration:"Terre en jours",access:"shugenja",group:"supplement-1e"},
+  {name:"Champion de l’au-delà",element:"Air",mastery:6,tn:"20 ; 15 pour Kitsu",casting:"4 actions",duration:"1 duel",access:"shugenja",group:"supplement-1e"},
+  {name:"Don du Vent",element:"Air",mastery:3,tn:"10",casting:"3 actions",duration:"Air + 10 actions",access:"shugenja",group:"supplement-1e"},
+  {name:"Miroir réfléchissant",element:"Air",mastery:6,tn:"15",casting:"3 actions",duration:"5 tours",access:"shugenja",group:"supplement-1e"},
+  {name:"Mugissement d’Isora",element:"Air",mastery:3,tn:"10",casting:"2 actions",duration:"1 tour",access:"shugenja",group:"supplement-1e"},
+  {name:"Regarder dans l’âme",element:"Air",mastery:6,tn:"20",casting:"10 actions",duration:"Instantanée",access:"shugenja",group:"supplement-1e"},
+  {name:"Rempart d’Air",element:"Air",mastery:6,tn:"15",casting:"3 actions",duration:"Air + 5 actions",access:"shugenja",group:"supplement-1e"},
+  {name:"Sagesse du Vent",element:"Air",mastery:3,tn:"10",casting:"2 actions",duration:"1 tour",access:"shugenja",group:"supplement-1e"},
+  {name:"Souffle d’Osano-Wo",element:"Air",mastery:3,tn:"10",casting:"2 actions",duration:"1 tour",access:"shugenja",group:"supplement-1e"},
+  {name:"Suivre la Voie",element:"Air",mastery:6,tn:"25",casting:"1 heure",duration:"Air + Maîtrise en heures",access:"shugenja",group:"supplement-1e"},
+  {name:"Vol de la Flèche",element:"Air",mastery:5,tn:"15",casting:"Instantané",duration:"1 action",access:"shugenja",group:"supplement-1e"},
+  {name:"Armure",element:"Terre",mastery:4,tn:"20",casting:"3 actions",duration:"Terre cible + Maîtrise en tours",access:"kuni",group:"kuni-crabe",restriction:"Tradition Kuni / Crabe ; hors tradition sur validation MJ"},
+  {name:"Lien mineur ou majeur",element:"Terre",mastery:5,tn:"20 + (Outremonde cible × 5)",casting:"3 jours",duration:"—",access:"kuni",group:"kuni-crabe",restriction:"Tradition Kuni / Crabe ; hors tradition sur validation MJ"},
+  {name:"Mur de Terre",element:"Terre",mastery:3,tn:"15",casting:"2 actions",duration:"Maîtrise en tours",access:"kuni",group:"kuni-crabe",restriction:"Tradition Kuni / Crabe ; hors tradition sur validation MJ"},
+  {name:"Derniers sacrements",element:"Feu",mastery:2,tn:"Souillure × 5",casting:"1 action",duration:"—",access:"kuni",group:"kuni-crabe",restriction:"Tradition Kuni / Crabe ; hors tradition sur validation MJ"},
+  {name:"Peur",element:"Air",mastery:3,tn:"15",casting:"2 actions",duration:"Maîtrise en tours",access:"kuni",group:"kuni-crabe",restriction:"Tradition Kuni / Crabe ; hors tradition sur validation MJ"},
+  {name:"Prison de cristal",element:"Terre",mastery:5,tn:"Terre cible × 5",casting:"2 actions",duration:"Variable",access:"mj",group:"recherche",restriction:"Exemple de création/recherche ; validation MJ"},
+  {name:"Sentir le Vide",element:"Vide",mastery:2,tn:"10",casting:"3 actions",duration:"Concentration",access:"ishiken",group:"vide-ishiken",restriction:"Ishiken"},
+  {name:"Drainer le Vide",element:"Vide",mastery:4,tn:"15",casting:"2 actions",duration:"Instantanée",access:"ishiken",group:"vide-ishiken",restriction:"Ishiken"},
+  {name:"Altérer le destin",element:"Vide",mastery:4,tn:"20",casting:"3 actions",duration:"La plus courte durée entre un jour et une histoire",access:"ishiken",group:"vide-ishiken",restriction:"Ishiken"},
+  {name:"Moment de clairvoyance",element:"Vide",mastery:3,tn:"Trait cible × 5",casting:"4 actions",duration:"Vide en tours",access:"ishiken",group:"vide-ishiken",restriction:"Ishiken"},
+  {name:"Dessein karmique",element:"Vide",mastery:4,tn:"15",casting:"3 actions",duration:"Variable",access:"ishiken",group:"vide-ishiken",restriction:"Ishiken"},
+  {name:"Libération du Vide",element:"Vide",mastery:5,tn:"Trait le plus élevé cible × 5",casting:"5 actions",duration:"Vide en tours",access:"ishiken",group:"vide-ishiken",restriction:"Ishiken"},
+  {name:"Morsure du Vide",element:"Vide",mastery:6,tn:"Vide cible × 5",casting:"5 actions",duration:"Instantanée",access:"ishiken",group:"vide-ishiken",restriction:"Ishiken"},
+  {name:"Suppression du Vide",element:"Vide",mastery:7,tn:"Trait visé × 5",casting:"5 actions",duration:"Vide en tours",access:"ishiken",group:"vide-ishiken",restriction:"Ishiken"},
+  {name:"Contempler le Vide",element:"Vide",mastery:3,tn:"15",casting:"2 actions",duration:"10 tours",access:"ishiken",group:"vide-ishiken",restriction:"Ishiken"},
+  {name:"Vents du changement",element:"Vide",mastery:4,tn:"10",casting:"5 actions",duration:"10 tours",access:"ishiken",group:"vide-ishiken",restriction:"Ishiken"},
+  {name:"Essence du Vide",element:"Vide",mastery:5,tn:"15",casting:"5 actions",duration:"Concentration",access:"ishiken",group:"vide-ishiken",restriction:"Ishiken"},
+  {name:"Deviner le futur",element:"Vide",mastery:3,tn:"10",casting:"4 actions",duration:"Instantanée",access:"ishiken",group:"vide-ishiken",restriction:"Ishiken"},
+  {name:"Profondeur du Vide",element:"Vide",mastery:5,tn:"15",casting:"2 heures",duration:"1 partie",access:"ishiken",group:"vide-ishiken",restriction:"Ishiken"},
+  {name:"Présence spirituelle",element:"Vide",mastery:4,tn:"15",casting:"4 actions",duration:"10 actions",access:"ishiken",group:"vide-ishiken",restriction:"Ishiken"}
+];
+const L5R_SPELL_BY_NAME = Object.fromEntries(L5R_SPELL_CATALOG.map(x=>[x.name,x]));
+function l5rSpellAccessAllowed(spell, profession){
+  if(!spell) return true;
+  if(spell.access==="ishiken") return l5rIsIshikenSchool(profession);
+  if(spell.access==="kuni") return profession==="kuni_shugenja";
+  if(spell.access==="mj") return false;
+  return true;
+}
+function l5rSpellStartAllowedElementsV02035(profession){
+ const r=L5R_SPELL_START_RULES?.[profession];
+ if(r?.counts)return new Set(["Commun",...Object.keys(r.counts)]);
+ if(r?.flex)return new Set(["Commun","Terre","Eau","Feu","Air"]);
+ if(r?.ishiken)return new Set(["Commun","Vide","Terre","Eau","Feu","Air"]);
+ return null;
+}
+function l5rSpellOptions(baseOptions, profession, schoolRank=1, selectedValues=[], acquisitionMode="creation"){
+  const merged=new Map(),allowed=acquisitionMode==="creation"?l5rSpellStartAllowedElementsV02035(profession):null;
+  for(const spell of L5R_SPELL_CATALOG){
+    if(!l5rSpellAccessAllowed(spell,profession)) continue;
+    if(allowed && !allowed.has(spell.element)) continue;
+    // Important : la Maîtrise n'est PAS comparée au rang d'école.
+    const restriction=spell.restriction?` · ${spell.restriction}`:"";
+    merged.set(spell.name,[spell.name,`${spell.name} — ${spell.element}${spell.mastery?` · Maîtrise ${spell.mastery}`:""}${restriction}`]);
+  }
+  const order={Commun:0,Terre:1,Eau:2,Feu:3,Air:4,Vide:5};
+  return [...merged.values()].sort((a,b)=>{
+    const A=L5R_SPELL_BY_NAME[a[0]],B=L5R_SPELL_BY_NAME[b[0]];
+    return (order[A?.element]??9)-(order[B?.element]??9)||(A?.mastery??99)-(B?.mastery??99)||a[0].localeCompare(b[0],"fr");
+  });
+}
+function l5rStartingSpellGuidanceV02035(profession){
+ const r=L5R_SPELL_START_RULES?.[profession]; if(!r)return "";
+ if(r.counts)return `Création : ${r.common.join(", ")} sont automatiques, puis ${Object.entries(r.counts).map(([e,n])=>`${n} ${e}`).join(" + ")}. La Maîtrise affichée est celle du sort, pas un prérequis de rang d’école.`;
+ if(r.flex)return `Création Isawa : ${r.common.join(", ")} automatiques, puis répartition 3/2/1 entre trois éléments différents. La Maîtrise du sort ne filtre pas par rang d’école.`;
+ if(r.ishiken)return `Création Ishiken : sorts communs et sorts du Vide prévus par l’école, puis 2 sorts d’un élément et 1 d’un troisième. La Maîtrise n’est pas un filtre de rang d’école.`;
+ return "";
+}
+window.l5rSpellStartAllowedElementsV02035=l5rSpellStartAllowedElementsV02035;
+
+function l5rSpellResearchTNV02036(spell){const m=Number(spell?.mastery||0);return m>0?m*10:null;}
+function l5rSpellAcquisitionGuidanceV02036(values={}){
+ if((values.l5rSpellAcquisitionMode||"creation")==="creation")return l5rStartingSpellGuidanceV02035(values.profession);
+ return "Progression : les quotas de création ne s’appliquent plus. Un nouveau sort doit être acquis par une méthode autorisée en jeu (enseignement, accès à un parchemin/bibliothèque ou recherche). Pour la recherche documentée : bibliothèque de l’école requise ; ND de base = Maîtrise du sort × 10, avant modificateurs MJ. La Maîtrise n’est toujours pas comparée au rang d’école.";
+}
+window.l5rSpellResearchTNV02036=l5rSpellResearchTNV02036;
+
+function l5rSpellSummary(name){
+  const s=L5R_SPELL_BY_NAME[name]; if(!s) return "";
+  const group=({"livre-base":"Livre de base 1e","supplement-1e":"Supplément 1e","kuni-crabe":"Tradition Kuni/Crabe","vide-ishiken":"Vide / Ishiken","recherche":"Recherche / MJ"})[s.group]||"1e";
+  return [s.element, s.mastery?`Maîtrise ${s.mastery}`:"", s.tn?`ND ${s.tn}`:"", s.casting?`Incantation ${s.casting}`:"", s.duration?`Durée ${s.duration}`:"",group,s.restriction||""].filter(Boolean).join(" · ");
+}
+
+const L5R_SPELL_MJ_MECHANICS_V02012 = {
+"Frappe de Jade":{target:"Créature ou personnage portant la Souillure",damage:"3g3",effect:"Terre purifiée contre une cible souillée ; une cible supplémentaire par augmentation."},
+"Lame immortelle":{target:"Arme métallique",ritual:true,oneUse:true,effect:"Augmente définitivement la VD de l’arme ; une seule application par arme."},
+"Tombe de Jade":{target:"Créature ou personnage portant la Souillure",damage:"2g2",resistance:"Opposition de Terre contre Terre + rang de Maîtrise du shugenja",effect:"Transformation progressive en jade ; maintien limité au rang de Terre du shugenja."},
+"Toucher de Jurojin":{target:"Cible touchée",range:"Contact",effect:"Soigne maladie, infection ou poison ; ND variable selon virulence et ancienneté."},
+"Tremblement de Terre":{target:"Zone",area:"Rayon 50 m ; +10 m par augmentation de zone",effect:"-2 dés aux jets dans la zone ; effets de décor possibles ; sans effet dans l’Outremonde."},
+"Bassin réfléchissant":{target:"Bassin d’eau calme",effect:"Permet d’observer, sans entendre, un lieu déjà connu."},
+"Bō de l’Eau":{target:"Arme créée",damage:"3g3",effect:"Crée un bō d’eau ; +1 dé lancé de dommages par augmentation."},
+"Liens spirituels":{target:"Individu ou objet manufacturé connu / lié",range:"2 km ; +2 km par augmentation",effect:"Localise la cible via les eaux souterraines."},
+"Pluie torrentielle":{target:"Zone centrée sur le shugenja",area:"2 km² ; +2 km² par augmentation",ritual:true,effect:"Tempête : visibilité ~30 cm et -2 dés aux actions physiques."},
+"Rempart d’Eau":{target:"Zone autour du shugenja",area:"Douves 3 m profondeur/largeur ; rayon Eau × 1,5 m",effect:"Crée des douves ; extensions possibles par augmentations."},
+"Transfert d’énergies":{target:"Deux personnages",tnFormula:"Anneau de la cible × 5",effect:"Transfère 2 rangs d’un Anneau et de ses Traits associés ; minimum 1 ; pas de Vide."},
+"Cœur de l’Enfer":{target:"Cible à vue et zone proche",range:"Vue",area:"Rayon 3 m ; +2 m par augmentation",damage:"6g6 ; 2g2 si résistance réussie",resistance:"Réflexes + Défense ND 15 ; +5 ND par augmentation dédiée",oneUse:true,effect:"Explosion de feu ; le parchemin est détruit."},
+"Colère d’Amaterasu":{target:"Toute personne pouvant voir le shugenja",resistance:"Réflexes contre Feu du shugenja × 5",effect:"Aveuglement et pénalité de dés égale au Feu du shugenja, décroissante avec le temps."},
+"Feu intérieur":{target:"Une cible à vue ; +1 par augmentation",range:"Vue",damage:"VD = rang de Feu du shugenja",effect:"Projette une boule de feu."},
+"Feux de la destruction":{target:"Une cible",range:"30 m",area:"3 m autour de la cible",damage:"5g5 ; le lanceur subit la moitié",resistance:"Réflexes + Défense ND 20 pour les personnes proches",effect:"Boule de feu traversant l’espace entre lanceur et cible."},
+"Fureur d’Osano-Wo":{target:"Une cible",damage:"2g2",effect:"Appelle un éclair ; augmentation gratuite pendant un orage."},
+"Glyphe de protection contre le mal":{target:"Zone",area:"Rayon 10 m ; +3 m par augmentation",damage:"2g2 par minute",effect:"Blesse les créatures souillées restant dans la zone."},
+"Katana de Feu":{target:"Arme créée",damage:"3g3",effect:"Crée un katana de feu ; +1 dé lancé de dommages par augmentation."},
+"Poing d’Osano-Wo":{target:"Bâtiment à portée de vue",range:"Vue",oneUse:true,effect:"Foudre prolongée qui affaiblit la structure et peut provoquer son effondrement."},
+"Brumes d’illusion":{target:"Illusion",resistance:"Intuition ND 15 pour percer l’illusion",effect:"Illusion humanoïde ; augmentations pour mouvement, son, taille, nombre, durée et difficulté."},
+"Commander à l’esprit":{target:"Cible regardée dans les yeux",tnFormula:"Volonté de la cible × 5",resistance:"Perception contre Air du shugenja × 5",effect:"Implante un ordre que la cible croit sien ; ne force pas à trahir ses principes."},
+"Essence de l’Air":{target:"Lanceur",resistance:"Perception contre Air du shugenja × 5 après une action perceptible",effect:"Rend le shugenja invisible comme l’air sous concentration."},
+"Invocation du Vent":{target:"Une cible",resistance:"Si non consentante : ND = Terre de la cible × 5",effect:"Le vent transporte la cible sous le contrôle du shugenja."},
+"L’Art de la Tromperie":{target:"Une cible",resistance:"Perception + Connaissance des shugenja ND 20, +5 par augmentation",effect:"Illusion de costume/masque ; disparaît au contact physique."},
+"Lumière du Seigneur Lune":{target:"Objet dissimulé à vue",range:"Vue",resistance:"Contre magie : Perception + Connaissance des shugenja vs Maîtrise du sort × 5",effect:"Révèle la présence d’un objet volontairement dissimulé."},
+"Percer l’Esprit":{target:"Une cible",tnFormula:"Volonté de la cible × 5",effect:"Lit pensées et émotions superficielles ; profondeur accrue par augmentations."},
+"Révélations de Shorihotsu":{target:"Sort encore actif",tnFormula:"Maîtrise du sort ciblé × 5",effect:"Analyse un effet magique et révèle des informations."},
+"Secrets du Vent":{target:"Lieu connu",range:"15 km ; +15 km par augmentation",effect:"Permet d’écouter une conversation dans une pièce connue."},
+"Sommeil du Vent":{target:"Une cible",resistance:"Terre contre Air du shugenja × 5 ; +5 ND par augmentation",effect:"Endort la cible 1 heure ; dommages ou métal proche la réveillent."}
+};
+function l5rSpellMjMechanics(spell){return L5R_SPELL_MJ_MECHANICS_V02012[spell?.name||spell]||null;}
+
+const L5R_SPELL_GROUP_LABELS={"base":"Livre de base 1e — commun","livre-base":"Livre de base 1e","supplement-1e":"Supplément 1e","kuni-crabe":"Tradition Kuni/Crabe","vide-ishiken":"Vide / Ishiken","recherche":"Recherche / validation MJ"};
+const L5R_CONCENTRATION_RULES={
+  "Totale":{tn:20,note:"Aucune autre action ; perception/intuition très pénalisées ; ND pour être touché 5."},
+  "Entière":{tn:15,note:"Marche lente seulement ; perception/intuition pénalisées ; ND maximal pour être touché 10."},
+  "Soutenue":{tn:10,note:"Peut parler, interagir et se déplacer ; ND maximal pour être touché 15."},
+  "Faible":{tn:5,note:"Presque toute action sauf combattre, esquiver ou lancer un autre sort."},
+  "Inutile":{tn:0,note:"Aucune concentration à maintenir."}
+};
+function l5rSpellGroupLabel(spell){ return L5R_SPELL_GROUP_LABELS[spell?.group]||"Corpus 1e"; }
+function l5rSpellNumericTN(spell){ const n=Number(String(spell?.tn||"").match(/^\d+/)?.[0]); return Number.isFinite(n)?n:null; }
+function l5rSpellResolution(spell,{ring=1,schoolRank=1,raises=0,fastActions=0,ritualRanks=[],used=0}={}){
+  ring=Math.max(0,Number(ring)||0); schoolRank=Math.max(0,Number(schoolRank)||0); raises=Math.max(0,Number(raises)||0); fastActions=Math.max(0,Number(fastActions)||0); used=Math.max(0,Number(used)||0);
+  const ritualBonus=(ritualRanks||[]).reduce((a,n)=>a+(Number(n)||0),0);
+  const rolled=Math.min(10,ring+schoolRank+ritualBonus), kept=Math.min(10,ring);
+  const baseTN=l5rSpellNumericTN(spell), modifiedTN=baseTN===null?null:baseTN+(raises*5)+(fastActions*5);
+  return {rolled,kept,baseTN,modifiedTN,remaining:Math.max(0,ring-used),ritualBonus};
+}
+function l5rSpellDetailHtml(spell,{mj=false}={}){
+  if(!spell) return '<div class="system-note">Sort non trouvé dans le catalogue structuré.</div>';
+  const conc=spell.concentration?L5R_CONCENTRATION_RULES[spell.concentration]:null;
+  return `<article class="entity-card spell-detail-card"><div class="entity-head"><div><div class="card-kicker">${esc(spell.element)} · Maîtrise ${esc(spell.mastery??"—")}</div><h3 class="entity-title">${esc(spell.name)}</h3></div><span class="mini-badge">${esc(l5rSpellGroupLabel(spell))}</span></div>
+  <div class="spell-data-grid"><div><b>ND</b><span>${esc(spell.tn||"À documenter")}</span></div><div><b>Incantation</b><span>${esc(spell.casting||"À documenter")}</span></div><div><b>Durée</b><span>${esc(spell.duration||"À documenter")}</span></div><div><b>Concentration</b><span>${esc(spell.concentration||"À documenter")}</span></div><div><b>Augmentations</b><span>${esc(spell.raises||"À documenter")}</span></div><div><b>Accès</b><span>${esc(spell.restriction||spell.access||"Shugenja")}</span></div></div>
+  ${(()=>{const m=l5rSpellMjMechanics(spell); if(!m)return spell.effect?`<div class="system-note"><strong>Effet — résumé MJ :</strong> ${esc(spell.effect)}</div>`:`<div class="system-note warning"><strong>Effet détaillé :</strong> pas encore structuré dans cette entrée ; consulter la source avant arbitrage.</div>`; return `<div class="spell-data-grid">${m.target?`<div><b>Cible</b><span>${esc(m.target)}</span></div>`:""}${m.range?`<div><b>Portée</b><span>${esc(m.range)}</span></div>`:""}${m.area?`<div><b>Zone</b><span>${esc(m.area)}</span></div>`:""}${m.damage?`<div><b>Dégâts / VD</b><span>${esc(m.damage)}</span></div>`:""}${m.resistance?`<div><b>Résistance</b><span>${esc(m.resistance)}</span></div>`:""}${m.ritual?`<div><b>Type</b><span>Rituel</span></div>`:""}${m.oneUse?`<div><b>Usage</b><span>Usage unique</span></div>`:""}</div><div class="system-note"><strong>Effet — résumé MJ :</strong> ${esc(m.effect||spell.effect||"À documenter")}</div>`;})()}
+  ${conc?`<div class="system-note"><strong>Concentration ${esc(spell.concentration)} :</strong> jet de Volonté ND ${conc.tn} si elle est menacée/interrompue. ${esc(conc.note)}</div>`:""}
+  ${mj?`<div class="system-note"><strong>Rappels MJ 1e :</strong> jet = Anneau + rang de Maîtrise, garder l’Anneau ; chaque augmentation vaut normalement +5 ND ; doubler le temps d’incantation donne une augmentation gratuite ; réduire l’incantation d’une action ajoute +5 ND (minimum 1 action). Une tentative, réussie ou non, consomme une tentative de l’élément.</div>`:""}
+  <small>${esc(spell.source||"Référentiel L5R 1e consolidé du projet — provenance détaillée à compléter pour cette entrée")}</small></article>`;
+}
+function l5rSpellLibraryFiltered({q="",element="",mastery="",group=""}={}){
+  const needle=String(q||"").trim().toLocaleLowerCase("fr");
+  return L5R_SPELL_CATALOG.filter(sp=>{
+    if(element&&sp.element!==element) return false;
+    if(mastery&&String(sp.mastery)!==String(mastery)) return false;
+    if(group&&sp.group!==group) return false;
+    return !needle || [sp.name,sp.element,sp.restriction,sp.effect,l5rSpellGroupLabel(sp)].filter(Boolean).join(" ").toLocaleLowerCase("fr").includes(needle);
+  });
+}
+function renderL5rSpellLibrary(){
+  const host=$("#placeholderView .empty-state"); if(!host)return;
+  host.innerHTML=`<div class="workspace-head"><div><div class="eyebrow">L5R / L5A — 1re édition</div><h1>✦ Bibliothèque des sorts</h1><p>Catalogue permanent du JDR. Cette bibliothèque reste indépendante de la console de résolution MJ et conserve aussi les sorts non accessibles au personnage courant.</p></div><div class="campaign-actions-row"><button class="btn secondary" id="l5r-spells-rules-back">Retour aux règles</button><button class="btn primary" id="l5r-spells-mj">Console MJ</button></div></div>
+  <div class="system-derived spell-filter-bar"><input id="l5r-spell-q" placeholder="Rechercher un sort, un effet, une tradition…"><select id="l5r-spell-element"><option value="">Tous les éléments</option>${["Commun","Terre","Eau","Feu","Air","Vide"].map(x=>`<option>${x}</option>`).join("")}</select><select id="l5r-spell-mastery"><option value="">Toutes maîtrises</option>${[1,2,3,4,5,6,7].map(x=>`<option value="${x}">Maîtrise ${x}</option>`).join("")}</select><select id="l5r-spell-group"><option value="">Toutes provenances</option>${Object.entries(L5R_SPELL_GROUP_LABELS).map(([v,l])=>`<option value="${v}">${esc(l)}</option>`).join("")}</select><span id="l5r-spell-count" class="mini-badge"></span></div><div id="l5r-spell-results" class="workspace-list"></div>`;
+  const draw=()=>{ const rows=l5rSpellLibraryFiltered({q:$("#l5r-spell-q")?.value,element:$("#l5r-spell-element")?.value,mastery:$("#l5r-spell-mastery")?.value,group:$("#l5r-spell-group")?.value}); $("#l5r-spell-count").textContent=`${rows.length} / ${L5R_SPELL_CATALOG.length}`; $("#l5r-spell-results").innerHTML=rows.map(sp=>`<article class="entity-card"><div class="entity-head"><div><div class="card-kicker">${esc(sp.element)} · M${esc(sp.mastery)}</div><h3 class="entity-title">${esc(sp.name)}</h3></div><span class="mini-badge">ND ${esc(sp.tn)}</span></div><div class="entity-description">${esc(sp.effect||`${sp.casting} · ${sp.duration}`)}</div><div class="entity-actions"><button class="btn secondary l5r-spell-detail" data-name="${esc(sp.name)}">Fiche</button><button class="btn primary l5r-spell-resolve" data-name="${esc(sp.name)}">Résoudre (MJ)</button></div></article>`).join("")||'<p>Aucun sort ne correspond aux filtres.</p>'; $$(".l5r-spell-detail").forEach(b=>b.addEventListener("click",()=>renderL5rSpellDetailView(b.dataset.name))); $$(".l5r-spell-resolve").forEach(b=>b.addEventListener("click",()=>renderL5rSpellMjConsole(b.dataset.name))); };
+  ["#l5r-spell-q","#l5r-spell-element","#l5r-spell-mastery","#l5r-spell-group"].forEach(sel=>$(sel)?.addEventListener(sel.includes("q")?"input":"change",draw));
+  $("#l5r-spells-rules-back")?.addEventListener("click",renderL5rRulesLibrary); $("#l5r-spells-mj")?.addEventListener("click",()=>renderL5rSpellMjConsole()); draw();
+}
+function renderL5rSpellDetailView(name){ const host=$("#placeholderView .empty-state"); if(!host)return; const sp=L5R_SPELL_BY_NAME[name]; host.innerHTML=`<div class="workspace-head"><div><div class="eyebrow">BIBLIOTHÈQUE DES SORTS</div><h1>${esc(name)}</h1></div><div class="campaign-actions-row"><button class="btn secondary" id="spell-detail-back">Bibliothèque</button><button class="btn primary" id="spell-detail-mj">Résoudre (MJ)</button></div></div>${l5rSpellDetailHtml(sp)}`; $("#spell-detail-back")?.addEventListener("click",renderL5rSpellLibrary); $("#spell-detail-mj")?.addEventListener("click",()=>renderL5rSpellMjConsole(name)); }
+function renderL5rSpellMjConsole(initialName=""){
+  const host=$("#placeholderView .empty-state"); if(!host)return; const names=L5R_SPELL_CATALOG.map(s=>s.name).sort((a,b)=>a.localeCompare(b,"fr")); const selected=initialName&&L5R_SPELL_BY_NAME[initialName]?initialName:names[0];
+  host.innerHTML=`<div class="workspace-head"><div><div class="eyebrow">OUTIL MJ — L5R 1e</div><h1>✦ Console de résolution des sorts</h1><p>Couche opérationnelle alimentée par la même base que la bibliothèque. Elle ne remplace pas le catalogue.</p></div><div class="campaign-actions-row"><button class="btn secondary" id="spell-mj-library">Bibliothèque</button></div></div>
+  <div class="spell-mj-layout"><div class="system-derived"><label>Sort<select id="spell-mj-name">${names.map(n=>`<option value="${esc(n)}" ${n===selected?"selected":""}>${esc(n)}</option>`).join("")}</select></label><div class="spell-mj-inputs"><label>Anneau<input id="spell-mj-ring" type="number" min="0" max="10" value="3"></label><label>Rang de Maîtrise<input id="spell-mj-rank" type="number" min="0" max="10" value="3"></label><label>Augmentations<input id="spell-mj-raises" type="number" min="0" max="10" value="0"></label><label>Actions retirées<input id="spell-mj-fast" type="number" min="0" max="10" value="0"></label><label>Tentatives déjà faites (élément)<input id="spell-mj-used" type="number" min="0" max="10" value="0"></label></div><div id="spell-mj-result" class="system-note"></div></div><div id="spell-mj-detail"></div></div>`;
+  const draw=()=>{ const sp=L5R_SPELL_BY_NAME[$("#spell-mj-name").value]; const res=l5rSpellResolution(sp,{ring:$("#spell-mj-ring").value,schoolRank:$("#spell-mj-rank").value,raises:$("#spell-mj-raises").value,fastActions:$("#spell-mj-fast").value,used:$("#spell-mj-used").value}); const nd=res.modifiedTN===null?`ND dynamique : ${esc(sp.tn)}`:`ND final ${res.modifiedTN}`; $("#spell-mj-result").innerHTML=`<strong>Jet :</strong> ${res.rolled}g${res.kept} · <strong>${nd}</strong> · tentatives restantes estimées pour cet élément : <strong>${res.remaining}</strong><br><small>Le plafond de 10 dés est appliqué au nombre de dés lancés. Les ND dynamiques restent à arbitrer avec la valeur réelle de la cible.</small>`; $("#spell-mj-detail").innerHTML=l5rSpellDetailHtml(sp,{mj:true}); };
+  ["#spell-mj-name","#spell-mj-ring","#spell-mj-rank","#spell-mj-raises","#spell-mj-fast","#spell-mj-used"].forEach(sel=>$(sel)?.addEventListener("input",draw)); $("#spell-mj-library")?.addEventListener("click",renderL5rSpellLibrary); draw();
+}
+
+const L5R_SPELL_START_RULES={
+  agasha_shugenja:{common:["Sensation","Communion","Invocation"],counts:{Feu:3,Terre:2,Air:1}},
+  asahina_shugenja:{common:["Sensation","Communion","Invocation"],counts:{Air:3,Terre:2,Eau:1}},
+  kuni_shugenja:{common:["Sensation","Communion","Invocation"],counts:{Terre:3,Feu:2,Eau:1}},
+  kitsu_shugenja:{common:["Sensation","Communion","Invocation"],counts:{Eau:3,Feu:2,Terre:1}},
+  iuchi_shugenja:{common:["Sensation","Communion","Invocation"],counts:{Eau:3,Feu:2,Terre:1}},
+  soshi_shugenja:{common:["Sensation","Communion","Invocation"],counts:{Air:3,Eau:2,Feu:1}},
+  yogo_shugenja:{common:["Sensation","Communion","Invocation"],counts:{Air:3,Eau:2,Feu:1}},
+  isawa_shugenja:{common:["Sensation","Communion","Invocation"],flex:true},
+  isawa_ishiken:{common:["Sensation","Communion","Invocation","Sentir le Vide","Drainer le Vide"],ishiken:true}
+};
+function l5rSpellSelectionStatus(profession,names){
+  const rule=L5R_SPELL_START_RULES[profession];
+  if(!rule) return {ok:true,text:"Aucun quota de départ documenté pour cette école dans le registre actuel."};
+  const selected=new Set(names||[]), missing=(rule.common||[]).filter(x=>!selected.has(x));
+  const counts={Terre:0,Eau:0,Feu:0,Air:0,Vide:0,Commun:0};
+  for(const n of selected){ const sp=L5R_SPELL_BY_NAME[n]; if(sp&&counts[sp.element]!==undefined) counts[sp.element]++; }
+  const problems=[];
+  if(missing.length) problems.push(`obligatoires manquants : ${missing.join(", ")}`);
+  if(rule.counts) for(const [el,n] of Object.entries(rule.counts)) if(counts[el]!==n) problems.push(`${el} : ${counts[el]}/${n}`);
+  if(rule.flex){
+    const vals=[counts.Terre,counts.Eau,counts.Feu,counts.Air].filter(n=>n>0).sort((a,b)=>b-a);
+    if(vals.length!==3 || vals[0]!==3 || vals[1]!==2 || vals[2]!==1) problems.push(`Isawa : répartition élémentaire attendue 3/2/1 sur trois éléments différents (actuel ${vals.join("/")||"0"})`);
+  }
+  if(rule.ishiken){
+    const nonVoid=[counts.Terre,counts.Eau,counts.Feu,counts.Air].filter(n=>n>0).sort((a,b)=>b-a);
+    if(nonVoid.length!==2 || nonVoid[0]!==2 || nonVoid[1]!==1) problems.push(`Ishiken : 2 sorts d’un élément + 1 d’un troisième élément (actuel ${nonVoid.join("/")||"0"})`);
+  }
+  return {ok:problems.length===0,text:problems.length?`Sélection de départ à vérifier — ${problems.join(" ; ")}`:"Sélection de départ conforme au quota documenté de l’école."};
+}
+
+function l5rSchoolSpecialRule(profession){
+  if(profession==="togashi_monk") return "Ise Zumi : 1 tatouage automatique au rang de Maîtrise 1 ; jusqu’à 2 tatouages supplémentaires à la création pour 8 PP chacun ; maximum de tatouages = rang de Vide.";
+  if(profession==="agasha_shugenja") return "Agasha : Sensation, Communion, Invocation + 3 sorts de Feu, 2 de Terre et 1 d’Air ; augmentation gratuite sur les sorts de Feu.";
+  if(profession==="isawa_shugenja") return "Isawa : Sensation, Communion, Invocation + 3 sorts d’un élément, 2 d’un deuxième et 1 d’un troisième ; les trois éléments sont différents.";
+  if(profession==="asahina_shugenja") return "Asahina : Sensation, Communion, Invocation + 3 sorts d’Air, 2 de Terre et 1 d’Eau.";
+  if(profession==="kuni_shugenja") return "Kuni : Sensation, Communion, Invocation + 3 sorts de Terre, 2 de Feu et 1 d’Eau ; accès aux sorts de tradition Kuni/Crabe.";
+  if(profession==="kitsu_shugenja") return "Kitsu : Sensation, Communion, Invocation + 3 sorts d’Eau, 2 de Feu et 1 de Terre.";
+  if(profession==="iuchi_shugenja") return "Iuchi : Sensation, Communion, Invocation + 3 sorts d’Eau, 2 de Feu et 1 de Terre.";
+  if(profession==="soshi_shugenja"||profession==="yogo_shugenja") return "Scorpion : Sensation, Communion, Invocation + 3 sorts d’Air, 2 d’Eau et 1 de Feu.";
+  if(profession==="isawa_ishiken") return "Ishiken Isawa : Vide +1 ; Sentir le Vide, Drainer le Vide, Sensation, Communion, Invocation + 2 sorts d’un second élément et 1 d’un troisième. Les autres sorts du Vide restent réservés aux Ishiken sauf décision MJ.";
+  if(l5rIsShugenjaSchool(profession)) return "Shugenja : sélectionner les sorts/parchemins autorisés par l’école. Le catalogue distingue livre de base, suppléments 1e, traditions restreintes et Vide.";
+  return "";
+}
+
+const L5R_STATUS_OCCUPATION_GUIDANCE = {
+  samurai:new Set(["warrior","magistrate","courtier","shugenja","monk","yojimbo","officer","scout","artisan","smith","healer","messenger","entertainer"]),
+  ronin:new Set(["warrior","magistrate","yojimbo","officer","scout","ashigaru","artisan","smith","merchant","healer","messenger","entertainer","criminal","bandit","laborer"]),
+  monk:new Set(["monk","shugenja","healer","artisan","farmer","messenger","entertainer"]),
+  heimin:new Set(["ashigaru","farmer","fisher","artisan","smith","carpenter","merchant","innkeeper","servant","porter","sailor","miner","woodcutter","healer","messenger","stablehand","entertainer","geisha","laborer"]),
+  hinin:new Set(["servant","porter","entertainer","criminal","bandit","gravedigger","tanner","executioner","laborer"])
+};
+
+function l5rMergeSkillPresets(...presets) {
+  const merged={skills:{},specialties:{}};
+  for (const preset of presets.filter(Boolean)) {
+    for (const [skill,rank] of Object.entries(preset.skills||{})) {
+      merged.skills[skill]=Math.max(Number(merged.skills[skill]||0),Number(rank||0));
+    }
+    for (const [skill,values] of Object.entries(preset.specialties||{})) {
+      merged.specialties[skill]=[...new Set([...(merged.specialties[skill]||[]),...(Array.isArray(values)?values:[values]).filter(Boolean)])];
+    }
+  }
+  return merged;
+}
+
+function l5rOccupationPreset(occupation) {
+  return l5rMergeSkillPresets(...l5rOccupationValues(occupation).map(key => L5R_COMMON_OCCUPATION_PRESETS[key]));
+}
+
+function l5rResponsibilityPreset(responsibilities) {
+  return l5rMergeSkillPresets(...l5rOccupationValues(responsibilities).map(key => L5R_RESPONSIBILITY_PRESETS[key]));
+}
+
+const L5R_ARTISAN_SPECIALTY_LABELS = {
+  pottery:"poterie / céramique", weaving:"tissage / textile", leather:"travail du cuir", woodwork:"travail du bois",
+  carpentry:"charpenterie / menuiserie", painting:"peinture / décoration", lacquer:"laque", jewelry:"bijouterie / orfèvrerie", other:"autre"
+};
+
+function l5rCombinedProfessionalPreset(ctx = {}) {
+  const merged=l5rMergeSkillPresets(l5rOccupationPreset(ctx.occupation), l5rResponsibilityPreset(ctx.responsibilities));
+  if (l5rOccupationValues(ctx.occupation).includes("artisan") && ctx.artisanSpecialty) {
+    merged.specialties.Artisanat=[...new Set([...(merged.specialties.Artisanat||[]),L5R_ARTISAN_SPECIALTY_LABELS[ctx.artisanSpecialty]||ctx.artisanSpecialty])];
+  }
+  return merged;
+}
+
+function l5rOccupationGuidance(socialStatus, occupation) {
+  const selected=l5rOccupationValues(occupation);
+  if (!selected.length) return "Aucun métier sélectionné. Le statut social ne bloque aucun métier.";
+  const usual=L5R_STATUS_OCCUPATION_GUIDANCE[socialStatus] || new Set();
+  const unusual=selected.filter(key => !usual.has(key));
+  if (!unusual.length) return "Choix courant pour ce statut. Les métiers restent indépendants du statut social.";
+  const labels=unusual.map(key => labelForOption(CHARACTER_CONTEXT_CONFIG.l5r1.fields.find(f=>f.key==="occupation")?.options,key)).filter(Boolean);
+  return `Choix inhabituel pour ce statut : ${labels.join(", ")}. Autorisé : à justifier seulement par le concept ou l’histoire du personnage.`;
+}
+
+function l5rDefaultStatus(socialStatus) {
+  return {samurai:1, ronin:0, monk:1, heimin:0, hinin:0}[socialStatus] ?? 0;
+}
+
+const L5R_PUBLIC_GLORY_BY_OCCUPATION = {ashigaru:0.4, magistrate:1.0, courtier:1.0, officer:1.0, yojimbo:0.6, merchant:0.2, artisan:0.2, smith:0.2};
+const L5R_PUBLIC_GLORY_BY_RESPONSIBILITY = {village_head:0.5, foreman:0.2, workshop_head:0.3, warehouse_head:0.3, harvest_head:0.3, caravan_head:0.3, local_steward:0.6, doshi:0.5, budoka:0.3, ashigaru_duty:0.4};
+function l5rDefaultGlory(ctx={},schoolRank=0) {
+  // La 1e traite la Gloire séparément de l'Honneur et de l'Insight.
+  // Ne pas déduire une Gloire canonique du rang d'école : seules les conventions MJ
+  // de métiers/fonctions ci-dessous peuvent proposer une valeur initiale modifiable.
+  let glory=0;
+  for (const k of l5rOccupationValues(ctx.occupation)) glory=Math.max(glory,L5R_PUBLIC_GLORY_BY_OCCUPATION[k]||0);
+  for (const k of l5rOccupationValues(ctx.responsibilities)) glory=Math.max(glory,L5R_PUBLIC_GLORY_BY_RESPONSIBILITY[k]||0);
+  return Number(glory.toFixed(1));
+}
+
+
+
+const WARD_NONHUMAN_PROFILES = {
+  atriant:{
+    label:"Atriant", origin:"Diaspora extraterrestre ancienne", status:"TERMINÉE — profil B20 validé",
+    playable:"mj", source:"Dossier Atriants V1.13",
+    characteristics:{strength:4,dexterity:4,stamina:5,charisma:3,manipulation:3,appearance:3,perception:4,intelligence:6,wits:5},
+    willpower:7, mentalResilience:4, hpMax:20, armor:0,
+    note:"Nanomaintenance déjà incluse dans les caractéristiques. Aucun bonus racial générique de SR +2 et aucun pouvoir psi actif automatique."
+  },
+  saurian:{
+    label:"Saurien", origin:"Civilisation préhumaine très anciennement liée à la Terre, devenue interstellaire", status:"TERMINÉE — V2.14",
+    playable:"mj", source:"Dossier Sauriens V2.14",
+    characteristics:{strength:5,dexterity:3,stamina:6,charisma:3,manipulation:3,appearance:3,perception:3,intelligence:3,wits:3},
+    bounds:{strength:[4,8],dexterity:[2,5],stamina:[5,8],charisma:[2,6],manipulation:[2,6],appearance:[2,6],perception:[2,6],intelligence:[2,6],wits:[2,6]},
+    willpower:5, mentalResilience:0, hpMax:22, armor:2, psychicResistance:2, humanityNA:true,
+    note:"SR racial +2 uniquement contre les intrusions psychiques directes. Humanité N/A ; SM Référence = Volonté × 10. RA naturelle 2, non cumulable automatiquement avec une armure couvrant la même zone."
+  },
+  vaelna:{
+    label:"Vael’na / Réticulan", origin:"Civilisation extraterrestre N1", status:"TERMINÉE — V2.6 ; profil chiffré antérieur supersédé",
+    playable:"npc", source:"Dossier Vael’na V2.6",
+    incomplete:true, telepathy:2, humanityNA:true,
+    note:"Le canon V2.6 reconstruit la faction après audit PI. Télépathie 2 est la référence adulte ; contact noétique basal gratuit pour communication volontaire entre Vael’na proches. Aucun autre domaine psi ni SR racial générique n’est automatique. Les anciennes caractéristiques du dossier Grey V1.1 ne sont pas réutilisées."
+  },
+  deep_one:{
+    label:"Profond", origin:"Civilisation marine préhumaine terrestre — N1", status:"DÉFINI — profil mécanique comparatif B soumis à audit", playable:"npc", source:"Dossier Profonds V1.0 — section 6 [B — audit mécanique requis]", incomplete:true, humanityNA:true,
+    variants:["Profond naturel","Hybride héréditaire","Humain transformé rituellement"],
+    adaptations:["Amphibie","Nage prolongée","Eaux froides","Faible luminosité","Variations importantes de pression"],
+    vulnerabilities:["Déshydratation","Chaleur","Contaminants biologiques et industriels","Traumatismes sonores","Transitions de pression mal gérées"],
+    note:"La civilisation, la biologie et les trois voies morphologiques sont définies. Un adulte naturel est un humanoïde amphibie robuste, adapté au milieu marin et capable de respirer dans l’eau comme dans l’air. Longévité très supérieure à l’humain, sans immortalité. Aucun potentiel psi racial universel : les aptitudes psi restent minoritaires. La transformation rituelle d’un humain est réelle, longue, dangereuse et non industrialisable. Les valeurs chiffrées de la section 6.3 restent marquées B — audit mécanique requis : aucune caractéristique numérique n’est donc imposée automatiquement avant validation."
+  }
+};
+
+function wardNonhumanProfile(ctx={}) {
+  return (ctx.nature === "nonhuman" || ctx.nature === "alien") ? (WARD_NONHUMAN_PROFILES[ctx.alienSpecies === "grey" ? "vaelna" : ctx.alienSpecies] || null) : null;
+}
+
+function wardApplyNonhumanProfile(ctx, characteristics) {
+  const species=wardNonhumanProfile(ctx);
+  if (!species || species.incomplete || !species.characteristics) return characteristics;
+  return {...characteristics,...species.characteristics};
+}
+
+const WARD_AGENCIES = {
+  cia:{label:"CIA — Central Intelligence Agency",country:"usa",professions:[
+    ["cia_operations","Officier des opérations"],["cia_analyst","Analyste du renseignement"],
+    ["cia_technical","Officier technique clandestin"],["cia_paramilitary","Officier paramilitaire"],
+    ["cia_contract","Contractuel de la CIA"]]},
+  nsa:{label:"NSA / CSS",country:"usa",professions:[
+    ["nsa_sigint","Analyste SIGINT et linguiste cryptologique"],["nsa_cyber","Opérateur cyber et cryptologue"],
+    ["nsa_security","Spécialiste de la sécurité et du contre-espionnage"],["nsa_black","Agent au noir — opérateur clandestin"]]},
+  dia:{label:"DIA — Defense Intelligence Agency",country:"usa",professions:[
+    ["dia_analyst","Analyste du renseignement de défense"],["dia_humint","Officier de collecte HUMINT"],
+    ["dia_attache","Attaché de défense et officier de liaison militaire"]]},
+  usss:{label:"United States Secret Service",country:"usa",professions:[
+    ["usss_special","Agent spécial du Secret Service"],["usss_uniformed","Officier de la Division en uniforme"]]},
+  cdc:{label:"CDC",country:"usa",professions:[
+    ["cdc_epi","Épidémiologiste et enquêteur sanitaire de terrain"],["cdc_lab","Scientifique de laboratoire et spécialiste en biosécurité"]]},
+  fbi:{label:"FBI",country:"usa",professions:[
+    ["fbi_special","Agent spécial du FBI"],["fbi_analyst","Analyste du renseignement du FBI"],["fbi_forensic","Scientifique criminalistique du FBI"]]},
+  nasa:{label:"NASA",country:"usa",professions:[
+    ["nasa_astronaut","Astronaute de la NASA"],["nasa_flight","Contrôleur de vol et directeur de vol"],
+    ["nasa_engineer","Ingénieur et technicien des systèmes spatiaux"],["nasa_scientist","Scientifique des missions spatiales et planétaires"]]},
+  usaf:{label:"U.S. Air Force",country:"usa",professions:[
+    ["usaf_staff","Officier d’opérations et d’état-major de l’USAF"],["usaf_flight","Pilote et officier des systèmes de combat de l’USAF"],
+    ["usaf_engineer","Ingénieur et technicien des systèmes aéronautiques et de mission"]]},
+  ussf:{label:"United States Space Force",country:"usa",professions:[
+    ["ussf_ops","Spécialiste des opérations spatiales"],["ussf_pilot","Pilote militaire spatial"],
+    ["ussf_engineer","Ingénieur et responsable de programme spatial"],["ussf_odic","Opérateur de combat orbital — ODIC"]]},
+  army:{label:"U.S. Army",country:"usa",professions:[
+    ["army_combat","Soldat et officier des armes de combat"],["army_delta","Delta Force"],
+    ["army_aviation","Pilote et officier d’aviation de l’U.S. Army"],["army_intel","Spécialiste du renseignement militaire"],
+    ["army_engineer","Ingénieur et technicien des systèmes militaires"]]},
+  navy:{label:"U.S. Navy",country:"usa",professions:[
+    ["navy_seal","Navy SEAL"],["navy_aviator","Aviateur naval"]]},
+  usmc:{label:"U.S. Marine Corps",country:"usa",professions:[
+    ["usmc_combat","Marine des armes de combat"],["usmc_raider","Marine Raider"]]},
+  bop:{label:"Federal Bureau of Prisons",country:"usa",professions:[
+    ["bop_officer","Agent correctionnel fédéral"],["bop_sis","Spécialiste des enquêtes et du renseignement pénitentiaire — SIS"],
+    ["bop_warden","Prison Warden / Directeur d’établissement pénitentiaire"]]},
+  atf:{label:"ATF",country:"usa",professions:[
+    ["atf_special","Agent spécial de l’ATF"],["atf_industry","Enquêteur des opérations industrielles"]]},
+  darpa:{label:"DARPA",country:"usa",professions:[["darpa_pm","Directeur de programme DARPA"]]},
+  ice:{label:"ICE",country:"usa",professions:[
+    ["ice_hsi","Agent spécial HSI"],["ice_analyst","Analyste criminel HSI"],["ice_ero","Agent d’exécution et d’éloignement — ERO"]]},
+  fema:{label:"FEMA",country:"usa",professions:[
+    ["fema_coordinator","Coordinateur de gestion des urgences"],["fema_logistics","Logisticien des opérations de catastrophe"],
+    ["fema_risk","Spécialiste des risques et infrastructures"]]},
+  usms:{label:"U.S. Marshals Service",country:"usa",professions:[["usms_deputy","Deputy U.S. Marshal"]]},
+  dea:{label:"DEA",country:"usa",professions:[
+    ["dea_special","Agent spécial de la DEA"],["dea_analyst","Analyste du renseignement de la DEA"],["dea_forensic","Scientifique criminalistique de la DEA"]]},
+  doe:{label:"DOE / NNSA",country:"usa",professions:[
+    ["doe_scitech","Scientifique et spécialiste technique du DOE/NNSA"],["doe_intel","Spécialiste du renseignement et du contre-espionnage du DOE"]]},
+  state:{label:"U.S. Department of State",country:"usa",professions:[
+    ["state_fso","Diplomate du Foreign Service"],["state_inr","Analyste du renseignement — INR"],["state_dss","Agent spécial du DSS"]]},
+  nro:{label:"National Reconnaissance Office — NRO",country:"usa",professions:[
+    ["nro_engineer","Ingénieur des systèmes de reconnaissance spatiale"],["nro_mission","Officier des opérations de mission du NRO"]]},
+  interpol:{label:"INTERPOL",country:"international",professions:[
+    ["interpol_liaison","Officier de liaison INTERPOL"],["interpol_analyst","Analyste du renseignement criminel INTERPOL"]]},
+  europol:{label:"Europol",country:"eu",professions:[
+    ["europol_analyst","Analyste du renseignement criminel Europol"],["europol_support","Spécialiste du soutien opérationnel Europol"]]},
+  dgse:{label:"DGSE",country:"france",professions:[
+    ["dgse_officer","Officier de renseignement de la DGSE"],["dgse_dti","Spécialiste du renseignement technique — DTI"],["dgse_action","Opérateur du Service Action"]]},
+  sis:{label:"SIS / MI6",country:"uk",professions:[
+    ["sis_officer","Officier de renseignement du SIS"],["sis_q","Technologue opérationnel — Q"],["sis_action","Officier d’action clandestine — SIS"]]},
+  bka:{label:"Bundeskriminalamt — BKA",country:"germany",professions:[["bka_investigator","Enquêteur de la police criminelle fédérale — BKA"]]},
+  rcmp:{label:"GRC / RCMP",country:"canada",professions:[
+    ["rcmp_police","Policier / enquêteur de la GRC"],["rcmp_analyst","Analyste du renseignement criminel de la GRC"]]},
+  army_cid:{label:"Army CID",country:"usa",professions:[["army_cid_special","Agent spécial de l’Army CID"]]},
+  ncis:{label:"NCIS",country:"usa",professions:[["ncis_special","Agent spécial du NCIS"]]},
+  civilian_public:{label:"Civil — service public / collectivité",country:"international",professions:[
+    ["civil_librarian","Bibliothécaire / documentaliste"],["civil_teacher","Enseignant"],["civil_doctor","Médecin civil"],["civil_nurse","Infirmier / soignant"],["civil_firefighter","Pompier / secours"],["civil_admin","Employé administratif"]]},
+  civilian_private:{label:"Civil — entreprise / secteur privé",country:"international",professions:[
+    ["civil_foreman","Contremaître / chef d’équipe"],["civil_miner","Mineur"],["civil_engineer","Ingénieur civil / industriel"],["civil_technician","Technicien / mécanicien"],["civil_driver","Conducteur / chauffeur"],["civil_security","Agent de sécurité privée"],["civil_researcher","Chercheur / universitaire"],["civil_journalist","Journaliste"],["civil_shopkeeper","Commerçant / indépendant"]]},
+  civilian_police:{label:"Police / sécurité publique locale",country:"international",professions:[
+    ["civil_police","Policier / agent de patrouille"],["civil_detective","Inspecteur / enquêteur"],["civil_forensic","Technicien de police scientifique"]]},
+  civilian_other:{label:"Civil — autre / sans organisation",country:"international",professions:[
+    ["civil_worker","Ouvrier / employé"],["civil_student","Étudiant"],["civil_unemployed","Sans emploi / situation précaire"],["civil_custom","Profession personnalisée"]]},
+  alien_independent:{label:"Extraterrestre — indépendant / sans couverture humaine",country:"international",professions:[
+    ["alien_scout","Éclaireur / observateur"],["alien_scientist","Scientifique / chercheur"],["alien_warrior","Combattant / protecteur"],["alien_diplomat","Émissaire / négociateur"],["alien_infiltrator","Infiltré / agent sous couverture"],["alien_civilian","Civil / fonction inconnue"]]}
+};
+
+const WARD_ORIENTATIONS = {
+  civil_police:[["patrol","Patrouille / sécurité publique"],["community","Police de proximité"]],
+  civil_detective:[["criminal","Enquête criminelle"],["organized","Criminalité organisée"]],
+  civil_miner:[["underground","Extraction souterraine"],["surface","Mine / carrière à ciel ouvert"]],
+  civil_foreman:[["industrial","Production industrielle"],["construction","Chantier / BTP"],["mining","Exploitation minière"]],
+  nsa_sigint:[["sigint","Analyse SIGINT"],["linguistic","Linguistique cryptologique"]],
+  dia_analyst:[["all_source","Toutes sources"],["scitech","Scientifique et technique"],["medical_cbrn","Médical-CBRN"]],
+  usss_special:[["protective","Protection et renseignement protectif"],["financial_cyber","Enquêtes financières et cybercriminalité"]],
+  fbi_special:[["criminal","Enquêtes criminelles fédérales"],["national_security","Sécurité nationale"]],
+  fbi_analyst:[["criminal_intel","Renseignement criminel et opérationnel"],["counterintel","Sécurité nationale et contre-espionnage"],["cyber_data","Cyber et exploitation des données"],["behavioral","Analyse comportementale et évaluation de la menace"]],
+  usaf_flight:[["pilot","Pilote"],["cso","Officier des systèmes de combat — CSO"]],
+  bop_officer:[["prison_security","Sécurité carcérale"],["crisis_control","Intervention et contrôle de crise"]],
+  bop_sis:[["internal_investigation","Enquêtes internes"],["prison_intel","Renseignement carcéral et sources humaines"]],
+  bop_warden:[["direction_security","Direction et sécurité d’établissement"],["inmate_coordination","Gestion des détenus et coordination institutionnelle"]],
+  dgse_officer:[["analysis","Analyse et exploitation du renseignement"],["humint","Recherche humaine / officier traitant"]],
+  sis_officer:[["humint","Opérations HUMINT"],["targeting","Ciblage et analyse opérationnelle"]],
+  rcmp_police:[["territorial","Police territoriale et contractuelle"],["federal","Police fédérale et enquêtes complexes"]],
+  ncis_special:[["criminal","Enquêtes criminelles"],["counterintel","Contre-espionnage"]]
+};
+
+const WARD_PROFESSION_RULES = {
+  civil_librarian:{primary:["intelligence","perception","wits"],secondary:["charisma"],essential:["Recherche","Histoire","Bureaucratie","Informatique"],oneOf:[["Linguistique","Enseignement","Investigation"]]},
+  civil_teacher:{primary:["intelligence","charisma","wits"],secondary:["perception"],essential:["Enseignement","Éloquence","Psychologie","Bureaucratie"]},
+  civil_doctor:{primary:["intelligence","perception","wits"],secondary:["charisma"],essential:["Médecine","Premiers secours","Biologie","Psychologie"]},
+  civil_nurse:{primary:["perception","intelligence","charisma"],secondary:["wits","stamina"],essential:["Premiers secours","Médecine","Psychologie","Observation"]},
+  civil_firefighter:{primary:["stamina","dexterity","perception"],secondary:["strength","wits"],essential:["Athlétisme","Premiers secours","Vigilance","Conduite"]},
+  civil_admin:{primary:["intelligence","wits"],secondary:["charisma","perception"],essential:["Bureaucratie","Informatique","Comptabilité","Recherche"]},
+  civil_foreman:{primary:["wits","charisma","perception"],secondary:["intelligence","stamina"],essential:["Commandement","Bureaucratie","Réparation","Vigilance"],oneOf:[["Ingénierie du bâtiment","Ingénierie (choisir une spécialité)","Géologie / Géophysique"]]},
+  civil_miner:{primary:["stamina","strength","perception"],secondary:["wits","dexterity"],essential:["Réparation","Vigilance","Géologie / Géophysique","Premiers secours"],oneOf:[["Explosifs","Ingénierie (choisir une spécialité)"]]},
+  civil_engineer:{primary:["intelligence","wits","perception"],secondary:["dexterity"],essential:["Ingénierie (choisir une spécialité)","Réparation","Mathématiques appliquées","Bureaucratie"]},
+  civil_technician:{primary:["dexterity","intelligence","wits"],secondary:["perception"],essential:["Réparation","Électricité","Électronique","Vigilance"]},
+  civil_driver:{primary:["dexterity","perception","wits"],secondary:["stamina"],essential:["Conduite","Navigation","Orientation","Réparation"]},
+  civil_security:{primary:["perception","stamina","wits"],secondary:["dexterity"],essential:["Observation","Vigilance","Premiers secours"],oneOf:[["Bagarre","Tir : Pistolet"]]},
+  civil_researcher:{primary:["intelligence","perception","wits"],secondary:["charisma"],essential:["Recherche","Investigation","Enseignement"],oneOf:[["Biologie","Chimie","Physique","Histoire","Anthropologie","Sociologie"]]},
+  civil_journalist:{primary:["perception","charisma","wits"],secondary:["intelligence"],essential:["Investigation","Recherche","Éloquence","Photographie"],oneOf:[["Persuasion","Baratin","Politique"]]},
+  civil_shopkeeper:{primary:["charisma","wits","manipulation"],secondary:["intelligence"],essential:["Négociation","Comptabilité","Bureaucratie","Persuasion"]},
+  civil_police:{primary:["perception","wits","dexterity"],secondary:["stamina","charisma"],essential:["Observation","Vigilance","Investigation","Tir : Pistolet","Premiers secours","Conduite"]},
+  civil_detective:{primary:["perception","wits","intelligence"],secondary:["charisma","dexterity"],essential:["Investigation","Observation","Interroger","Recherche","Vigilance"]},
+  civil_forensic:{primary:["intelligence","perception","wits"],secondary:["dexterity"],essential:["Médecine légale","Investigation","Photographie","Recherche"]},
+  civil_worker:{primary:["stamina","strength","dexterity"],secondary:["wits"],essential:["Réparation","Vigilance","Athlétisme"]},
+  civil_student:{primary:["intelligence","wits"],secondary:["charisma","perception"],essential:["Recherche","Informatique"],oneOf:[["Histoire","Science","Politique","Linguistique"]]},
+  civil_unemployed:{primary:["wits","perception"],secondary:["charisma","stamina"],essential:["Observation"],oneOf:[["Baratin","Discrétion","Conduite","Réparation"]]},
+  civil_custom:{primary:["wits","perception"],secondary:["intelligence"],essential:["Observation"]},
+  alien_scout:{primary:["perception","wits","dexterity"],secondary:["intelligence"],essential:["Observation","Vigilance","Discrétion","Orientation"]},
+  alien_scientist:{primary:["intelligence","perception","wits"],secondary:["dexterity"],essential:["Recherche","Investigation","Physique","Biologie"]},
+  alien_warrior:{primary:["dexterity","stamina","strength"],secondary:["perception","wits"],essential:["Tactique","Vigilance","Esquive"]},
+  alien_diplomat:{primary:["charisma","manipulation","wits"],secondary:["intelligence","perception"],essential:["Diplomatie","Négociation","Intuition","Persuasion"]},
+  alien_infiltrator:{primary:["manipulation","wits","perception"],secondary:["dexterity","intelligence"],essential:["Déguisement","Discrétion","Furtivité","Observation","Intuition"]},
+  alien_civilian:{primary:["wits","perception"],secondary:["intelligence"],essential:["Observation"]},
+  cia_operations:{primary:["manipulation","wits","perception"],secondary:["intelligence","charisma","dexterity"],essential:["Discrétion","Intuition","Langue étrangère","Observation","Psychologie"],oneOf:[["Baratin","Négociation","Persuasion"]]},
+  cia_analyst:{primary:["intelligence","wits","perception"],secondary:["charisma","manipulation"],essential:["Bureaucratie","Intuition","Investigation","Observation","Recherche"],oneOf:[["Anthropologie","Économie / Finance","Histoire","Politique","Psychologie","IA / Analyse prédictive","Mathématiques appliquées"]]},
+  cia_technical:{primary:["intelligence","perception"],secondary:["dexterity","wits"],essential:["Discrétion","Observation","Recherche"],oneOf:[["Cryptologie","Électronique","Informatique","Ingénierie (choisir une spécialité)","Programmation","Réparation","Réseau / Télécommunications","Serrurerie","Imagerie numérique"],["Cryptologie","Électronique","Informatique","Ingénierie (choisir une spécialité)","Programmation","Réparation","Réseau / Télécommunications","Serrurerie","Imagerie numérique"],["Cryptologie","Électronique","Informatique","Ingénierie (choisir une spécialité)","Programmation","Réparation","Réseau / Télécommunications","Serrurerie","Imagerie numérique"]]},
+  cia_paramilitary:{primary:["dexterity","stamina","perception"],secondary:["strength","intelligence","wits"],essential:["Athlétisme","Commandement","Discrétion","Tactique","Tir : Fusil"],oneOf:[["Explosifs","Navigation","Premiers secours","Survie"]]},
+  cia_contract:{primary:["intelligence","perception"],secondary:["wits","charisma"],essential:["Bureaucratie","Observation","Recherche"]},
+
+  nsa_sigint:{primary:["intelligence","perception"],secondary:["wits","charisma","manipulation"],orientationRules:{
+    sigint:{essential:["Bureaucratie","Cryptologie","Investigation","Recherche","Observation","Réseau / Télécommunications"]},
+    linguistic:{essential:["Bureaucratie","Cryptologie","Investigation","Recherche","Langue étrangère","Linguistique"]}}},
+  nsa_cyber:{primary:["intelligence","wits"],secondary:["perception","dexterity"],essential:["Cryptologie","Informatique","Programmation","Recherche"],oneOf:[["Investigation","Mathématiques appliquées","Électronique","Réseau / Télécommunications"],["Investigation","Mathématiques appliquées","Électronique","Réseau / Télécommunications"]]},
+  nsa_security:{primary:["perception","wits"],secondary:["intelligence","charisma"],essential:["Bureaucratie","Filature","Investigation","Observation","Psychologie","Vigilance"]},
+  nsa_black:{primary:["dexterity","wits"],secondary:["perception","intelligence"],essential:["Discrétion","Furtivité","Investigation","Observation","Serrurerie","Vigilance"],oneOf:[["Électronique","Informatique","Réseau / Télécommunications"]]},
+
+  dia_analyst:{primary:["intelligence","perception"],secondary:["wits","dexterity","stamina"],orientationRules:{
+    all_source:{essential:["Bureaucratie","Histoire militaire","Investigation","Politique","Recherche","Relations internationales"]},
+    scitech:{essential:["Électronique","Ingénierie (choisir une spécialité)","Investigation","Physique","Recherche","Réparation"]},
+    medical_cbrn:{essential:["Biologie","Chimie","Investigation","Recherche","Sciences environnementales"],oneOf:[["Médecine","Médecine légale"]]}}},
+  dia_humint:{primary:["manipulation","wits","perception"],secondary:["intelligence","charisma","dexterity"],essential:["Bureaucratie","Investigation","Observation","Psychologie"],oneOf:[["Discrétion","Intuition","Interroger","Langue étrangère","Baratin","Négociation","Persuasion"],["Discrétion","Intuition","Interroger","Langue étrangère","Baratin","Négociation","Persuasion"]]},
+  dia_attache:{primary:["charisma","intelligence","wits"],secondary:["perception","manipulation"],essential:["Bureaucratie","Diplomatie","Histoire militaire","Langue étrangère","Observation","Relations internationales"]},
+
+  usss_special:{primary:["perception","wits","dexterity"],secondary:["intelligence","charisma","stamina"],orientationRules:{
+    protective:{essential:["Bureaucratie","Observation","Premiers secours","Psychologie","Tir : Pistolet","Vigilance"]},
+    financial_cyber:{essential:["Bureaucratie","Falsification","Informatique","Investigation","Recherche","Tir : Pistolet"]}}},
+  usss_uniformed:{primary:["perception","dexterity","stamina"],secondary:["wits","strength","intelligence"],essential:["Athlétisme","Observation","Premiers secours","Tir : Pistolet","Vigilance"],oneOf:[["Bagarre","Arts martiaux (choisir un art martial)"]]},
+
+  cdc_epi:{primary:["intelligence","perception"],secondary:["wits","charisma","stamina"],essential:["Biologie","Investigation","Mathématiques appliquées","Observation","Recherche","Psychologie"]},
+  cdc_lab:{primary:["intelligence","perception"],secondary:["wits","dexterity"],essential:["Biologie","Chimie","Informatique","Observation","Recherche","Sciences environnementales"]},
+
+  fbi_special:{primary:["perception","wits","intelligence"],secondary:["dexterity","charisma","stamina"],orientationRules:{
+    criminal:{essential:["Bureaucratie","Droit","Investigation","Observation","Tir : Pistolet","Vigilance"]},
+    national_security:{essential:["Bureaucratie","Investigation","Intuition","Observation","Tir : Pistolet","Vigilance"]}}},
+  fbi_analyst:{primary:["intelligence","wits","perception"],secondary:["charisma","manipulation"],orientationRules:{
+    criminal_intel:{essential:["Bureaucratie","Droit","Investigation","Observation","Recherche","Psychologie"]},
+    counterintel:{essential:["Bureaucratie","Investigation","Intuition","Observation","Politique","Recherche"]},
+    cyber_data:{essential:["Cryptologie","Informatique","Investigation","Mathématiques appliquées","Programmation","Recherche"]},
+    behavioral:{essential:["Interroger","Investigation","Intuition","Observation","Psychologie","Recherche"]}}},
+  fbi_forensic:{primary:["intelligence","perception"],secondary:["wits","dexterity"],essential:["Investigation","Observation","Photographie","Recherche"],oneOf:[["Biologie","Chimie","Cryptologie","Falsification","Imagerie numérique","Informatique","Mathématiques appliquées","Médecine légale","Physique","Programmation","Sciences environnementales"],["Biologie","Chimie","Cryptologie","Falsification","Imagerie numérique","Informatique","Mathématiques appliquées","Médecine légale","Physique","Programmation","Sciences environnementales"]]},
+
+  nasa_astronaut:{primary:["intelligence","dexterity","stamina"],secondary:["perception","wits","strength"],essential:["Athlétisme","Observation","Orientation","Premiers secours","Réparation"],oneOf:[["Pilotage d’avion","Ingénierie aérospatiale","Astronomie","Astrophysique","Physique"]]},
+  nasa_flight:{primary:["intelligence","perception","wits"],secondary:["charisma","dexterity"],essential:["Bureaucratie","Informatique","Observation","Recherche","Réseau / Télécommunications","Vigilance"]},
+  nasa_engineer:{primary:["intelligence","dexterity"],secondary:["perception","wits"],essential:["Informatique","Ingénierie (choisir une spécialité)","Observation","Physique","Réparation","Recherche"]},
+  nasa_scientist:{primary:["intelligence","perception"],secondary:["wits","dexterity"],essential:["Informatique","Mathématiques appliquées","Observation","Recherche"],oneOf:[["Astronomie","Astrophysique","Biologie","Chimie","Géologie / Géophysique","IA / Analyse prédictive","Météorologie","Physique","Sciences environnementales"],["Astronomie","Astrophysique","Biologie","Chimie","Géologie / Géophysique","IA / Analyse prédictive","Météorologie","Physique","Sciences environnementales"]]},
+
+  usaf_staff:{primary:["intelligence","wits","charisma"],secondary:["perception","manipulation"],essential:["Bureaucratie","Commandement","Histoire militaire","Observation","Tactique","Vigilance"]},
+  usaf_flight:{primary:["dexterity","perception","intelligence"],secondary:["wits","stamina"],orientationRules:{
+    pilot:{essential:["Bureaucratie","Observation","Orientation","Vigilance","Pilotage d’avion","Réseau / Télécommunications"]},
+    cso:{essential:["Bureaucratie","Observation","Orientation","Vigilance","Informatique","Réseau / Télécommunications"]}}},
+  usaf_engineer:{primary:["intelligence","dexterity"],secondary:["perception","wits"],essential:["Électronique","Informatique","Ingénierie (choisir une spécialité)","Observation","Réparation","Recherche"]},
+
+  ussf_ops:{primary:["intelligence","perception"],secondary:["wits","dexterity"],essential:["Bureaucratie","Informatique","Mathématiques appliquées","Observation","Réseau / Télécommunications","Vigilance"]},
+  ussf_pilot:{primary:["dexterity","intelligence","perception"],secondary:["stamina","wits"],essential:["Athlétisme","Observation","Orientation","Pilotage d’avion","Réseau / Télécommunications","Vigilance"]},
+  ussf_engineer:{primary:["intelligence","wits"],secondary:["perception","dexterity","charisma"],essential:["Bureaucratie","Investigation","Recherche"],oneOf:[["Commandement","Électronique","Informatique","Ingénierie (choisir une spécialité)","Mathématiques appliquées","Politique","Programmation","Réparation","Réseau / Télécommunications"],["Commandement","Électronique","Informatique","Ingénierie (choisir une spécialité)","Mathématiques appliquées","Politique","Programmation","Réparation","Réseau / Télécommunications"],["Commandement","Électronique","Informatique","Ingénierie (choisir une spécialité)","Mathématiques appliquées","Politique","Programmation","Réparation","Réseau / Télécommunications"]]},
+  ussf_odic:{primary:["dexterity","stamina","perception"],secondary:["strength","intelligence","wits"],essential:["Athlétisme","Bureaucratie","Tactique","Tir : Fusil","Vigilance"],oneOf:[["Discrétion","Explosifs","Orientation","Premiers secours","Survie"]]},
+
+  army_combat:{primary:["dexterity","stamina","perception"],secondary:["strength","intelligence","wits"],essential:["Athlétisme","Bureaucratie","Observation","Tactique","Tir : Fusil","Vigilance"]},
+  army_delta:{primary:["dexterity","stamina","perception"],secondary:["strength","intelligence","wits"],essential:["Athlétisme","Bureaucratie","Observation","Tactique","Tir : Fusil","Vigilance"]},
+  army_aviation:{primary:["dexterity","perception","intelligence"],secondary:["wits","stamina"],essential:["Bureaucratie","Observation","Orientation","Pilotage d’hélicoptère","Réseau / Télécommunications","Vigilance"]},
+  army_engineer:{primary:["intelligence","dexterity"],secondary:["perception","wits"],essential:["Électronique","Ingénierie (choisir une spécialité)","Investigation","Observation","Réparation","Recherche"]},
+
+  navy_seal:{primary:["dexterity","stamina"],secondary:["strength","perception","wits"],essential:["Athlétisme","Discrétion","Natation","Observation","Tactique","Tir : Fusil","Vigilance"],oneOf:[["Explosifs","Premiers secours","Survie"]]},
+  navy_aviator:{primary:["dexterity","perception","intelligence"],secondary:["wits","stamina"],essential:["Bureaucratie","Observation","Orientation","Réseau / Télécommunications","Vigilance"],oneOf:[["Pilotage d’avion","Pilotage d’hélicoptère"]]},
+
+  usmc_combat:{primary:["dexterity","stamina","perception"],secondary:["strength","wits","intelligence"],essential:["Athlétisme","Bureaucratie","Observation","Tactique","Tir : Fusil","Vigilance"],oneOf:[["Navigation","Premiers secours","Survie"]]},
+  usmc_raider:{primary:["dexterity","stamina","perception"],secondary:["strength","wits","intelligence"],essential:["Athlétisme","Bureaucratie","Observation","Tactique","Tir : Fusil","Vigilance"],oneOf:[["Navigation","Premiers secours","Survie"]]},
+
+  atf_special:{primary:["perception","wits","intelligence"],secondary:["dexterity","stamina","charisma"],essential:["Bureaucratie","Droit","Investigation","Observation","Tir : Pistolet","Vigilance"]},
+  atf_industry:{primary:["intelligence","perception"],secondary:["wits","charisma"],essential:["Bureaucratie","Comptabilité","Droit","Investigation","Observation","Recherche"]},
+  darpa_pm:{primary:["intelligence","wits"],secondary:["perception","charisma"],essential:["Bureaucratie","Négociation","Recherche","Mathématiques appliquées"],oneOf:[["Biologie","Chimie","Électronique","IA / Analyse prédictive","Informatique","Ingénierie (choisir une spécialité)","Médecine","Physique","Programmation"],["Biologie","Chimie","Électronique","IA / Analyse prédictive","Informatique","Ingénierie (choisir une spécialité)","Médecine","Physique","Programmation"]]},
+
+  ice_hsi:{primary:["perception","wits","intelligence"],secondary:["dexterity","charisma","stamina"],essential:["Bureaucratie","Droit","Investigation","Observation","Tir : Pistolet","Vigilance"]},
+  ice_analyst:{primary:["intelligence","perception","wits"],secondary:["charisma"],essential:["Bureaucratie","Informatique","Investigation","Observation","Recherche","Vigilance"]},
+  ice_ero:{primary:["perception","wits","stamina"],secondary:["intelligence","dexterity","charisma"],essential:["Bureaucratie","Droit","Investigation","Observation","Tir : Pistolet","Vigilance"]},
+
+  fema_coordinator:{primary:["intelligence","wits","charisma"],secondary:["perception","stamina"],essential:["Bureaucratie","Commandement","Diplomatie","Négociation","Politique","Vigilance"]},
+  fema_logistics:{primary:["intelligence","wits","perception"],secondary:["stamina","charisma"],essential:["Bureaucratie","Comptabilité","Conduite","Orientation","Recherche","Vigilance"]},
+  fema_risk:{primary:["intelligence","perception","wits"],secondary:["stamina"],essential:["Bureaucratie","Cartographie","Observation","Recherche","Vigilance"],oneOf:[["Sciences environnementales","Géologie / Géophysique","Ingénierie du bâtiment"]]},
+  usms_deputy:{primary:["perception","wits","intelligence"],secondary:["dexterity","stamina","charisma"],essential:["Bureaucratie","Droit","Investigation","Observation","Tir : Pistolet","Vigilance"]},
+
+  dea_special:{primary:["perception","wits","intelligence"],secondary:["dexterity","stamina","charisma"],essential:["Bureaucratie","Droit","Investigation","Observation","Tir : Pistolet","Vigilance"]},
+  dea_analyst:{primary:["intelligence","perception","wits"],secondary:["charisma"],essential:["Bureaucratie","Informatique","Investigation","Observation","Recherche","Vigilance"]},
+
+  doe_intel:{primary:["intelligence","perception","wits"],secondary:["charisma","manipulation"],essential:["Bureaucratie","Informatique","Investigation","Recherche","Vigilance"],oneOf:[["Physique nucléaire","Physique","Chimie","Sciences environnementales","Politique","Relations internationales"]]},
+
+  state_fso:{primary:["charisma","intelligence","perception"],secondary:["wits","manipulation"],essential:["Bureaucratie","Diplomatie","Étiquette","Négociation","Relations internationales"],oneOf:[["Économie / Finance","Langue étrangère","Politique"]]},
+  state_inr:{primary:["intelligence","perception","wits"],secondary:["charisma","manipulation"],essential:["Bureaucratie","Investigation","Observation","Politique","Recherche","Relations internationales"]},
+  state_dss:{primary:["perception","dexterity","wits"],secondary:["charisma","stamina"],essential:["Bureaucratie","Conduite","Investigation","Tactique","Tir : Pistolet","Vigilance"]},
+
+  nro_engineer:{primary:["intelligence","perception","wits"],secondary:["dexterity","stamina"],essential:["Électronique","Informatique","Ingénierie aérospatiale","Mathématiques appliquées","Observation","Recherche"]},
+  nro_mission:{primary:["intelligence","perception","wits"],secondary:["charisma","manipulation"],essential:["Bureaucratie","Informatique","Mathématiques appliquées","Observation","Recherche","Vigilance"]},
+
+  interpol_liaison:{primary:["charisma","intelligence","wits"],secondary:["perception","manipulation"],essential:["Bureaucratie","Diplomatie","Investigation","Langue étrangère","Relations internationales","Recherche"]},
+  europol_analyst:{primary:["intelligence","perception","wits"],secondary:["manipulation","charisma"],essential:["Bureaucratie","Informatique","Investigation","Observation","Recherche","Vigilance"]},
+  europol_support:{primary:["charisma","intelligence","wits"],secondary:["perception","manipulation"],essential:["Bureaucratie","Commandement","Diplomatie","Investigation","Relations internationales","Vigilance"]},
+
+  dgse_officer:{primary:["intelligence","wits","perception"],secondary:["manipulation","charisma"],orientationRules:{
+    analysis:{essential:["Bureaucratie","Investigation","Langue étrangère","Observation","Recherche","Relations internationales"]},
+    humint:{essential:["Discrétion","Intuition","Langue étrangère","Observation","Psychologie"],oneOf:[["Baratin","Négociation","Persuasion"]]}}},
+  dgse_dti:{primary:["intelligence","wits"],secondary:["perception","dexterity"],essential:["Bureaucratie","Informatique","Recherche"],oneOf:[["Cryptologie","Électronique","Ingénierie (choisir une spécialité)","Mathématiques appliquées","Programmation","Réparation","Réseau / Télécommunications"],["Cryptologie","Électronique","Ingénierie (choisir une spécialité)","Mathématiques appliquées","Programmation","Réparation","Réseau / Télécommunications"],["Cryptologie","Électronique","Ingénierie (choisir une spécialité)","Mathématiques appliquées","Programmation","Réparation","Réseau / Télécommunications"]]},
+  dgse_action:{primary:["dexterity","stamina","perception"],secondary:["wits","strength"],essential:["Athlétisme","Discrétion","Furtivité","Observation","Tactique","Vigilance"],oneOf:[["Bagarre","Arts martiaux (choisir un art martial)","Tir : Pistolet","Tir : Fusil"]]},
+
+  sis_officer:{primary:["wits","manipulation","intelligence"],secondary:["perception","charisma"],orientationRules:{
+    humint:{essential:["Discrétion","Intuition","Langue étrangère","Observation","Psychologie"],oneOf:[["Baratin","Négociation","Persuasion"]]},
+    targeting:{essential:["Bureaucratie","Informatique","Investigation","Langue étrangère","Recherche","Relations internationales"]}}},
+  sis_q:{primary:["intelligence","wits"],secondary:["perception","dexterity"],essential:["Bureaucratie","Informatique","Recherche"],oneOf:[["Cryptologie","Électronique","Ingénierie (choisir une spécialité)","Programmation","Réparation","Réseau / Télécommunications"],["Cryptologie","Électronique","Ingénierie (choisir une spécialité)","Programmation","Réparation","Réseau / Télécommunications"],["Cryptologie","Électronique","Ingénierie (choisir une spécialité)","Programmation","Réparation","Réseau / Télécommunications"]]},
+
+  bka_investigator:{primary:["perception","wits","intelligence"],secondary:["dexterity","charisma"],essential:["Bureaucratie","Investigation","Observation","Recherche","Vigilance"],oneOf:[["Interroger","Négociation","Psychologie"]]},
+
+  rcmp_police:{primary:["perception","wits","dexterity"],secondary:["intelligence","stamina","charisma"],orientationRules:{
+    territorial:{essential:["Athlétisme","Bureaucratie","Conduite","Investigation","Observation","Premiers secours","Tir : Pistolet","Vigilance"]},
+    federal:{essential:["Bureaucratie","Filature","Informatique","Investigation","Observation","Recherche","Tir : Pistolet","Vigilance"]}}},
+
+  army_cid_special:{primary:["perception","wits","intelligence"],secondary:["dexterity","charisma"],essential:["Bureaucratie","Investigation","Observation","Recherche","Vigilance"],oneOf:[["Filature","Informatique","Interroger","Psychologie","Tir : Pistolet"],["Filature","Informatique","Interroger","Psychologie","Tir : Pistolet"]]},
+
+  ncis_special:{primary:["perception","wits","intelligence"],secondary:["dexterity","charisma"],orientationRules:{
+    criminal:{essential:["Bureaucratie","Investigation","Observation","Recherche","Tir : Pistolet","Vigilance"]},
+    counterintel:{essential:["Bureaucratie","Discrétion","Filature","Investigation","Psychologie","Vigilance"]}}}
+};
+
+function wardAgencyOptions() {
+  return Object.entries(WARD_AGENCIES).map(([id,a]) => [id,a.label]);
+}
+function wardProfessionOptions(agencyId) {
+  return WARD_AGENCIES[agencyId]?.professions || [];
+}
+function wardOrientationOptions(professionId) {
+  return WARD_ORIENTATIONS[professionId] || [];
+}
+function wardRuleForContext(ctx = {}) {
+  const base = WARD_PROFESSION_RULES[ctx.profession];
+  if (!base) return null;
+  const orientation = base.orientationRules?.[ctx.orientation];
+  if (!orientation) return base;
+  return {
+    ...base,
+    essential:[...(base.essential || []),...(orientation.essential || [])],
+    oneOf:[...(base.oneOf || []),...(orientation.oneOf || [])]
+  };
+}
+
+const WARD_ATTR_CATEGORIES = {
+  physical:["strength","dexterity","stamina"],
+  social:["charisma","manipulation","appearance"],
+  mental:["perception","intelligence","wits"]
+};
+
+function wardSuggestedAttributes(rule) {
+  const result = {
+    strength:1,dexterity:1,stamina:1,
+    charisma:1,manipulation:1,appearance:1,
+    perception:1,intelligence:1,wits:1
+  };
+  if (!rule) return result;
+
+  const primary = rule.primary || [];
+  const secondary = rule.secondary || [];
+  const categoryScores = Object.entries(WARD_ATTR_CATEGORIES).map(([cat,attrs]) => ({
+    cat,
+    score: attrs.filter(a => primary.includes(a)).length * 10
+         + attrs.filter(a => secondary.includes(a)).length
+  })).sort((a,b) => b.score - a.score);
+
+  const budgets = [7,5,3];
+  categoryScores.forEach((entry,index) => {
+    const attrs = WARD_ATTR_CATEGORIES[entry.cat];
+    const ordered = [
+      ...attrs.filter(a => primary.includes(a)),
+      ...attrs.filter(a => !primary.includes(a) && secondary.includes(a)),
+      ...attrs.filter(a => !primary.includes(a) && !secondary.includes(a))
+    ];
+    let points = budgets[index];
+    let cursor = 0;
+    while (points > 0 && cursor < 60) {
+      const attr = ordered[cursor % ordered.length];
+      if (result[attr] < 4) {
+        result[attr] += 1;
+        points -= 1;
+      }
+      cursor += 1;
+    }
+  });
+
+  return result;
+}
+
+
+const WARD_NPC_ROLE_SKILLS = {
+  combat: [
+    "Athlétisme","Tactique","Tir : Fusil","Tir : Pistolet","Vigilance",
+    "Observation","Discrétion","Survie","Premiers secours","Bagarre",
+    "Commandement","Navigation","Furtivité"
+  ],
+  investigator: [
+    "Investigation","Observation","Vigilance","Droit","Filature","Interroger",
+    "Intuition","Psychologie","Recherche","Tir : Pistolet","Conduite","Bureaucratie"
+  ],
+  analyst: [
+    "Investigation","Recherche","Observation","Intuition","Bureaucratie","Informatique",
+    "Vigilance","Politique","Relations internationales","Psychologie","Mathématiques appliquées"
+  ],
+  technical: [
+    "Informatique","Programmation","Réseau / Télécommunications","Électronique",
+    "Ingénierie (choisir une spécialité)","Réparation","Cryptologie","Recherche",
+    "Observation","Investigation","Mathématiques appliquées"
+  ],
+  humint: [
+    "Discrétion","Intuition","Observation","Psychologie","Langue étrangère","Persuasion",
+    "Négociation","Baratin","Filature","Déguisement","Falsification","Investigation","Vigilance"
+  ],
+  diplomat: [
+    "Diplomatie","Négociation","Étiquette","Relations internationales","Bureaucratie",
+    "Persuasion","Politique","Langue étrangère","Intuition","Observation","Commandement"
+  ],
+  science: [
+    "Recherche","Investigation","Observation","Mathématiques appliquées","Informatique",
+    "Biologie","Chimie","Physique","Sciences environnementales","Médecine","Médecine légale"
+  ],
+  pilot: [
+    "Pilotage d’avion","Pilotage d’hélicoptère","Observation","Orientation","Vigilance",
+    "Réseau / Télécommunications","Informatique","Réparation","Athlétisme",
+    "Premiers secours","Survie"
+  ],
+  security: [
+    "Vigilance","Observation","Investigation","Discrétion","Filature","Psychologie",
+    "Tir : Pistolet","Athlétisme","Bagarre","Conduite","Premiers secours"
+  ],
+  emergency: [
+    "Bureaucratie","Commandement","Négociation","Vigilance","Observation","Conduite",
+    "Orientation","Recherche","Premiers secours","Diplomatie","Politique"
+  ]
+};
+
+function wardNpcRole(ctx = {}) {
+  const p = String(ctx.profession || "");
+
+  if ([
+    "cia_paramilitary","ussf_odic","army_combat","army_delta","navy_seal",
+    "usmc_combat","usmc_raider","dgse_action","sis_action","usss_uniformed"
+  ].includes(p)) return "combat";
+
+  if ([
+    "nasa_astronaut","usaf_flight","ussf_pilot","army_aviation","navy_aviator"
+  ].includes(p)) return "pilot";
+
+  if ([
+    "cia_technical","nsa_cyber","nsa_black","nasa_engineer","usaf_engineer",
+    "ussf_engineer","army_engineer","nro_engineer","dgse_dti","sis_q","darpa_pm"
+  ].includes(p)) return "technical";
+
+  if ([
+    "cdc_epi","cdc_lab","nasa_scientist","fbi_forensic","dea_forensic","doe_scitech"
+  ].includes(p)) return "science";
+
+  if ([
+    "cia_operations","dia_humint"
+  ].includes(p)) return "humint";
+
+  if (p === "dgse_officer" && ctx.orientation === "humint") return "humint";
+  if (p === "sis_officer" && ctx.orientation === "humint") return "humint";
+
+  if ([
+    "dia_attache","state_fso","interpol_liaison","europol_support"
+  ].includes(p)) return "diplomat";
+
+  if ([
+    "fbi_special","atf_special","ice_hsi","ice_ero","usms_deputy","dea_special",
+    "bka_investigator","rcmp_police","army_cid_special","ncis_special",
+    "bop_officer","bop_sis","bop_warden","state_dss","nsa_security"
+  ].includes(p)) return "investigator";
+
+  if ([
+    "fema_coordinator","fema_logistics","fema_risk"
+  ].includes(p)) return "emergency";
+
+  if (
+    p.includes("analyst") || p.includes("sigint") || p.includes("intel")
+    || p === "nro_mission" || p === "interpol_analyst" || p === "europol_analyst"
+    || p === "state_inr"
+  ) return "analyst";
+
+  return "analyst";
+}
+
+function wardNpcMaxSkillByImportance(importance) {
+  importance = Number(importance ?? 2);
+  if (importance <= 0) return 2;   // figurant
+  if (importance === 1) return 2;  // secondaire
+  if (importance <= 3) return 3;   // récurrent / important
+  return 4;                        // majeur / central
+}
+
+function wardNpcBudgetFactor(importance) {
+  importance = Number(importance ?? 2);
+  if (importance <= 0) return 0.55;
+  if (importance === 1) return 0.72;
+  if (importance === 2) return 0.88;
+  return 1.0;
+}
+
+function wardSuggestedNpcSkills(rule, ctx, characteristics, importance = 2) {
+  const skills = Object.fromEntries(SYSTEM_PROFILES.ward.skills.map(name => [name,0]));
+
+  // Universal W.A.R.D. starting elements.
+  skills["Conduite"] = 2;
+  skills["Bureaucratie"] = 1;
+  skills["Observation"] = 1;
+
+  if (!rule) return skills;
+
+  const essentials = [];
+  for (const s of (rule.essential || [])) {
+    if (s in skills && !essentials.includes(s)) essentials.push(s);
+  }
+
+  // A "one among..." requirement gives one selected competency, not the whole list.
+  for (const alternatives of (rule.oneOf || [])) {
+    const chosen = alternatives.find(s => s in skills);
+    if (chosen && !essentials.includes(chosen)) essentials.push(chosen);
+  }
+
+  const intelligence = Number(characteristics.intelligence || 1);
+  const wits = Number(characteristics.wits || 1);
+  const canonicalProfessionalBudget = 10 + (intelligence * 2) + wits;
+  let remaining = Math.max(
+    essentials.length,
+    Math.floor(canonicalProfessionalBudget * wardNpcBudgetFactor(importance))
+  );
+
+  // Ranks already present from universal values count in the quick profile so
+  // that a generated NPC does not silently become stronger than intended.
+  const counted = new Set();
+  const spendTo = (skill, target) => {
+    if (!(skill in skills) || remaining <= 0) return;
+    target = Math.min(target, wardNpcMaxSkillByImportance(importance));
+    while (skills[skill] < target && remaining > 0) {
+      skills[skill] += 1;
+      remaining -= 1;
+    }
+    counted.add(skill);
+  };
+
+  // Minimum professional foundation.
+  for (const s of essentials) spendTo(s, 1);
+
+  const role = wardNpcRole(ctx);
+  const focus = (WARD_NPC_ROLE_SKILLS[role] || [])
+    .filter(s => s in skills && !essentials.includes(s));
+
+  // Broaden the sheet before specializing it.
+  const breadth = Number(importance ?? 2) <= 0 ? 2
+    : Number(importance ?? 2) === 1 ? 3
+    : Number(importance ?? 2) === 2 ? 5
+    : Number(importance ?? 2) === 3 ? 6
+    : 8;
+
+  for (const s of focus.slice(0, breadth)) spendTo(s, 1);
+
+  // Essential skills rise first.
+  for (const s of essentials) spendTo(s, 2);
+
+  // Profession-defining skills then become competent.
+  for (const s of focus.slice(0, Math.max(2, breadth - 1))) spendTo(s, 2);
+
+  if (wardNpcMaxSkillByImportance(importance) >= 3) {
+    for (const s of essentials.slice(0, Math.min(4, essentials.length))) spendTo(s, 3);
+    for (const s of focus.slice(0, 3)) spendTo(s, 3);
+  }
+
+  if (wardNpcMaxSkillByImportance(importance) >= 4) {
+    for (const s of essentials.slice(0, 2)) spendTo(s, 4);
+    for (const s of focus.slice(0, 2)) spendTo(s, 4);
+  }
+
+  // Spend any small remainder on useful role skills without exceeding the cap.
+  const finalOrder = [...essentials, ...focus];
+  let guard = 0;
+  while (remaining > 0 && finalOrder.length && guard < 100) {
+    const s = finalOrder[guard % finalOrder.length];
+    spendTo(s, Math.min(wardNpcMaxSkillByImportance(importance), (skills[s] || 0) + 1));
+    guard += 1;
+    if (finalOrder.every(s => skills[s] >= wardNpcMaxSkillByImportance(importance))) break;
+  }
+
+  return skills;
+}
+
+function wardSuggestedSkills(rule) {
+  const skills = Object.fromEntries(SYSTEM_PROFILES.ward.skills.map(name => [name,0]));
+  skills["Conduite"] = 2;
+  skills["Bureaucratie"] = 1;
+  skills["Observation"] = 1;
+
+  if (!rule) return skills;
+  for (const skill of (rule.essential || [])) {
+    if (skill in skills) skills[skill] = Math.max(skills[skill],1);
+  }
+  for (const alternatives of (rule.oneOf || [])) {
+    const chosen = alternatives.find(skill => skill in skills);
+    if (chosen) skills[chosen] = Math.max(skills[chosen],1);
+  }
+  return skills;
+}
+
+const CHARACTER_PRESETS = {
+  l5r1: {
+    mirumoto_bushi: {
+      characteristics:{stamina:3},
+      skills:{"Défense":1,"Iaijutsu":1,"Kenjutsu":1,"Connaissance : Shugenja":1,"Méditation":1,"Théologie":1,"Athlétisme":1}
+    },
+    kitsuki_investigator: {
+      characteristics:{perception:3,awareness:3},
+      skills:{"Investigation":2,"Courtisan":1,"Étiquette":1,"Sincérité":1,"Héraldique":1,"Connaissance : Histoire":1}
+    },
+    agasha_shugenja: {
+      characteristics:{intelligence:3},
+      skills:{"Calligraphie":1,"Méditation":2,"Théologie":2,"Connaissance : Shugenja":2,"Étiquette":1}
+    },
+    togashi_monk: {
+      characteristics:{stamina:3,willpower:3},
+      skills:{"Jiujutsu":2,"Athlétisme":1,"Méditation":2,"Théologie":1}
+    },
+    kakita_bushi: {
+      characteristics:{reflexes:3},
+      skills:{"Étiquette":1,"Iaijutsu":2,"Kenjutsu":1,"Kyujutsu":1,"Sincérité":1,"Cérémonie du thé":1,"Défense":1}
+    },
+    doji_courtier: {
+      characteristics:{awareness:3},
+      skills:{"Courtisan":2,"Étiquette":2,"Sincérité":2,"Héraldique":1,"Cérémonie du thé":1,"Poésie":1}
+    },
+    asahina_shugenja: {
+      characteristics:{intelligence:3,awareness:3},
+      skills:{"Calligraphie":1,"Méditation":2,"Théologie":2,"Étiquette":1,"Connaissance : Shugenja":1}
+    },
+    daidoji_bushi: {
+      characteristics:{agility:3},
+      skills:{"Kenjutsu":1,"Kyujutsu":1,"Défense":2,"Athlétisme":1,"Bataille":1}
+    },
+    hida_bushi: {
+      characteristics:{stamina:3,strength:3},
+      skills:{"Kenjutsu":1,"Jiujutsu":1,"Défense":1,"Athlétisme":2,"Bataille":1}
+    },
+    hiruma_scout: {
+      characteristics:{perception:3,agility:3},
+      skills:{"Athlétisme":1,"Défense":1,"Kenjutsu":1,"Kyujutsu":1,"Chasse":2,"Discrétion":2}
+    },
+    kuni_shugenja: {
+      characteristics:{intelligence:3,willpower:3},
+      skills:{"Théologie":2,"Méditation":1,"Calligraphie":1,"Connaissance : Shugenja":2,"Investigation":1}
+    },
+    yasuki_courtier: {
+      characteristics:{awareness:3,intelligence:3},
+      skills:{"Courtisan":2,"Commerce":2,"Étiquette":1,"Sincérité":1,"Investigation":1}
+    },
+    akodo_bushi: {
+      characteristics:{agility:3,intelligence:3},
+      skills:{"Bataille":2,"Kenjutsu":1,"Défense":1,"Kyujutsu":1,"Connaissance : Histoire":1,"Sincérité":1}
+    },
+    matsu_bushi: {
+      characteristics:{strength:3,agility:3},
+      skills:{"Kenjutsu":2,"Athlétisme":1,"Bataille":1,"Défense":1,"Jiujutsu":1}
+    },
+    ikoma_courtier: {
+      characteristics:{awareness:3,intelligence:3},
+      skills:{"Courtisan":2,"Étiquette":1,"Héraldique":1,"Connaissance : Histoire":2,"Sincérité":1}
+    },
+    kitsu_shugenja: {
+      characteristics:{intelligence:3,willpower:3},
+      skills:{"Théologie":2,"Méditation":2,"Calligraphie":1,"Connaissance : Histoire":1}
+    },
+    shiba_bushi: {
+      characteristics:{reflexes:3,willpower:3},
+      skills:{"Kenjutsu":1,"Défense":2,"Méditation":1,"Étiquette":1,"Théologie":1}
+    },
+    isawa_shugenja: {
+      characteristics:{intelligence:3,willpower:3},
+      skills:{"Théologie":2,"Méditation":2,"Calligraphie":1,"Connaissance : Shugenja":2,"Étiquette":1}
+    },
+    isawa_ishiken: {
+      characteristics:{willpower:3},
+      skills:{"Cérémonie du thé":1,"Connaissance : magie du Vide":2,"Méditation":2,"Shintao":1}
+    },
+    asako_courtier: {
+      characteristics:{intelligence:3,awareness:3},
+      skills:{"Courtisan":1,"Étiquette":2,"Connaissance : Histoire":2,"Sincérité":1,"Théologie":1}
+    },
+    bayushi_bushi: {
+      characteristics:{agility:3,awareness:3},
+      skills:{"Kenjutsu":1,"Iaijutsu":1,"Défense":1,"Étiquette":1,"Sincérité":2,"Discrétion":1}
+    },
+    bayushi_courtier: {
+      characteristics:{awareness:3,intelligence:3},
+      skills:{"Courtisan":2,"Étiquette":1,"Sincérité":2,"Investigation":1,"Discrétion":1}
+    },
+    shosuro_infiltrator: {
+      characteristics:{agility:3,reflexes:3},
+      skills:{"Discrétion":2,"Athlétisme":1,"Kenjutsu":1,"Jiujutsu":1,"Investigation":1,"Sincérité":1}
+    },
+    soshi_shugenja: {
+      characteristics:{intelligence:3,awareness:3},
+      skills:{"Théologie":2,"Méditation":1,"Calligraphie":1,"Discrétion":1,"Sincérité":1}
+    },
+    shinjo_bushi: {
+      characteristics:{agility:3,perception:3},
+      skills:{"Équitation":2,"Kenjutsu":1,"Kyujutsu":1,"Chasse":1,"Défense":1,"Athlétisme":1}
+    },
+    utaku_bushi: {
+      characteristics:{agility:3,reflexes:3},
+      skills:{"Équitation":2,"Kenjutsu":1,"Kyujutsu":1,"Défense":1,"Athlétisme":1}
+    },
+    ide_courtier: {
+      characteristics:{awareness:3,intelligence:3},
+      skills:{"Courtisan":2,"Étiquette":2,"Sincérité":1,"Commerce":1,"Héraldique":1}
+    },
+    iuchi_shugenja: {
+      characteristics:{intelligence:3,perception:3},
+      skills:{"Théologie":2,"Méditation":1,"Calligraphie":1,"Équitation":1,"Connaissance : Shugenja":1}
+    },
+    seppun_guard: {
+      characteristics:{reflexes:3,willpower:3},
+      skills:{"Kenjutsu":2,"Défense":2,"Étiquette":1,"Héraldique":1,"Bataille":1}
+    },
+    otomo_courtier: {
+      characteristics:{awareness:3,intelligence:3},
+      skills:{"Courtisan":2,"Étiquette":2,"Sincérité":2,"Héraldique":1}
+    },
+    miya_herald: {
+      characteristics:{awareness:3,perception:3},
+      skills:{"Étiquette":2,"Héraldique":2,"Équitation":1,"Sincérité":1,"Courtisan":1}
+    },
+    ronin_bushi: {
+      characteristics:{agility:3},
+      skills:{"Kenjutsu":2,"Défense":1,"Athlétisme":1,"Chasse":1,"Discrétion":1}
+    },
+    ronin_scout: {
+      characteristics:{perception:3,agility:3},
+      skills:{"Chasse":2,"Discrétion":2,"Athlétisme":1,"Kyujutsu":1,"Défense":1}
+    },
+    ronin_courtier: {
+      characteristics:{awareness:3},
+      skills:{"Courtisan":1,"Sincérité":2,"Étiquette":1,"Investigation":1,"Discrétion":1}
+    }
+  },
+
+  dnd5: {
+    fighter:{ characteristics:{strength:15,constitution:14,dexterity:13,wisdom:12,charisma:10,intelligence:8}, skills:{"Athlétisme":1,"Perception":1,"Intimidation":1} },
+    rogue:{ characteristics:{dexterity:15,intelligence:14,charisma:13,wisdom:12,constitution:10,strength:8}, skills:{"Discrétion":2,"Escamotage":2,"Investigation":1,"Perception":1,"Tromperie":1} },
+    wizard:{ characteristics:{intelligence:15,dexterity:14,constitution:13,wisdom:12,charisma:10,strength:8}, skills:{"Arcanes":1,"Histoire":1,"Investigation":1,"Perspicacité":1} },
+    cleric:{ characteristics:{wisdom:15,constitution:14,strength:13,charisma:12,dexterity:10,intelligence:8}, skills:{"Religion":1,"Médecine":1,"Perspicacité":1,"Persuasion":1} },
+    ranger:{ characteristics:{dexterity:15,wisdom:14,constitution:13,strength:12,intelligence:10,charisma:8}, skills:{"Survie":1,"Perception":1,"Nature":1,"Discrétion":1,"Athlétisme":1} },
+    bard:{ characteristics:{charisma:15,dexterity:14,constitution:13,wisdom:12,intelligence:10,strength:8}, skills:{"Représentation":2,"Persuasion":1,"Tromperie":1,"Perspicacité":1} },
+    barbarian:{ characteristics:{strength:15,constitution:14,dexterity:13,wisdom:12,charisma:10,intelligence:8}, skills:{"Athlétisme":1,"Survie":1,"Perception":1} },
+    druid:{ characteristics:{wisdom:15,constitution:14,dexterity:13,intelligence:12,strength:10,charisma:8}, skills:{"Nature":1,"Survie":1,"Perception":1,"Médecine":1} },
+    monk:{ characteristics:{dexterity:15,wisdom:14,constitution:13,strength:12,intelligence:10,charisma:8}, skills:{"Acrobaties":1,"Athlétisme":1,"Perspicacité":1,"Discrétion":1} },
+    paladin:{ characteristics:{strength:15,charisma:14,constitution:13,wisdom:12,dexterity:10,intelligence:8}, skills:{"Athlétisme":1,"Persuasion":1,"Religion":1,"Perspicacité":1} },
+    sorcerer:{ characteristics:{charisma:15,constitution:14,dexterity:13,wisdom:12,intelligence:10,strength:8}, skills:{"Arcanes":1,"Persuasion":1,"Tromperie":1,"Perspicacité":1} },
+    warlock:{ characteristics:{charisma:15,constitution:14,dexterity:13,wisdom:12,intelligence:10,strength:8}, skills:{"Arcanes":1,"Intimidation":1,"Investigation":1,"Tromperie":1} }
+  },
+
+  vampire2: {
+    clan: {
+      ventrue:{ characteristics:{charisma:3,manipulation:3}, skills:{"Commandement":2,"Finance":2,"Politique":1,"Étiquette":1} },
+      toreador:{ characteristics:{appearance:3,charisma:3}, skills:{"Expression":2,"Représentation":2,"Empathie":1,"Étiquette":1} },
+      brujah:{ characteristics:{strength:3,dexterity:3}, skills:{"Bagarre":2,"Intimidation":2,"Connaissance de la rue":1,"Athlétisme":1} },
+      gangrel:{ characteristics:{stamina:3,perception:3}, skills:{"Survie":2,"Animaux":2,"Bagarre":1,"Furtivité":1} },
+      malkavian:{ characteristics:{perception:3,wits:3}, skills:{"Investigation":2,"Empathie":2,"Occultisme":1,"Vigilance":1} },
+      nosferatu:{ characteristics:{dexterity:3,perception:3}, skills:{"Furtivité":2,"Informatique":1,"Sécurité":2,"Connaissance de la rue":1} },
+      tremere:{ characteristics:{intelligence:3,perception:3}, skills:{"Occultisme":3,"Investigation":1,"Linguistique":1,"Science":1} }
+    },
+    profession: {
+      executive:{ skills:{"Finance":2,"Politique":2,"Bureaucratie":1,"Commandement":1,"Étiquette":1} },
+      artist:{ skills:{"Expression":2,"Représentation":2,"Empathie":1,"Étiquette":1} },
+      investigator:{ skills:{"Investigation":2,"Vigilance":1,"Armes à feu":1,"Droit":1,"Empathie":1} },
+      academic:{ skills:{"Science":2,"Linguistique":1,"Investigation":1,"Occultisme":1} },
+      criminal:{ skills:{"Connaissance de la rue":2,"Sécurité":2,"Furtivité":1,"Armes à feu":1,"Subterfuge":1} },
+      journalist:{ skills:{"Investigation":2,"Empathie":1,"Subterfuge":1,"Politique":1,"Informatique":1} }
+    }
+  },
+
+  ward: {
+    paramilitary:{
+      characteristics:{dexterity:3,stamina:3,perception:3,strength:2,intelligence:2,wits:2},
+      skills:{"Conduite":2,"Bureaucratie":1,"Observation":1,"Athlétisme":1,"Commandement":1,"Discrétion":1,"Tactique":1,"Tir : Fusil":1,"Survie":1,"Premiers secours":1}
+    },
+    sigint:{
+      characteristics:{intelligence:3,perception:3,wits:2,charisma:2,manipulation:2},
+      skills:{"Conduite":2,"Bureaucratie":1,"Observation":1,"Cryptologie":2,"Investigation":1,"Recherche":2,"Réseau / Télécommunications":2,"Informatique":1,"Langue étrangère":1}
+    },
+    black_operator:{
+      characteristics:{dexterity:3,wits:3,perception:2,intelligence:2},
+      skills:{"Conduite":2,"Bureaucratie":1,"Observation":1,"Discrétion":2,"Furtivité":2,"Investigation":1,"Serrurerie":2,"Vigilance":2,"Électronique":1,"Tir : Pistolet":1}
+    },
+    investigator:{
+      characteristics:{perception:3,wits:3,intelligence:2,charisma:2},
+      skills:{"Conduite":2,"Bureaucratie":1,"Observation":2,"Investigation":2,"Vigilance":2,"Interroger":1,"Tir : Pistolet":1,"Recherche":1}
+    },
+    scientist:{
+      characteristics:{intelligence:3,perception:2,wits:2},
+      skills:{"Conduite":2,"Bureaucratie":1,"Observation":1,"Recherche":2,"Investigation":1,"Physique":1,"Biologie":1,"Mathématiques appliquées":1}
+    },
+    doctor:{
+      characteristics:{intelligence:3,perception:2,charisma:2},
+      skills:{"Conduite":2,"Bureaucratie":1,"Observation":1,"Médecine":3,"Premiers secours":2,"Biologie":1,"Psychologie":1,"Recherche":1}
+    },
+    defense_attache:{
+      characteristics:{charisma:3,manipulation:2,intelligence:2,perception:2,wits:2},
+      skills:{"Conduite":2,"Bureaucratie":2,"Observation":1,"Diplomatie":2,"Négociation":2,"Étiquette":2,"Commandement":1,"Relations internationales":1,"Langue étrangère":1}
+    }
+  }
+};
+
+
+
+const NPC_ARCHETYPES = [
+  ["generic","PNJ générique"],
+  ["civilian","Civil / villageois"],
+  ["guard","Garde / sécurité"],
+  ["soldier","Soldat / combattant"],
+  ["leader","Chef / notable / responsable"],
+  ["merchant","Marchand / négociant"],
+  ["scholar","Érudit / chercheur"],
+  ["artisan","Artisan / technicien"],
+  ["healer","Soigneur / médecin"],
+  ["scout","Éclaireur / pisteur"],
+  ["criminal","Criminel / contrebandier"],
+  ["courtier","Courtisan / diplomate"],
+  ["priest","Prêtre / religieux"],
+  ["servant","Serviteur / personnel"]
+];
+
+const DND_NPC_ROLE_SKILLS = {
+  generic:["Perception","Perspicacité"],
+  civilian:["Perception","Perspicacité"],
+  guard:["Perception","Athlétisme","Intimidation"],
+  soldier:["Athlétisme","Perception","Intimidation","Survie"],
+  leader:["Persuasion","Perspicacité","Intimidation","Histoire"],
+  merchant:["Persuasion","Perspicacité","Tromperie","Investigation"],
+  scholar:["Histoire","Investigation","Arcanes","Religion"],
+  artisan:["Investigation","Perception","Athlétisme"],
+  healer:["Médecine","Perspicacité","Religion"],
+  scout:["Perception","Survie","Discrétion","Nature"],
+  criminal:["Discrétion","Escamotage","Tromperie","Perception"],
+  courtier:["Persuasion","Perspicacité","Tromperie","Histoire"],
+  priest:["Religion","Perspicacité","Médecine","Persuasion"],
+  servant:["Perception","Perspicacité","Discrétion"]
+};
+
+const L5R_NPC_ROLE_SKILLS = {
+  generic:["Étiquette","Investigation","Athlétisme"],
+  civilian:["Commerce","Étiquette","Athlétisme"],
+  guard:["Kenjutsu","Défense","Investigation","Athlétisme"],
+  soldier:["Kenjutsu","Défense","Bataille","Athlétisme"],
+  leader:["Courtisan","Étiquette","Sincérité","Héraldique"],
+  merchant:["Commerce","Courtisan","Étiquette","Sincérité"],
+  scholar:["Connaissance : Histoire","Calligraphie","Investigation","Théologie"],
+  artisan:["Calligraphie","Commerce","Méditation"],
+  healer:["Théologie","Méditation","Investigation"],
+  scout:["Chasse","Discrétion","Athlétisme","Kyujutsu"],
+  criminal:["Discrétion","Investigation","Jiujutsu","Sincérité"],
+  courtier:["Courtisan","Étiquette","Sincérité","Héraldique"],
+  priest:["Théologie","Méditation","Calligraphie","Connaissance : Shugenja"],
+  servant:["Étiquette","Commerce","Athlétisme","Discrétion"]
+};
+
+const VAMPIRE_NPC_ROLE_SKILLS = {
+  generic:["Vigilance","Empathie","Conduite"],
+  civilian:["Vigilance","Empathie","Conduite"],
+  guard:["Vigilance","Athlétisme","Bagarre","Armes à feu"],
+  soldier:["Athlétisme","Bagarre","Armes à feu","Intimidation","Vigilance"],
+  leader:["Commandement","Empathie","Persuasion","Politique","Étiquette"],
+  merchant:["Finance","Empathie","Subterfuge","Étiquette","Persuasion"],
+  scholar:["Science","Investigation","Linguistique","Occultisme"],
+  artisan:["Artisanats","Représentation","Vigilance"],
+  healer:["Médecine","Empathie","Science","Vigilance"],
+  scout:["Vigilance","Survie","Furtivité","Athlétisme"],
+  criminal:["Connaissance de la rue","Sécurité","Furtivité","Subterfuge","Armes à feu"],
+  courtier:["Étiquette","Empathie","Subterfuge","Politique","Commandement"],
+  priest:["Occultisme","Empathie","Expression","Linguistique"],
+  servant:["Étiquette","Empathie","Vigilance","Furtivité"]
+};
+
+const WARD_NPC_GENERIC_ROLE_SKILLS = {
+  generic:["Observation","Vigilance","Conduite"],
+  civilian:["Observation","Conduite","Bureaucratie"],
+  guard:["Observation","Vigilance","Tir : Pistolet","Athlétisme","Premiers secours"],
+  soldier:["Tir : Fusil","Tactique","Athlétisme","Vigilance","Survie","Premiers secours"],
+  leader:["Commandement","Bureaucratie","Négociation","Observation","Diplomatie"],
+  merchant:["Négociation","Comptabilité","Bureaucratie","Persuasion","Observation"],
+  scholar:["Recherche","Investigation","Observation","Informatique","Histoire"],
+  artisan:["Réparation","Ingénierie (choisir une spécialité)","Observation","Électronique"],
+  healer:["Médecine","Premiers secours","Observation","Psychologie","Recherche"],
+  scout:["Observation","Vigilance","Discrétion","Survie","Orientation","Athlétisme"],
+  criminal:["Discrétion","Furtivité","Filature","Serrurerie","Tir : Pistolet","Baratin"],
+  courtier:["Diplomatie","Négociation","Bureaucratie","Relations internationales","Persuasion"],
+  priest:["Psychologie","Occultisme","Observation","Persuasion","Histoire"],
+  servant:["Observation","Conduite","Bureaucratie","Discrétion"]
+};
+
+const WARD_ROLE_FORMATIONS = {
+  combat:["Sciences Militaires","Défense en Corps à Corps","Premiers Secours Avancés","Survie et Évasion (SERE)","Tireur d’Élite"],
+  investigator:["Investigation","Surveillance","Profilage Comportemental Avancé","Psychologie de Terrain","Communication Avancée"],
+  analyst:["Analyse Stratégique","Communication Avancée","Surveillance Électronique","Analyse de Données Scientifiques Avancées"],
+  technical:["Équipement Avancé","Cyberdéfense","Surveillance Électronique","Réparation Militaire","Communications"],
+  humint:["Surveillance","Communication Avancée","Communication Multilingue","Psychologie de Terrain","Diplomatie"],
+  diplomat:["Diplomatie","Communication Avancée","Communication Multilingue","Politique","Analyse Stratégique"],
+  science:["Analyse de Données Scientifiques Avancées","Analyse Médico-Légale","Gestion des Biohazards","Radioprotection et intervention radiologique","Épidémiologie"],
+  pilot:["Navigation","Communication Avancée","Premiers Secours Avancés","Survie et Évasion (SERE)","Déplacement en Gravité Zéro"],
+  security:["Protection Rapprochée Avancée","Surveillance","Défense en Corps à Corps","Awareness (Vigilance)","Premiers Secours Avancés"],
+  emergency:["Premiers Secours Avancés","Navigation","Communication Avancée","Survie","Gestion des Biohazards"]
+};
+
+const WARD_EXPERTISE_LEVELS = [
+  [0,"0 — Non spécialiste / civil"],
+  [1,"1 — Qualifié"],
+  [2,"2 — Expérimenté"],
+  [3,"3 — Expert"],
+  [4,"4 — Senior / élite"],
+  [5,"5 — Exceptionnel"]
+];
+
+const VAMPIRE_NPC_TIERS = [
+  [0,"0 — Figurant / mortel ordinaire"],
+  [1,"1 — Mineur / compétent"],
+  [2,"2 — Récurrent / professionnel"],
+  [3,"3 — Important"],
+  [4,"4 — Majeur"],
+  [5,"5 — Ancien / exceptionnel"]
+];
+
+function npcRoleLabel(role) {
+  return NPC_ARCHETYPES.find(([id]) => id === role)?.[1] || "PNJ générique";
+}
+
+function isNpcEditor() {
+  return $("#characterEditType")?.value === "NPC";
+}
+
+function dndAbilityPriority(classId) {
+  return {
+    fighter:["strength","constitution","dexterity","wisdom","charisma","intelligence"],
+    rogue:["dexterity","intelligence","charisma","wisdom","constitution","strength"],
+    wizard:["intelligence","dexterity","constitution","wisdom","charisma","strength"],
+    cleric:["wisdom","constitution","strength","charisma","dexterity","intelligence"],
+    ranger:["dexterity","wisdom","constitution","strength","intelligence","charisma"],
+    bard:["charisma","dexterity","constitution","wisdom","intelligence","strength"],
+    barbarian:["strength","constitution","dexterity","wisdom","charisma","intelligence"],
+    druid:["wisdom","constitution","dexterity","intelligence","strength","charisma"],
+    monk:["dexterity","wisdom","constitution","strength","intelligence","charisma"],
+    paladin:["strength","charisma","constitution","wisdom","dexterity","intelligence"],
+    sorcerer:["charisma","constitution","dexterity","wisdom","intelligence","strength"],
+    warlock:["charisma","constitution","dexterity","wisdom","intelligence","strength"]
+  }[classId] || ["strength","constitution","dexterity","wisdom","charisma","intelligence"];
+}
+
+function dndAsiCount(classId, level) {
+  const features = dndClassData(classId)?.features || {};
+  let count = 0;
+  for (let l=1; l<=Number(level||1); l++) {
+    count += (features[l] || []).filter(x => x.includes("Amélioration de caractéristique")).length;
+  }
+  return count;
+}
+
+function dndNpcBuild(ctx, systemData = {}) {
+  const classId = ctx.profession || "fighter";
+  const level = Math.max(1, Math.min(20, Number(systemData.level || 1)));
+  const role = systemData.npcRole || "generic";
+  const base = CHARACTER_PRESETS.dnd5[classId] || CHARACTER_PRESETS.dnd5.fighter;
+  const characteristics = {...defaultCharacteristics(SYSTEM_PROFILES.dnd5), ...(base.characteristics || {})};
+  const skills = {...defaultSkills(SYSTEM_PROFILES.dnd5), ...(base.skills || {})};
+
+  const priority = dndAbilityPriority(classId);
+  let asiPoints = dndAsiCount(classId,level) * 2;
+  let cursor = 0;
+  while (asiPoints > 0 && cursor < 100) {
+    const key = priority[cursor % priority.length];
+    if ((characteristics[key] || 10) < 20) {
+      characteristics[key] += 1;
+      asiPoints -= 1;
+    }
+    cursor += 1;
+  }
+
+  const roleSkills = DND_NPC_ROLE_SKILLS[role] || DND_NPC_ROLE_SKILLS.generic;
+  const minimumCount = level <= 2 ? 2 : level <= 6 ? 3 : level <= 12 ? 4 : 5;
+  roleSkills.slice(0,minimumCount).forEach(skill => {
+    if (skill in skills) skills[skill] = Math.max(Number(skills[skill]||0),1);
+  });
+
+  if (level >= 5 && roleSkills[0] in skills) skills[roleSkills[0]] = 2;
+  if (level >= 11 && roleSkills[1] in skills) skills[roleSkills[1]] = 2;
+  if (level >= 17 && roleSkills[2] in skills) skills[roleSkills[2]] = 2;
+
+  return {characteristics,skills};
+}
+
+function l5rRings(characteristics) {
+  return {
+    earth:Math.min(Number(characteristics.stamina||2),Number(characteristics.willpower||2)),
+    water:Math.min(Number(characteristics.strength||2),Number(characteristics.perception||2)),
+    fire:Math.min(Number(characteristics.agility||2),Number(characteristics.intelligence||2)),
+    air:Math.min(Number(characteristics.reflexes||2),Number(characteristics.awareness||2)),
+    void:Number(characteristics.void||2)
+  };
+}
+
+function l5rInsight(characteristics, skills) {
+  const rings = l5rRings(characteristics);
+  const ringTotal = Object.values(rings).reduce((a,b)=>a+Number(b||0),0);
+  const skillTotal = Object.values(skills||{}).reduce((a,b)=>a+Number(b||0),0);
+  return (ringTotal * 10) + skillTotal;
+}
+
+function l5rRankForInsight(insight) {
+  const value = Number(insight||0);
+  if (value >= 226) return 5;
+  if (value >= 201) return 4;
+  if (value >= 176) return 3;
+  if (value >= 151) return 2;
+  return 1;
+}
+
+function l5rTargetInsight(rank) {
+  return {1:120,2:151,3:176,4:201,5:226}[Number(rank)||1] || 120;
+}
+
+const L5R_STARTING_HONOR = {
+  // L5R 1e : rang + cases, stocké ici en décimal (2 + 5 cases = 2.5).
+  mirumoto_bushi:2.5, kitsuki_investigator:2.5, agasha_shugenja:2.5,
+  hida_bushi:1.5, kuni_shugenja:1.5,
+  kakita_bushi:3.5, akodo_bushi:3.5, kitsu_shugenja:3.5,
+  bayushi_bushi:1.5, soshi_shugenja:1.5,
+  shinjo_bushi:2.5, utaku_bushi:2.5, iuchi_shugenja:2.5,
+  ronin_bushi:3.5, ronin_scout:3.5, ronin_courtier:3.5
+};
+
+function l5rNpcBuild(ctx, systemData = {}) {
+  const rank = Math.max(0, Math.min(5, Number(systemData.schoolRank ?? 1)));
+  const role = systemData.npcRole || "generic";
+  const schoolPreset = CHARACTER_PRESETS.l5r1[ctx.profession] || {characteristics:{},skills:{}};
+  const occupationPreset = l5rCombinedProfessionalPreset(ctx);
+  const presetSkills = l5rMergeSkillPresets(schoolPreset, occupationPreset).skills;
+  const preset = {characteristics:{...(schoolPreset.characteristics||{})},skills:presetSkills};
+  const characteristics = {...defaultCharacteristics(SYSTEM_PROFILES.l5r1), ...(preset.characteristics||{})};
+  const skills = {...defaultSkills(SYSTEM_PROFILES.l5r1), ...(preset.skills||{})};
+
+  const roleSkills = L5R_NPC_ROLE_SKILLS[role] || L5R_NPC_ROLE_SKILLS.generic;
+  const schoolSkills = Object.keys(schoolPreset.skills || {});
+  const professionSkills = Object.keys(occupationPreset.skills || {});
+  const focus = [...new Set([...schoolSkills,...professionSkills,...roleSkills])].filter(s => s in skills);
+
+  if (rank === 0) {
+    // Minor unschooled NPC: just enough to perform a social/professional role.
+    [...new Set([...professionSkills,...roleSkills])].slice(0,5).forEach((s,i) => {
+      if (s in skills) skills[s] = Math.max(skills[s]||0, i < 2 ? 2 : 1);
+    });
+    return {characteristics,skills};
+  }
+
+  // Raise core school/role skills by rank first.
+  const cap = Math.min(5, rank + 1);
+  focus.forEach((skill,index) => {
+    const target = Math.min(cap, 1 + Math.floor((rank + (index < 3 ? 1 : 0)) / 2));
+    skills[skill] = Math.max(Number(skills[skill]||0),target);
+  });
+
+  // At higher school ranks, mature the traits that already define the school.
+  const coreTraits = Object.entries(preset.characteristics || {})
+    .sort((a,b)=>Number(b[1])-Number(a[1])).map(([k])=>k);
+  const extraTraits = ["perception","agility","reflexes","awareness","stamina","willpower","intelligence","strength","void"];
+  const traitOrder = [...new Set([...coreTraits,...extraTraits])];
+  let traitSteps = Math.max(0,rank - 1);
+  let ti = 0;
+  while (traitSteps > 0 && ti < 40) {
+    const key = traitOrder[ti % traitOrder.length];
+    if ((characteristics[key]||2) < Math.min(5,2 + Math.ceil(rank/2))) {
+      characteristics[key] += 1;
+      traitSteps -= 1;
+    }
+    ti += 1;
+  }
+
+  // Make sure the generated sheet actually reaches the chosen Insight/School Rank.
+  const target = l5rTargetInsight(rank);
+  let guard = 0;
+  while (l5rInsight(characteristics,skills) < target && guard < 250) {
+    const skill = focus[guard % Math.max(1,focus.length)];
+    if (skill && (skills[skill]||0) < 5) {
+      skills[skill] += 1;
+    } else {
+      const key = traitOrder[guard % traitOrder.length];
+      if ((characteristics[key]||2) < 5) characteristics[key] += 1;
+      else {
+        const anySkill = Object.keys(skills).find(s => (skills[s]||0) < 5);
+        if (anySkill) skills[anySkill] += 1;
+      }
+    }
+    guard += 1;
+  }
+
+  return {characteristics,skills};
+}
+
+function vampireNpcBuild(ctx, systemData = {}) {
+  const tier = Math.max(0,Math.min(5,Number(systemData.npcTier ?? 1)));
+  const role = systemData.npcRole || "generic";
+  const base = vampireQuickBuild(ctx);
+  const characteristics = {...base.characteristics};
+  const skills = {...base.skills};
+
+  // Minor NPCs should be fast and readable: reduce a full PC-style profile.
+  if (tier <= 1) {
+    Object.keys(characteristics).forEach(k => characteristics[k] = tier === 0 ? 2 : Math.min(3,characteristics[k]));
+    Object.keys(skills).forEach(k => skills[k] = 0);
+
+    const roleSkills = VAMPIRE_NPC_ROLE_SKILLS[role] || VAMPIRE_NPC_ROLE_SKILLS.generic;
+    roleSkills.slice(0,tier===0?2:4).forEach((s,i) => {
+      if (s in skills) skills[s] = i===0 && tier===1 ? 2 : 1;
+    });
+    return {characteristics,skills};
+  }
+
+  const roleSkills = VAMPIRE_NPC_ROLE_SKILLS[role] || VAMPIRE_NPC_ROLE_SKILLS.generic;
+  roleSkills.forEach((s,i) => {
+    if (s in skills) skills[s] = Math.max(skills[s]||0, Math.min(5, i<2 ? tier : Math.max(1,tier-1)));
+  });
+
+  // Experienced and important vampires get a few standout Attributes.
+  const priorities = {
+    guard:["stamina","dexterity","perception"],
+    soldier:["strength","stamina","dexterity"],
+    leader:["charisma","manipulation","wits"],
+    merchant:["manipulation","charisma","intelligence"],
+    scholar:["intelligence","perception","wits"],
+    artisan:["dexterity","perception","intelligence"],
+    healer:["intelligence","perception","charisma"],
+    scout:["perception","dexterity","wits"],
+    criminal:["dexterity","wits","manipulation"],
+    courtier:["charisma","manipulation","appearance"],
+    priest:["charisma","perception","intelligence"],
+    generic:["perception","wits","stamina"]
+  }[role] || ["perception","wits","stamina"];
+
+  const maxTrait = Number(systemData.traitMax || 5);
+  let boosts = Math.max(0,tier-2) * 2;
+  let cursor = 0;
+  while (boosts > 0 && cursor < 50) {
+    const k = priorities[cursor % priorities.length];
+    if ((characteristics[k]||1) < maxTrait) {
+      characteristics[k] += 1;
+      boosts -= 1;
+    }
+    cursor += 1;
+  }
+
+  return {characteristics,skills};
+}
+
+function wardExpertiseSkillCap(level) {
+  level = Number(level||0);
+  return level <= 0 ? 2 : level === 1 ? 3 : 4;
+}
+
+function wardExpertiseAttributeCap(level) {
+  level = Number(level||0);
+  return level <= 1 ? 4 : 5;
+}
+
+function wardNpcBuildByExpertise(ctx, systemData = {}) {
+  const level = Math.max(0,Math.min(5,Number(systemData.expertiseLevel ?? 1)));
+  const role = systemData.npcRole || "generic";
+  const rule = wardRuleForContext(ctx);
+
+  let characteristics = wardSuggestedAttributes(rule);
+  let skills = wardSuggestedNpcSkills(rule,ctx,characteristics,Math.min(5,Math.max(0,level)));
+
+  const roleSkills = WARD_NPC_GENERIC_ROLE_SKILLS[role] || WARD_NPC_GENERIC_ROLE_SKILLS.generic;
+  const skillCap = wardExpertiseSkillCap(level);
+  const attrCap = wardExpertiseAttributeCap(level);
+
+  const core = [...new Set([
+    ...((rule?.essential)||[]),
+    ...(WARD_NPC_ROLE_SKILLS[wardNpcRole(ctx)]||[]),
+    ...roleSkills
+  ])].filter(s => s in skills);
+
+  if (level === 0) {
+    Object.keys(characteristics).forEach(k => characteristics[k] = Math.min(characteristics[k],3));
+    core.slice(0,3).forEach((s,i)=>skills[s]=Math.max(skills[s]||0,i===0?2:1));
+  } else {
+    const targets = [0,2,3,3,4,5];
+    const mainTarget = targets[level];
+    core.slice(0,2).forEach(s => skills[s] = Math.min(skillCap,Math.max(skills[s]||0,mainTarget)));
+    core.slice(2,6).forEach(s => skills[s] = Math.min(skillCap,Math.max(skills[s]||0,Math.max(1,mainTarget-1))));
+    core.slice(6,10).forEach(s => skills[s] = Math.min(skillCap,Math.max(skills[s]||0,Math.max(1,mainTarget-2))));
+
+    if (level >= 3) {
+      const attrPriority = [...new Set([...(rule?.primary||[]),...(rule?.secondary||[])])];
+      let boosts = level - 2;
+      let i=0;
+      while (boosts>0 && i<40) {
+        const k = attrPriority[i % Math.max(1,attrPriority.length)];
+        if (k && (characteristics[k]||1) < attrCap) {
+          characteristics[k] += 1;
+          boosts -= 1;
+        }
+        i += 1;
+      }
+    }
+  }
+
+  const roleType = wardNpcRole(ctx);
+  const possibleFormations = WARD_ROLE_FORMATIONS[roleType] || WARD_ROLE_FORMATIONS.analyst;
+  const count = level <= 0 ? 0 : level === 1 ? 1 : level === 2 ? 2 : level === 3 ? 3 : level === 4 ? 4 : 5;
+  const formations = possibleFormations.slice(0,count);
+
+  return {characteristics,skills,formations};
+}
+
+const DND_CLASS_DATA_2014 = {
+  fighter:{
+    label:"Guerrier", hitDie:10, averageHit:6,
+    features:{
+      1:["Style de combat","Second souffle"],
+      2:["Sursaut d’action"],
+      3:["Archétype martial"],
+      4:["Amélioration de caractéristique"],
+      5:["Attaque supplémentaire"],
+      6:["Amélioration de caractéristique"],
+      7:["Aptitude d’archétype"],
+      8:["Amélioration de caractéristique"],
+      9:["Indomptable (1 utilisation)"],
+      10:["Aptitude d’archétype"],
+      11:["Attaque supplémentaire (2)"],
+      12:["Amélioration de caractéristique"],
+      13:["Indomptable (2 utilisations)"],
+      14:["Amélioration de caractéristique"],
+      15:["Aptitude d’archétype"],
+      16:["Amélioration de caractéristique"],
+      17:["Sursaut d’action (2 utilisations)","Indomptable (3 utilisations)"],
+      18:["Aptitude d’archétype"],
+      19:["Amélioration de caractéristique"],
+      20:["Attaque supplémentaire (3)"]
+    }
+  },
+  rogue:{
+    label:"Roublard", hitDie:8, averageHit:5,
+    features:{
+      1:["Expertise","Attaque sournoise","Argot des voleurs"],
+      2:["Ruse"],
+      3:["Archétype de roublard"],
+      4:["Amélioration de caractéristique"],
+      5:["Esquive instinctive"],
+      6:["Expertise"],
+      7:["Évasion"],
+      8:["Amélioration de caractéristique"],
+      9:["Aptitude d’archétype"],
+      10:["Amélioration de caractéristique"],
+      11:["Talent fiable"],
+      12:["Amélioration de caractéristique"],
+      13:["Aptitude d’archétype"],
+      14:["Perception aveugle"],
+      15:["Esprit fuyant"],
+      16:["Amélioration de caractéristique"],
+      17:["Aptitude d’archétype"],
+      18:["Insaisissable"],
+      19:["Amélioration de caractéristique"],
+      20:["Coup de chance"]
+    }
+  },
+  wizard:{
+    label:"Magicien", hitDie:6, averageHit:4,
+    features:{
+      1:["Incantation","Récupération arcanique"],
+      2:["Tradition arcanique"],
+      4:["Amélioration de caractéristique"],
+      6:["Aptitude de tradition"],
+      8:["Amélioration de caractéristique"],
+      10:["Aptitude de tradition"],
+      12:["Amélioration de caractéristique"],
+      14:["Aptitude de tradition"],
+      16:["Amélioration de caractéristique"],
+      18:["Maîtrise des sorts"],
+      19:["Amélioration de caractéristique"],
+      20:["Sorts de prédilection"]
+    }
+  },
+  cleric:{
+    label:"Clerc", hitDie:8, averageHit:5,
+    features:{
+      1:["Incantation","Domaine divin"],
+      2:["Canalisation d’énergie divine"],
+      4:["Amélioration de caractéristique"],
+      5:["Destruction des morts-vivants"],
+      6:["Canalisation améliorée","Aptitude de domaine"],
+      8:["Amélioration de caractéristique","Aptitude de domaine"],
+      10:["Intervention divine"],
+      11:["Destruction des morts-vivants améliorée"],
+      12:["Amélioration de caractéristique"],
+      14:["Destruction des morts-vivants améliorée"],
+      16:["Amélioration de caractéristique"],
+      17:["Aptitude de domaine"],
+      18:["Canalisation améliorée"],
+      19:["Amélioration de caractéristique"],
+      20:["Intervention divine améliorée"]
+    }
+  },
+  ranger:{
+    label:"Rôdeur", hitDie:10, averageHit:6,
+    features:{
+      1:["Ennemi juré","Explorateur-né"],
+      2:["Style de combat","Incantation"],
+      3:["Archétype de rôdeur","Vigilance primitive"],
+      4:["Amélioration de caractéristique"],
+      5:["Attaque supplémentaire"],
+      6:["Amélioration d’Ennemi juré / Explorateur-né"],
+      7:["Aptitude d’archétype"],
+      8:["Amélioration de caractéristique","Foulée tellurique"],
+      10:["Amélioration d’Explorateur-né","Camouflage"],
+      11:["Aptitude d’archétype"],
+      12:["Amélioration de caractéristique"],
+      14:["Amélioration d’Ennemi juré","Disparition"],
+      15:["Aptitude d’archétype"],
+      16:["Amélioration de caractéristique"],
+      18:["Sens sauvages"],
+      19:["Amélioration de caractéristique"],
+      20:["Tueur d’ennemis"]
+    }
+  },
+  bard:{
+    label:"Barde", hitDie:8, averageHit:5,
+    features:{
+      1:["Incantation","Inspiration bardique d6"],
+      2:["Touche-à-tout","Chant de repos d6"],
+      3:["Collège bardique","Expertise"],
+      4:["Amélioration de caractéristique"],
+      5:["Inspiration bardique d8","Source d’inspiration"],
+      6:["Contre-charme","Aptitude de collège"],
+      8:["Amélioration de caractéristique"],
+      9:["Chant de repos d8"],
+      10:["Inspiration bardique d10","Expertise","Secrets magiques"],
+      12:["Amélioration de caractéristique"],
+      13:["Chant de repos d10"],
+      14:["Secrets magiques","Aptitude de collège"],
+      15:["Inspiration bardique d12"],
+      16:["Amélioration de caractéristique"],
+      17:["Chant de repos d12"],
+      18:["Secrets magiques"],
+      19:["Amélioration de caractéristique"],
+      20:["Inspiration supérieure"]
+    }
+  }
+};
+
+
+
+// D&D 5e 2014 — classes complémentaires contrôlées dans le corpus fourni (Races, Classes et Sorts).
+Object.assign(DND_CLASS_DATA_2014,{
+  barbarian:{label:"Barbare",hitDie:12,averageHit:7,features:{1:["Rage","Défense sans armure"],2:["Attaque téméraire","Sens du danger"],3:["Voie primitive"],4:["Amélioration de caractéristique"],5:["Attaque supplémentaire","Déplacement rapide"],6:["Aptitude de voie"],7:["Instinct sauvage"],8:["Amélioration de caractéristique"],9:["Critique brutal (1 dé)"],10:["Aptitude de voie"],11:["Rage implacable"],12:["Amélioration de caractéristique"],13:["Critique brutal (2 dés)"],14:["Aptitude de voie"],15:["Rage ininterrompue"],16:["Amélioration de caractéristique"],17:["Critique brutal (3 dés)"],18:["Puissance indomptable"],19:["Amélioration de caractéristique"],20:["Champion primitif"]}},
+  druid:{label:"Druide",hitDie:8,averageHit:5,features:{1:["Druidique","Incantation"],2:["Forme sauvage","Cercle druidique"],4:["Amélioration de caractéristique"],6:["Aptitude de cercle"],8:["Amélioration de caractéristique"],10:["Aptitude de cercle"],12:["Amélioration de caractéristique"],14:["Aptitude de cercle"],16:["Amélioration de caractéristique"],18:["Jeunesse éternelle","Incantation animale"],19:["Amélioration de caractéristique"],20:["Archidruide"]}},
+  monk:{label:"Moine",hitDie:8,averageHit:5,features:{1:["Défense sans armure","Arts martiaux"],2:["Ki","Déplacement sans armure"],3:["Tradition monastique","Parade de projectiles"],4:["Amélioration de caractéristique","Chute ralentie"],5:["Attaque supplémentaire","Frappe étourdissante"],6:["Frappes de ki","Aptitude de tradition"],7:["Dérobade","Tranquillité de l’esprit"],8:["Amélioration de caractéristique"],9:["Déplacement sans armure amélioré"],10:["Pureté du corps"],11:["Aptitude de tradition"],12:["Amélioration de caractéristique"],13:["Langage du soleil et de la lune"],14:["Âme de diamant"],15:["Jeunesse éternelle"],16:["Amélioration de caractéristique"],17:["Aptitude de tradition"],18:["Corps vide"],19:["Amélioration de caractéristique"],20:["Perfection de l’être"]}},
+  paladin:{label:"Paladin",hitDie:10,averageHit:6,features:{1:["Sens divin","Imposition des mains"],2:["Style de combat","Incantation","Châtiment divin"],3:["Santé divine","Serment sacré"],4:["Amélioration de caractéristique"],5:["Attaque supplémentaire"],6:["Aura de protection"],7:["Aptitude de serment"],8:["Amélioration de caractéristique"],10:["Aura de courage"],11:["Châtiment divin amélioré"],12:["Amélioration de caractéristique"],14:["Contact purificateur"],15:["Aptitude de serment"],16:["Amélioration de caractéristique"],18:["Amélioration des auras"],19:["Amélioration de caractéristique"],20:["Aptitude de serment"]}},
+  sorcerer:{label:"Ensorceleur",hitDie:6,averageHit:4,features:{1:["Incantation","Origine magique"],2:["Source de magie"],3:["Métamagie"],4:["Amélioration de caractéristique"],6:["Aptitude d’origine magique"],8:["Amélioration de caractéristique"],10:["Métamagie"],12:["Amélioration de caractéristique"],14:["Aptitude d’origine magique"],16:["Amélioration de caractéristique"],17:["Métamagie"],18:["Aptitude d’origine magique"],19:["Amélioration de caractéristique"],20:["Restauration magique"]}},
+  warlock:{label:"Sorcier",hitDie:8,averageHit:5,features:{1:["Patron d’Outremonde","Magie de pacte"],2:["Invocations occultes"],3:["Pacte"],4:["Amélioration de caractéristique"],6:["Aptitude de patron"],8:["Amélioration de caractéristique"],10:["Aptitude de patron"],11:["Arcanum mystique (niveau 6)"],12:["Amélioration de caractéristique"],13:["Arcanum mystique (niveau 7)"],14:["Aptitude de patron"],15:["Arcanum mystique (niveau 8)"],16:["Amélioration de caractéristique"],17:["Arcanum mystique (niveau 9)"],19:["Amélioration de caractéristique"],20:["Maître de l’occulte"]}}
+});
+
+// D&D 2024 — character-origin and multiclass model.
+const DND_2024_SPECIES = [
+  ["aasimar","Aasimar"],["dragonborn","Drakéide"],["dwarf","Nain"],["elf","Elfe"],["gnome","Gnome"],
+  ["goliath","Goliath"],["halfling","Halfelin"],["human","Humain"],["orc","Orc"],["tiefling","Tieffelin"],
+  ["mixed","Ascendance mixte / personnalisée (option MJ)"]
+];
+const DND_2024_BACKGROUNDS = [
+  ["acolyte","Acolyte"],["artisan","Artisan"],["charlatan","Charlatan"],["criminal","Criminel"],
+  ["entertainer","Artiste"],["farmer","Fermier"],["guard","Garde"],["guide","Guide"],
+  ["hermit","Ermite"],["merchant","Marchand"],["noble","Noble"],["sage","Sage"],
+  ["sailor","Marin"],["scribe","Scribe"],["soldier","Soldat"],["wayfarer","Voyageur"]
+];
+const DND_2024_ORIGIN_FEATS = [
+  ["alert","Alert"],["crafter","Crafter"],["healer","Healer"],["lucky","Lucky"],["magic_initiate","Magic Initiate"],
+  ["musician","Musician"],["savage_attacker","Savage Attacker"],["skilled","Skilled"],["tavern_brawler","Tavern Brawler"],["tough","Tough"]
+];
+const DND_2024_MASTERY_PROPERTIES = ["Cleave","Graze","Nick","Push","Sap","Slow","Topple","Vex"];
+const DND_2024_WEAPONS = [
+  ["club","Gourdin","Slow"],["dagger","Dague","Nick"],["greatclub","Massue","Push"],["handaxe","Hachette","Vex"],
+  ["javelin","Javeline","Slow"],["light_hammer","Marteau léger","Nick"],["mace","Masse d’armes","Sap"],["quarterstaff","Bâton","Topple"],
+  ["sickle","Faucille","Nick"],["spear","Lance","Sap"],["dart","Fléchette","Vex"],["light_crossbow","Arbalète légère","Slow"],
+  ["shortbow","Arc court","Vex"],["sling","Fronde","Slow"],["battleaxe","Hache d’armes","Topple"],["flail","Fléau","Sap"],
+  ["glaive","Coutille","Graze"],["greataxe","Hache à deux mains","Cleave"],["greatsword","Épée à deux mains","Graze"],["halberd","Hallebarde","Cleave"],
+  ["lance","Lance d’arçon","Topple"],["longsword","Épée longue","Sap"],["maul","Maillet d’armes","Topple"],["morningstar","Étoile du matin","Sap"],
+  ["pike","Pique","Push"],["rapier","Rapière","Vex"],["scimitar","Cimeterre","Nick"],["shortsword","Épée courte","Vex"],
+  ["trident","Trident","Topple"],["war_pick","Pic de guerre","Sap"],["warhammer","Marteau de guerre","Push"],["whip","Fouet","Slow"],
+  ["blowgun","Sarbacane","Vex"],["hand_crossbow","Arbalète de poing","Vex"],["heavy_crossbow","Arbalète lourde","Push"],["longbow","Arc long","Slow"],
+  ["musket","Mousquet (arme à feu)","Slow"],["pistol","Pistolet (arme à feu)","Vex"]
+];
+const DND_2024_CLASS_OPTIONS = [
+  ["barbarian","Barbare"],["bard","Barde"],["cleric","Clerc"],["druid","Druide"],["fighter","Guerrier"],["monk","Moine"],
+  ["paladin","Paladin"],["ranger","Rôdeur"],["rogue","Roublard"],["sorcerer","Ensorceleur"],["warlock","Occultiste"],["wizard","Magicien"]
+];
+const DND_2024_HIT_DICE = {barbarian:12,bard:8,cleric:8,druid:8,fighter:10,monk:8,paladin:10,ranger:10,rogue:8,sorcerer:6,warlock:8,wizard:6};
+const DND_2024_MULTICLASS_REQ = {barbarian:"FOR 13",bard:"CHA 13",cleric:"SAG 13",druid:"SAG 13",fighter:"FOR ou DEX 13",monk:"DEX et SAG 13",paladin:"FOR et CHA 13",ranger:"DEX et SAG 13",rogue:"DEX 13",sorcerer:"CHA 13",warlock:"CHA 13",wizard:"INT 13"};
+function dnd2024ClassLabel(id){ return DND_2024_CLASS_OPTIONS.find(x=>x[0]===id)?.[1] || id; }
+function dnd2024MasteryCount(classId, level){
+  level=Number(level||1);
+  if(classId==="fighter") return level>=16?6:level>=10?5:level>=4?4:3;
+  if(classId==="barbarian") return level>=10?4:level>=4?3:2;
+  if(classId==="rogue") return 2;
+  if(classId==="ranger") return level>=9?3:2;
+  if(classId==="paladin") return level>=9?3:2;
+  return 0;
+}
+function dnd2024ClassesFromData(data, primaryClass){
+  const list=Array.isArray(data?.classes)&&data.classes.length?data.classes.map(x=>({...x})):[{classId:primaryClass||"fighter",level:Number(data?.level||1),subclass:data?.subclass||""}];
+  if(list[0]) { list[0].classId=primaryClass||list[0].classId||"fighter"; list[0].level=Math.max(1,Number(list[0].level||data?.level||1)); list[0].subclass=data?.subclass||list[0].subclass||""; }
+  return list;
+}
+function dnd2024TotalLevel(classes){ return (classes||[]).reduce((n,c)=>n+Math.max(0,Number(c.level||0)),0); }
+function dnd2024MulticlassHtml(classes){
+  return `<div class="system-derived"><strong>Multiclassage 2024</strong><div class="system-note">Le niveau total détermine le bonus de maîtrise ; chaque classe conserve son propre niveau et ses aptitudes. Vérifier les prérequis indiqués avant d’ajouter une classe.</div><div id="dnd2024Classes">${classes.map((c,i)=>`<div class="system-values-grid dnd-multiclass-row" data-class-row="${i}">${systemSelectField(i===0?"Classe principale":`Classe ${i+1}`,`class_${i}`,c.classId,DND_2024_CLASS_OPTIONS)}${systemInputField("Niveau",`classLevel_${i}`,c.level,{min:1,max:20})}<label class="field"><span>Prérequis</span><input value="${esc(DND_2024_MULTICLASS_REQ[c.classId]||'—')}" disabled></label>${i?`<button type="button" class="btn danger small dnd-remove-class" data-index="${i}">Retirer</button>`:""}</div>`).join("")}</div><button type="button" class="btn secondary small" id="dndAddClass">+ Ajouter une classe</button></div>`;
+}
+function dnd2024OriginHtml(data){
+ const species=data.species||"human", bg=data.background||"", feat=data.originFeat||"";
+ return `<div class="system-derived"><strong>Origine du personnage — règles 2024</strong><div class="system-values-grid">${systemSelectField("Espèce","species",species,DND_2024_SPECIES)}${systemInputField("Héritage / lignée / ascendance mixte","heritage",data.heritage||"",{})}${systemSelectField("Historique","background",bg,[["","— À choisir —"],...DND_2024_BACKGROUNDS])}${systemSelectField("Don d’origine","originFeat",feat,[["","— À choisir / selon historique —"],...DND_2024_ORIGIN_FEATS])}${systemInputField("Autres dons","featsText",data.featsText||"",{})}</div><div class="system-note">Les bonus de caractéristiques 2024 sont liés à l’historique. « Ascendance mixte / personnalisée » est une option MJ de l’application et n’est pas présentée comme une fusion mécanique standard des espèces.</div></div>`;
+}
+function dnd2024MasteryHtml(data, classes){
+ const max=(classes||[]).reduce((m,c)=>Math.max(m,dnd2024MasteryCount(c.classId,c.level)),0);
+ const selected=Array.isArray(data.weaponMasteries)?data.weaponMasteries:[];
+ return `<div class="system-derived"><strong>Maîtrises d’armes — ${selected.length}/${max}</strong><div class="system-feature-list" id="dndMasteryList">${DND_2024_WEAPONS.map(w=>`<label class="system-feature"><input type="checkbox" class="dnd-mastery-check" value="${w[0]}" ${selected.includes(w[0])?'checked':''} ${max===0?'disabled':''}> ${esc(w[1])} · <b>${w[2]}</b></label>`).join("")}</div><div class="system-note">Propriétés disponibles : ${DND_2024_MASTERY_PROPERTIES.join(", ")}. Les armes à feu sont présentes comme équipement moderne optionnel ; leur disponibilité reste un choix de campagne/MJ.</div></div>`;
+}
+
+const DND_CLASS_DATA_2024 = {
+  fighter:{label:"Guerrier",hitDie:10,features:{1:["Style de combat","Second souffle","Maîtrise d’armes"],2:["Sursaut d’action","Esprit tactique"],3:["Sous-classe de Guerrier"],4:["Amélioration de caractéristique"],5:["Attaque supplémentaire","Déplacement tactique"],6:["Amélioration de caractéristique"],7:["Aptitude de sous-classe"],8:["Amélioration de caractéristique"],9:["Indomptable (1 utilisation)","Maître tacticien"],10:["Aptitude de sous-classe"],11:["Deux attaques supplémentaires"],12:["Amélioration de caractéristique"],13:["Indomptable (2 utilisations)","Attaques étudiées"],14:["Amélioration de caractéristique"],15:["Aptitude de sous-classe"],16:["Amélioration de caractéristique"],17:["Sursaut d’action (2 utilisations)","Indomptable (3 utilisations)"],18:["Aptitude de sous-classe"],19:["Don épique"],20:["Trois attaques supplémentaires"]}},
+  rogue:{label:"Roublard",hitDie:8,features:{1:["Expertise","Attaque sournoise","Argot des voleurs","Maîtrise d’armes"],2:["Ruse"],3:["Sous-classe de Roublard","Visée assurée"],4:["Amélioration de caractéristique"],5:["Frappe rusée","Esquive instinctive"],6:["Expertise"],7:["Évasion","Talent fiable"],8:["Amélioration de caractéristique"],9:["Aptitude de sous-classe"],10:["Amélioration de caractéristique"],11:["Frappe rusée améliorée"],12:["Amélioration de caractéristique"],13:["Aptitude de sous-classe"],14:["Frappes retorses"],15:["Esprit fuyant"],16:["Amélioration de caractéristique"],17:["Aptitude de sous-classe"],18:["Insaisissable"],19:["Don épique"],20:["Coup de chance"]}},
+  wizard:{label:"Magicien",hitDie:6,features:{1:["Incantation","Adepte des rituels","Récupération arcanique"],2:["Érudit"],3:["Sous-classe de Magicien"],4:["Amélioration de caractéristique"],5:["Mémoriser un sort"],6:["Aptitude de sous-classe"],8:["Amélioration de caractéristique"],10:["Aptitude de sous-classe"],12:["Amélioration de caractéristique"],14:["Aptitude de sous-classe"],16:["Amélioration de caractéristique"],18:["Maîtrise des sorts"],19:["Don épique"],20:["Sorts de prédilection"]}},
+  cleric:{label:"Clerc",hitDie:8,features:{1:["Incantation","Ordre divin"],2:["Canalisation d’énergie divine"],3:["Sous-classe de Clerc"],4:["Amélioration de caractéristique"],5:["Consumer les morts-vivants"],6:["Aptitude de sous-classe"],7:["Frappes bénies"],8:["Amélioration de caractéristique"],10:["Intervention divine"],12:["Amélioration de caractéristique"],14:["Frappes bénies améliorées"],16:["Amélioration de caractéristique"],17:["Aptitude de sous-classe"],19:["Don épique"],20:["Intervention divine supérieure"]}},
+  ranger:{label:"Rôdeur",hitDie:10,features:{1:["Incantation","Ennemi juré","Maîtrise d’armes"],2:["Explorateur habile","Style de combat"],3:["Sous-classe de Rôdeur"],4:["Amélioration de caractéristique"],5:["Attaque supplémentaire"],6:["Itinérant"],7:["Aptitude de sous-classe"],8:["Amélioration de caractéristique"],9:["Expertise"],10:["Infatigable"],11:["Aptitude de sous-classe"],12:["Amélioration de caractéristique"],13:["Chasseur implacable"],14:["Voile de la nature"],15:["Aptitude de sous-classe"],16:["Amélioration de caractéristique"],17:["Chasseur précis"],18:["Sens sauvages"],19:["Don épique"],20:["Tueur d’ennemis"]}},
+  bard:{label:"Barde",hitDie:8,features:{1:["Inspiration bardique","Incantation"],2:["Expertise","Touche-à-tout"],3:["Sous-classe de Barde"],4:["Amélioration de caractéristique"],5:["Source d’inspiration"],6:["Aptitude de sous-classe"],7:["Contre-charme"],8:["Amélioration de caractéristique"],9:["Expertise"],10:["Secrets magiques"],12:["Amélioration de caractéristique"],14:["Aptitude de sous-classe"],16:["Amélioration de caractéristique"],18:["Inspiration supérieure"],19:["Don épique"],20:["Mots de création"]}}
+};
+
+Object.assign(DND_CLASS_DATA_2024,{
+  barbarian:{label:"Barbare",hitDie:12,features:{1:["Rage","Défense sans armure","Maîtrise d’armes"],2:["Sens du danger","Attaque téméraire"],3:["Sous-classe de Barbare","Connaissance primale"],4:["Amélioration de caractéristique"],5:["Attaque supplémentaire","Déplacement rapide"],6:["Aptitude de sous-classe"],7:["Instinct sauvage","Bond instinctif"],8:["Amélioration de caractéristique"],9:["Frappe brutale"],10:["Aptitude de sous-classe"],11:["Rage implacable"],12:["Amélioration de caractéristique"],13:["Frappe brutale améliorée"],14:["Aptitude de sous-classe"],15:["Rage persistante"],16:["Amélioration de caractéristique"],17:["Frappe brutale améliorée"],18:["Puissance indomptable"],19:["Don épique"],20:["Champion primordial"]}},
+  druid:{label:"Druide",hitDie:8,features:{1:["Incantation","Druidique","Ordre primordial"],2:["Forme sauvage","Compagnon sauvage"],3:["Sous-classe de Druide"],4:["Amélioration de caractéristique"],5:["Résurgence sauvage"],6:["Aptitude de sous-classe"],7:["Fureur élémentaire"],8:["Amélioration de caractéristique"],9:["Immunité au poison"],10:["Aptitude de sous-classe"],12:["Amélioration de caractéristique"],14:["Aptitude de sous-classe"],15:["Fureur élémentaire améliorée"],16:["Amélioration de caractéristique"],18:["Corps intemporel","Sorts bestiaux"],19:["Don épique"],20:["Archidruide"]}},
+  monk:{label:"Moine",hitDie:8,features:{1:["Arts martiaux","Défense sans armure"],2:["Focalisation du moine","Déplacement sans armure","Métabolisme surnaturel"],3:["Déviation d’attaques","Sous-classe de Moine"],4:["Amélioration de caractéristique","Chute ralentie"],5:["Attaque supplémentaire","Frappe étourdissante"],6:["Frappes renforcées","Aptitude de sous-classe"],7:["Évasion"],8:["Amélioration de caractéristique"],9:["Déplacement acrobatique"],10:["Focalisation accrue","Restauration de soi"],11:["Aptitude de sous-classe"],12:["Amélioration de caractéristique"],13:["Déviation d’énergie"],14:["Survivant discipliné"],15:["Focalisation parfaite"],16:["Amélioration de caractéristique"],17:["Aptitude de sous-classe"],18:["Défense supérieure"],19:["Don épique"],20:["Corps et esprit"]}},
+  paladin:{label:"Paladin",hitDie:10,features:{1:["Imposition des mains","Incantation","Maîtrise d’armes"],2:["Style de combat","Châtiment du paladin"],3:["Canalisation d’énergie divine","Sous-classe de Paladin"],4:["Amélioration de caractéristique"],5:["Attaque supplémentaire","Destrier fidèle"],6:["Aura de protection"],7:["Aptitude de sous-classe"],8:["Amélioration de caractéristique"],9:["Abjuration des ennemis"],10:["Aura de courage"],11:["Frappes radiantes"],12:["Amélioration de caractéristique"],14:["Toucher restaurateur"],15:["Aptitude de sous-classe"],16:["Amélioration de caractéristique"],18:["Extension d’aura"],19:["Don épique"],20:["Aptitude de sous-classe"]}},
+  sorcerer:{label:"Ensorceleur",hitDie:6,features:{1:["Incantation","Sorcellerie innée"],2:["Fontaine de magie","Métamagie"],3:["Sous-classe d’Ensorceleur"],4:["Amélioration de caractéristique"],5:["Restauration sorcière"],6:["Aptitude de sous-classe"],7:["Sorcellerie incarnée"],8:["Amélioration de caractéristique"],10:["Métamagie"],12:["Amélioration de caractéristique"],14:["Aptitude de sous-classe"],16:["Amélioration de caractéristique"],17:["Métamagie"],18:["Aptitude de sous-classe"],19:["Don épique"],20:["Apothéose arcanique"]}},
+  warlock:{label:"Occultiste",hitDie:8,features:{1:["Invocations occultes","Magie de pacte"],2:["Ruse magique"],3:["Sous-classe d’Occultiste"],4:["Amélioration de caractéristique"],6:["Aptitude de sous-classe"],8:["Amélioration de caractéristique"],9:["Contacter le patron"],10:["Aptitude de sous-classe"],11:["Arcanum mystique (niveau 6)"],12:["Amélioration de caractéristique"],13:["Arcanum mystique (niveau 7)"],14:["Aptitude de sous-classe"],15:["Arcanum mystique (niveau 8)"],16:["Amélioration de caractéristique"],17:["Arcanum mystique (niveau 9)"],19:["Don épique"],20:["Maître de l’occulte"]}}
+});
+
+function dndClassData(classId) {
+  const source = isDnd2024() ? DND_CLASS_DATA_2024 : DND_CLASS_DATA_2014;
+  return source[classId] || source.fighter;
+}
+
+
+// V0.19.17 — les choix affichés pendant la création D&D dépendent de la classe.
+// Ce profil décrit les catégories accessibles/maîtrisées ; il sert à l'interface,
+// sans empêcher le MJ d'ajouter manuellement un objet hors maîtrise.
+const DND_CLASS_ACCESS_2014 = {
+  barbarian:{armor:["Armures légères","Armures intermédiaires","Boucliers"],weapons:["Armes courantes","Armes de guerre"],tools:["Aucun"],saves:["Force","Constitution"],skills:["Athlétisme","Dressage","Intimidation","Nature","Perception","Survie"],skillChoices:2},
+  bard:{armor:["Armures légères"],weapons:["Armes courantes","Arbalète de poing","Épée longue","Épée courte","Rapière"],tools:["3 instruments de musique au choix"],saves:["Dextérité","Charisme"],skills:["3 compétences au choix"],skillChoices:3},
+  cleric:{armor:["Armures légères","Armures intermédiaires","Boucliers"],weapons:["Armes courantes"],tools:["Aucun"],saves:["Sagesse","Charisme"],skills:["Histoire","Médecine","Perspicacité","Persuasion","Religion"],skillChoices:2},
+  druid:{armor:["Armures légères","Armures intermédiaires","Boucliers (restrictions druidiques selon la règle 2014)"],weapons:["Bâton","Cimeterre","Dague","Faucille","Fronde","Gourdin","Javeline","Lance","Masse d’armes","Fléchette"],tools:["Matériel d’herboriste"],saves:["Intelligence","Sagesse"],skills:["Arcanes","Dressage","Médecine","Nature","Perception","Perspicacité","Religion","Survie"],skillChoices:2},
+  fighter:{armor:["Toutes les armures","Boucliers"],weapons:["Armes courantes","Armes de guerre"],tools:["Aucun"],saves:["Force","Constitution"],skills:["Acrobaties","Athlétisme","Dressage","Histoire","Intimidation","Perception","Perspicacité","Survie"],skillChoices:2},
+  monk:{armor:["Aucune"],weapons:["Armes courantes","Épée courte"],tools:["1 outil d’artisan ou instrument de musique au choix"],saves:["Force","Dextérité"],skills:["Acrobaties","Athlétisme","Discrétion","Histoire","Perspicacité","Religion"],skillChoices:2},
+  paladin:{armor:["Toutes les armures","Boucliers"],weapons:["Armes courantes","Armes de guerre"],tools:["Aucun"],saves:["Sagesse","Charisme"],skills:["Athlétisme","Intimidation","Médecine","Perspicacité","Persuasion","Religion"],skillChoices:2},
+  ranger:{armor:["Armures légères","Armures intermédiaires","Boucliers"],weapons:["Armes courantes","Armes de guerre"],tools:["Aucun"],saves:["Force","Dextérité"],skills:["Athlétisme","Discrétion","Dressage","Investigation","Nature","Perception","Perspicacité","Survie"],skillChoices:3},
+  rogue:{armor:["Armures légères"],weapons:["Armes courantes","Arbalète de poing","Épée courte","Épée longue","Rapière"],tools:["Outils de voleur"],saves:["Dextérité","Intelligence"],skills:["Acrobaties","Athlétisme","Discrétion","Escamotage","Intimidation","Investigation","Perception","Perspicacité","Persuasion","Représentation","Tromperie"],skillChoices:4},
+  sorcerer:{armor:["Aucune"],weapons:["Arbalète légère","Bâton","Dague","Fléchette","Fronde"],tools:["Aucun"],saves:["Constitution","Charisme"],skills:["Arcanes","Intimidation","Perspicacité","Persuasion","Religion","Tromperie"],skillChoices:2},
+  warlock:{armor:["Armures légères"],weapons:["Armes courantes"],tools:["Aucun"],saves:["Sagesse","Charisme"],skills:["Arcanes","Histoire","Intimidation","Investigation","Nature","Religion","Tromperie"],skillChoices:2},
+  wizard:{armor:["Aucune"],weapons:["Arbalète légère","Bâton","Dague","Fléchette","Fronde"],tools:["Aucun"],saves:["Intelligence","Sagesse"],skills:["Arcanes","Histoire","Investigation","Médecine","Perspicacité","Religion"],skillChoices:2}
+};
+
+function dndClassAccess(classId){
+  // Pour 2024, le panneau reste volontairement synthétique tant que les tables
+  // complètes de maîtrises 2024 ne sont pas toutes structurées dans le corpus.
+  if (isDnd2024()) {
+    const legacy=DND_CLASS_ACCESS_2014[classId] || DND_CLASS_ACCESS_2014.fighter;
+    return {...legacy,editionNote:"Profil d’accès affiché comme aide de création ; les aptitudes et maîtrises 2024 structurées priment lorsqu’elles diffèrent."};
+  }
+  return DND_CLASS_ACCESS_2014[classId] || DND_CLASS_ACCESS_2014.fighter;
+}
+
+function dndClassAccessHtml(classId, level){
+  const a=dndClassAccess(classId);
+  const subclassAt=dndSubclassLevel(classId);
+  const magic=dndCasterType(classId,"") !== "none" || ["fighter","rogue"].includes(classId);
+  return `<div class="system-derived dnd-class-access">
+    <div class="rules-section-head"><div><div class="card-kicker">ACCÈS LIÉ À LA CLASSE</div><strong>${esc(dndClassData(classId).label)}</strong></div><span class="mini-badge">niveau ${Number(level||1)}</span></div>
+    <div class="system-values-grid">
+      <div class="system-value-field"><label>Armures</label><div>${esc(a.armor.join(" · "))}</div></div>
+      <div class="system-value-field"><label>Armes</label><div>${esc(a.weapons.join(" · "))}</div></div>
+      <div class="system-value-field"><label>Outils</label><div>${esc(a.tools.join(" · "))}</div></div>
+      <div class="system-value-field"><label>Jets de sauvegarde</label><div>${esc(a.saves.join(" · "))}</div></div>
+    </div>
+    <div class="system-note"><strong>Compétences de classe (${a.skillChoices} choix) :</strong> ${esc(a.skills.join(", "))}.</div>
+    <div class="system-note"><strong>Sous-classe :</strong> ${Number(level||1) >= subclassAt ? "choix accessible à ce niveau" : `verrouillée jusqu’au niveau ${subclassAt}`}.</div>
+    ${magic?`<div class="system-note"><strong>Magie :</strong> les listes, emplacements et choix de sorts affichés plus bas sont filtrés par la classe, la sous-classe et le niveau. ${dndCasterType(classId,"")!=="none" ? `Emplacements actuels : ${dndSpellSlots(classId,"",level).map((n,i)=>`N${i+1}:${n}`).join(" · ") || "aucun"}.` : "Cette classe n’obtient la magie que par certaines sous-classes."}</div>`:""}
+    ${a.editionNote?`<div class="system-note">${esc(a.editionNote)}</div>`:""}
+  </div>`;
+}
+
+
+const DND_SUBCLASS_OPTIONS_2014 = {
+  fighter:[
+    ["","— À choisir —"],
+    ["champion","Champion"],
+    ["battle_master","Maître de guerre"],
+    ["eldritch_knight","Chevalier occulte"]
+  ],
+  rogue:[
+    ["","— À choisir —"],
+    ["thief","Voleur"],
+    ["assassin","Assassin"],
+    ["arcane_trickster","Escroc arcanique"]
+  ],
+  wizard:[
+    ["","— Tradition magique à choisir —"],
+    ["abjuration","École d’Abjuration"],
+    ["conjuration","École de Conjuration"],
+    ["divination","École de Divination"],
+    ["enchantment","École d’Enchantement"],
+    ["evocation","École d’Évocation"],
+    ["illusion","École d’Illusion"],
+    ["necromancy","École de Nécromancie"],
+    ["transmutation","École de Transmutation"]
+  ],
+  cleric:[
+    ["","— Domaine divin à choisir —"],
+    ["knowledge","Domaine de la Connaissance"],
+    ["life","Domaine de la Vie"],
+    ["light","Domaine de la Lumière"],
+    ["nature","Domaine de la Nature"],
+    ["tempest","Domaine de la Tempête"],
+    ["trickery","Domaine de la Ruse"],
+    ["war","Domaine de la Guerre"]
+  ],
+  ranger:[
+    ["","— Archétype à choisir —"],
+    ["hunter","Chasseur"],
+    ["beast_master","Maître des bêtes"]
+  ],
+  bard:[
+    ["","— Collège à choisir —"],
+    ["lore","Collège du Savoir"],
+    ["valor","Collège de la Vaillance"]
+  ],
+  barbarian:[["","— Voie primitive à choisir —"],["berserker","Voie du Berserker"],["totem_warrior","Voie du Guerrier totémique"]],
+  druid:[["","— Cercle druidique à choisir —"],["land","Cercle de la Terre"],["moon","Cercle de la Lune"]],
+  monk:[["","— Tradition monastique à choisir —"],["open_hand","Voie de la Main ouverte"],["shadow","Voie de l’Ombre"],["four_elements","Voie des Quatre éléments"]],
+  paladin:[["","— Serment sacré à choisir —"],["devotion","Serment de Dévotion"],["ancients","Serment des Anciens"],["vengeance","Serment de Vengeance"]],
+  sorcerer:[["","— Origine magique à choisir —"],["draconic","Lignée draconique"],["wild_magic","Magie sauvage"]],
+  warlock:[["","— Patron d’Outremonde à choisir —"],["archfey","Archifée"],["fiend","Fiélon"],["great_old_one","Grand Ancien"]]
+};
+
+const DND_SUBCLASS_LEVEL_2014 = {
+  fighter:3, rogue:3, wizard:2, cleric:1, ranger:3, bard:3, barbarian:3, druid:2, monk:3, paladin:3, sorcerer:1, warlock:1
+};
+
+const DND_SUBCLASS_OPTIONS_2024 = {
+  fighter:[["","— À choisir au niveau 3 —"],["champion","Champion"],["battle_master","Maître de guerre"],["eldritch_knight","Chevalier occulte"],["psi_warrior","Guerrier psi"]],
+  rogue:[["","— À choisir au niveau 3 —"],["thief","Voleur"],["assassin","Assassin"],["arcane_trickster","Escroc arcanique"],["soulknife","Lame d’âme"]],
+  wizard:[["","— Sous-classe à choisir au niveau 3 —"],["abjurer","Abjurateur"],["diviner","Devin"],["evoker","Évocateur"],["illusionist","Illusionniste"]],
+  cleric:[["","— Domaine à choisir au niveau 3 —"],["life","Domaine de la Vie"],["light","Domaine de la Lumière"],["trickery","Domaine de la Ruse"],["war","Domaine de la Guerre"]],
+  ranger:[["","— Sous-classe à choisir au niveau 3 —"],["beast_master","Maître des bêtes"],["fey_wanderer","Vagabond féerique"],["gloom_stalker","Traqueur des ténèbres"],["hunter","Chasseur"]],
+  bard:[["","— Collège à choisir au niveau 3 —"],["dance","Collège de la Danse"],["glamour","Collège du Glamour"],["lore","Collège du Savoir"],["valor","Collège de la Vaillance"]],
+  barbarian:[["","— Voie à choisir au niveau 3 —"],["berserker","Voie du Berserker"],["wild_heart","Voie du Cœur sauvage"],["world_tree","Voie de l’Arbre-Monde"],["zealot","Voie du Zélote"]],
+  druid:[["","— Cercle à choisir au niveau 3 —"],["land","Cercle de la Terre"],["moon","Cercle de la Lune"],["sea","Cercle de la Mer"],["stars","Cercle des Étoiles"]],
+  monk:[["","— Tradition à choisir au niveau 3 —"],["mercy","Guerrier de la Miséricorde"],["elements","Guerrier des Éléments"],["open_hand","Guerrier de la Main ouverte"],["shadow","Guerrier de l’Ombre"]],
+  paladin:[["","— Serment à choisir au niveau 3 —"],["devotion","Serment de Dévotion"],["glory","Serment de Gloire"],["ancients","Serment des Anciens"],["vengeance","Serment de Vengeance"]],
+  sorcerer:[["","— Origine à choisir au niveau 3 —"],["aberrant","Sorcellerie aberrante"],["clockwork","Sorcellerie mécanique"],["draconic","Sorcellerie draconique"],["wild_magic","Magie sauvage"]],
+  warlock:[["","— Patron à choisir au niveau 3 —"],["archfey","Patron Archifée"],["celestial","Patron Céleste"],["fiend","Patron Fiélon"],["great_old_one","Patron Grand Ancien"]]
+};
+
+function dndSubclassOptions(classId) { return (isDnd2024() ? DND_SUBCLASS_OPTIONS_2024 : DND_SUBCLASS_OPTIONS_2014)[classId] || [["","— À choisir —"]]; }
+function dndSubclassLevel(classId) { return isDnd2024() ? 3 : (DND_SUBCLASS_LEVEL_2014[classId] || 3); }
+
+
+const DND_FULL_CASTER_SLOTS = {
+  1:[2],2:[3],3:[4,2],4:[4,3],5:[4,3,2],6:[4,3,3],
+  7:[4,3,3,1],8:[4,3,3,2],9:[4,3,3,3,1],10:[4,3,3,3,2],
+  11:[4,3,3,3,2,1],12:[4,3,3,3,2,1],13:[4,3,3,3,2,1,1],
+  14:[4,3,3,3,2,1,1],15:[4,3,3,3,2,1,1,1],16:[4,3,3,3,2,1,1,1],
+  17:[4,3,3,3,2,1,1,1,1],18:[4,3,3,3,3,1,1,1,1],
+  19:[4,3,3,3,3,2,1,1,1],20:[4,3,3,3,3,2,2,1,1]
+};
+
+const DND_RANGER_SLOTS = {
+  1:[],2:[2],3:[3],4:[3],5:[4,2],6:[4,2],7:[4,3],8:[4,3],
+  9:[4,3,2],10:[4,3,2],11:[4,3,3],12:[4,3,3],13:[4,3,3,1],
+  14:[4,3,3,1],15:[4,3,3,2],16:[4,3,3,2],17:[4,3,3,3,1],
+  18:[4,3,3,3,1],19:[4,3,3,3,2],20:[4,3,3,3,2]
+};
+
+const DND_THIRD_CASTER_SLOTS = {
+  1:[],2:[],3:[2],4:[3],5:[3],6:[3],7:[4,2],8:[4,2],
+  9:[4,2],10:[4,3],11:[4,3],12:[4,3],13:[4,3,2],14:[4,3,2],
+  15:[4,3,2],16:[4,3,3],17:[4,3,3],18:[4,3,3],19:[4,3,3,1],20:[4,3,3,1]
+};
+
+const DND_BARD_SPELLS_KNOWN = {
+  1:4,2:5,3:6,4:7,5:8,6:9,7:10,8:11,9:12,10:14,
+  11:15,12:15,13:16,14:18,15:19,16:19,17:20,18:22,19:22,20:22
+};
+
+const DND_RANGER_SPELLS_KNOWN = {
+  1:0,2:2,3:3,4:3,5:4,6:4,7:5,8:5,9:6,10:6,
+  11:7,12:7,13:8,14:8,15:9,16:9,17:10,18:10,19:11,20:11
+};
+
+const DND_THIRD_CASTER_SPELLS_KNOWN = {
+  1:0,2:0,3:3,4:4,5:4,6:4,7:5,8:6,9:6,10:7,
+  11:8,12:8,13:9,14:10,15:10,16:11,17:11,18:11,19:12,20:13
+};
+
+const DND_2024_HALF_CASTER_SLOTS = {
+  1:[2],2:[2],3:[3],4:[3],5:[4,2],6:[4,2],7:[4,3],8:[4,3],9:[4,3,2],10:[4,3,2],
+  11:[4,3,3],12:[4,3,3],13:[4,3,3,1],14:[4,3,3,1],15:[4,3,3,2],16:[4,3,3,2],17:[4,3,3,3,1],18:[4,3,3,3,1],19:[4,3,3,3,2],20:[4,3,3,3,2]
+};
+const DND_2024_WARLOCK_PACT = {
+  1:[1,1],2:[2,1],3:[2,2],4:[2,2],5:[2,3],6:[2,3],7:[2,4],8:[2,4],9:[2,5],10:[2,5],
+  11:[3,5],12:[3,5],13:[3,5],14:[3,5],15:[3,5],16:[3,5],17:[4,5],18:[4,5],19:[4,5],20:[4,5]
+};
+const DND_2024_PREPARED = {
+  wizard:[0,4,5,6,7,9,10,11,12,14,15,16,16,17,18,19,21,22,23,24,25],
+  cleric:[0,4,5,6,7,9,10,11,12,14,15,16,16,17,17,18,18,19,20,21,22],
+  druid:[0,4,5,6,7,9,10,11,12,14,15,16,16,17,17,18,18,19,20,21,22],
+  bard:[0,4,5,6,7,9,10,11,12,14,15,16,16,17,17,18,18,19,20,21,22],
+  ranger:[0,2,3,4,5,6,6,7,7,9,9,10,10,11,11,12,12,14,14,15,15],
+  paladin:[0,2,3,4,5,6,6,7,7,9,9,10,10,11,11,12,12,14,14,15,15],
+  sorcerer:[0,2,4,6,7,9,10,11,12,14,15,16,16,17,17,18,18,19,20,21,22],
+  warlock:[0,2,3,4,5,6,7,8,9,10,10,11,11,12,12,13,13,14,14,15,15]
+};
+
+
+function dndCantripsKnown(classId, subclass, level) {
+  const lvl = Math.max(1,Number(level||1));
+
+  if (classId === "wizard") return lvl >= 10 ? 5 : (lvl >= 4 ? 4 : 3);
+  if (classId === "cleric") return lvl >= 10 ? 5 : (lvl >= 4 ? 4 : 3);
+  if (classId === "bard") return lvl >= 10 ? 4 : (lvl >= 4 ? 3 : 2);
+  if (isDnd2024() && classId === "druid") return lvl >= 10 ? 4 : (lvl >= 4 ? 3 : 2);
+  if (isDnd2024() && classId === "sorcerer") return lvl >= 10 ? 6 : (lvl >= 4 ? 5 : 4);
+  if (isDnd2024() && classId === "warlock") return lvl >= 10 ? 4 : (lvl >= 4 ? 3 : 2);
+  if (classId === "fighter" && subclass === "eldritch_knight") return lvl >= 10 ? 3 : (lvl >= 3 ? 2 : 0);
+  if (classId === "rogue" && subclass === "arcane_trickster") return lvl >= 10 ? 4 : (lvl >= 3 ? 3 : 0);
+  return 0;
+}
+
+function dndCasterType(classId, subclass) {
+  if (["wizard","cleric","bard","druid","sorcerer"].includes(classId)) return "full";
+  if (["ranger","paladin"].includes(classId)) return "half";
+  if (classId === "warlock") return "pact";
+  if (classId === "fighter" && subclass === "eldritch_knight") return "third";
+  if (classId === "rogue" && subclass === "arcane_trickster") return "third";
+  return "none";
+}
+
+function dndSpellSlots(classId, subclass, level) {
+  const casterType = dndCasterType(classId,subclass);
+  const lvl = Math.max(1,Math.min(20,Number(level||1)));
+  if (casterType === "full") return [...(DND_FULL_CASTER_SLOTS[lvl] || [])];
+  if (casterType === "half") return [...((isDnd2024() ? DND_2024_HALF_CASTER_SLOTS : DND_RANGER_SLOTS)[lvl] || [])];
+  if (casterType === "pact") { const [count,slotLevel]=DND_2024_WARLOCK_PACT[lvl]||[0,0]; return Array.from({length:slotLevel},(_,i)=>i===slotLevel-1?count:0); }
+  if (casterType === "third") return [...(DND_THIRD_CASTER_SLOTS[lvl] || [])];
+  return [];
+}
+
+function dndSpellCatalogClass(classId, subclass) {
+  if (classId === "fighter" && subclass === "eldritch_knight") return "wizard";
+  if (classId === "rogue" && subclass === "arcane_trickster") return "wizard";
+  return classId;
+}
+
+function dndSpellLimits(classId, subclass, level, characteristics = {}) {
+  const lvl = Math.max(1,Math.min(20,Number(level||1)));
+  const casterType = dndCasterType(classId,subclass);
+  const cantrips = dndCantripsKnown(classId,subclass,lvl);
+  if (isDnd2024() && ["wizard","cleric","druid","bard","ranger","paladin","sorcerer","warlock"].includes(classId)) {
+    return {
+      mode: classId === "wizard" ? "spellbook" : (classId === "warlock" ? "pact" : "prepared"),
+      cantrips,
+      classLearned: classId === "wizard" ? 6 + Math.max(0,lvl - 1) * 2 : undefined,
+      prepared: DND_2024_PREPARED[classId][lvl] || 0,
+      slots:dndSpellSlots(classId,subclass,lvl)
+    };
+  }
+  const abilityMod = classId === "cleric"
+    ? dndModifier(characteristics.wisdom)
+    : dndModifier(characteristics.intelligence);
+
+  if (classId === "wizard") {
+    return {
+      mode:"spellbook",
+      cantrips,
+      classLearned:6 + Math.max(0,lvl - 1) * 2,
+      prepared:Math.max(1,lvl + abilityMod),
+      slots:dndSpellSlots(classId,subclass,lvl)
+    };
+  }
+
+  if (classId === "cleric") {
+    return {
+      mode:"prepared",
+      cantrips,
+      prepared:Math.max(1,lvl + abilityMod),
+      slots:dndSpellSlots(classId,subclass,lvl)
+    };
+  }
+
+  if (classId === "bard") {
+    return {
+      mode:"known",
+      cantrips,
+      known:DND_BARD_SPELLS_KNOWN[lvl] || 0,
+      slots:dndSpellSlots(classId,subclass,lvl)
+    };
+  }
+
+  if (classId === "ranger") {
+    return {
+      mode:"known",
+      cantrips:0,
+      known:DND_RANGER_SPELLS_KNOWN[lvl] || 0,
+      slots:dndSpellSlots(classId,subclass,lvl)
+    };
+  }
+
+  if (casterType === "third") {
+    return {
+      mode:"known",
+      cantrips,
+      known:DND_THIRD_CASTER_SPELLS_KNOWN[lvl] || 0,
+      slots:dndSpellSlots(classId,subclass,lvl)
+    };
+  }
+
+  return {mode:"none",cantrips:0,slots:[]};
+}
+
+function dndSpellLevelForName(classId, subclass, name) {
+  const catalogClass = dndSpellCatalogClass(classId,subclass);
+  const row = (DND_SPELL_CATALOG[catalogClass] || []).find(([,spellName]) => spellName === name);
+  return row ? Number(row[0]) : null;
+}
+
+function dndSpellLimitSummary(classId, subclass, level, characteristics, selected = []) {
+  const limits = dndSpellLimits(classId,subclass,level,characteristics);
+  const selectedCantrips = selected.filter(name => dndSpellLevelForName(classId,subclass,name) === 0).length;
+  const selectedLeveled = selected.filter(name => {
+    const l = dndSpellLevelForName(classId,subclass,name);
+    return Number.isFinite(l) && l > 0;
+  }).length;
+
+  return {...limits,selectedCantrips,selectedLeveled};
+}
+
+function dndSpellSlotsHtml(slots = []) {
+  if (!slots.length) return `<span class="row-sub">Aucun emplacement de sort à ce niveau.</span>`;
+  return `
+    <div class="spell-slot-grid">
+      ${slots.map((count,index) => `
+        <div class="spell-slot">
+          <span>Niveau ${index+1}</span>
+          <strong>${Number(count||0)}</strong>
+        </div>
+      `).join("")}
+    </div>`;
+}
+
+const DND_SPELL_CATALOG = {
+  wizard:[
+    [0,"Aspersion acide"],[0,"Contact glacial"],[0,"Lumière"],[0,"Main du mage"],
+    [0,"Message"],[0,"Illusion mineure"],[0,"Prestidigitation"],[0,"Rayon de givre"],
+    [0,"Réparation"],[0,"Trait de feu"],[0,"Poigne électrique"],
+    [1,"Alarme"],[1,"Armure du mage"],[1,"Bouclier"],[1,"Charme-personne"],
+    [1,"Compréhension des langues"],[1,"Détection de la magie"],[1,"Déguisement"],
+    [1,"Feuille morte"],[1,"Familier"],[1,"Graisse"],[1,"Identification"],
+    [1,"Image silencieuse"],[1,"Mains brûlantes"],[1,"Projectile magique"],[1,"Sommeil"],
+    [1,"Vague tonnante"],
+    [2,"Agrandissement/Rapetissement"],[2,"Cécité/Surdité"],[2,"Détection des pensées"],
+    [2,"Flou"],[2,"Fracassement"],[2,"Image miroir"],[2,"Immobilisation de personne"],
+    [2,"Invisibilité"],[2,"Lévitation"],[2,"Pas brumeux"],[2,"Rayon ardent"],
+    [2,"Suggestion"],[2,"Ténèbres"],[2,"Toile d’araignée"],
+    [3,"Boule de feu"],[3,"Clairvoyance"],[3,"Contresort"],[3,"Dissipation de la magie"],
+    [3,"Éclair"],[3,"Hâte"],[3,"Image majeure"],[3,"Lenteur"],[3,"Peur"],
+    [3,"Protection contre les énergies"],[3,"Respiration aquatique"],[3,"Vol"],
+    [4,"Bannissement"],[4,"Dimension door / Porte dimensionnelle"],[4,"Invisibilité supérieure"],
+    [4,"Métamorphose"],[4,"Mur de feu"],[4,"Peau de pierre"],
+    [5,"Cône de froid"],[5,"Immobilisation de monstre"],[5,"Mur de force"],
+    [5,"Nuage mortel"],[5,"Scrutation"],[5,"Télékinésie"],[5,"Cercle de téléportation"],
+    [6,"Chaîne d’éclairs"],[6,"Désintégration"],[6,"Globe d’invulnérabilité"],
+    [6,"Suggestion de masse"],[6,"Vision suprême"],
+    [7,"Changement de plan"],[7,"Doigt de mort"],[7,"Éthéréité"],[7,"Téléportation"],
+    [8,"Champ antimagie"],[8,"Dédale"],[8,"Domination de monstre"],[8,"Mot de pouvoir étourdissant"],
+    [9,"Arrêt du temps"],[9,"Portail"],[9,"Prémonition"],[9,"Souhait"],[9,"Tempête de météores"]
+  ],
+  cleric:[
+    [0,"Assistance"],[0,"Flamme sacrée"],[0,"Lumière"],[0,"Réparation"],[0,"Résistance"],
+    [1,"Bénédiction"],[1,"Bouclier de la foi"],[1,"Détection du mal et du bien"],
+    [1,"Mot de guérison"],[1,"Sanctuaire"],[1,"Soins"],[1,"Protection contre le mal et le bien"],
+    [2,"Aide"],[2,"Arme spirituelle"],[2,"Immobilisation de personne"],[2,"Prière de guérison"],
+    [2,"Restauration partielle"],[2,"Silence"],
+    [3,"Animation des morts"],[3,"Cercle magique"],[3,"Dissipation de la magie"],
+    [3,"Esprits gardiens"],[3,"Mot de guérison de groupe"],[3,"Réanimation"],
+    [4,"Bannissement"],[4,"Gardien de la foi"],[4,"Liberté de mouvement"],
+    [5,"Colonne de flamme"],[5,"Fléau d’insectes"],[5,"Rappel à la vie"],[5,"Restauration supérieure"],
+    [6,"Barrière de lames"],[6,"Guérison"],[6,"Mot de rappel"],[6,"Vision suprême"],
+    [7,"Résurrection"],[7,"Symbole"],
+    [8,"Aura sacrée"],[8,"Tremblement de terre"],
+    [9,"Guérison de groupe"],[9,"Résurrection suprême"],[9,"Portail"]
+  ],
+  bard:[
+    [0,"Illusion mineure"],[0,"Lumière"],[0,"Main du mage"],[0,"Moquerie cruelle"],
+    [0,"Prestidigitation"],
+    [1,"Charme-personne"],[1,"Compréhension des langues"],[1,"Déguisement"],
+    [1,"Fou rire de Tasha"],[1,"Mot de guérison"],[1,"Sommeil"],[1,"Vague tonnante"],
+    [2,"Amélioration de caractéristique"],[2,"Détection des pensées"],[2,"Invisibilité"],
+    [2,"Immobilisation de personne"],[2,"Silence"],[2,"Suggestion"],
+    [3,"Clairvoyance"],[3,"Dissipation de la magie"],[3,"Image majeure"],[3,"Motif hypnotique"],
+    [4,"Invisibilité supérieure"],[4,"Liberté de mouvement"],[4,"Métamorphose"],
+    [5,"Domination de personne"],[5,"Immobilisation de monstre"],[5,"Restauration supérieure"],
+    [6,"Suggestion de masse"],[6,"Vision suprême"],
+    [7,"Éthéréité"],[7,"Téléportation"],
+    [8,"Domination de monstre"],[8,"Mot de pouvoir étourdissant"],
+    [9,"Mot de pouvoir mortel"],[9,"Prémonition"]
+  ],
+  ranger:[
+    [1,"Alarme"],[1,"Baies nourricières"],[1,"Détection de la magie"],[1,"Marque du chasseur"],
+    [1,"Nappe de brouillard"],[1,"Saut"],[1,"Soins"],
+    [2,"Localisation d’objet"],[2,"Passage sans trace"],[2,"Peau d’écorce"],[2,"Silence"],
+    [3,"Croissance végétale"],[3,"Flèche de foudre"],[3,"Lumière du jour"],[3,"Respiration aquatique"],
+    [4,"Liberté de mouvement"],[4,"Localisation de créature"],[4,"Peau de pierre"],
+    [5,"Carquois magique"],[5,"Communion avec la nature"],[5,"Passage par les arbres"]
+  ]
+};
+
+function dndSubclassLabel(classId) {
+  return {
+    wizard:"Tradition magique",
+    cleric:"Domaine divin",
+    bard:"Collège bardique",
+    fighter:"Archétype martial",
+    rogue:"Archétype de roublard",
+    ranger:"Archétype de rôdeur"
+  }[classId] || "Sous-classe / archétype";
+}
+
+function dndMaxSpellLevel(classId, subclass, level) {
+  const slots = dndSpellSlots(classId,subclass,level);
+  let max = 0;
+  slots.forEach((count,index) => {
+    if (Number(count||0) > 0) max = index + 1;
+  });
+  return max;
+}
+
+function dndClassCanCast(classId, subclass) {
+  return dndCasterType(classId,subclass) !== "none";
+}
+
+function dndSpellChoicesHtml(classId, subclass, level, selected = [], customSpells = "", characteristics = {}) {
+  if (!dndClassCanCast(classId,subclass)) return "";
+
+  const maxLevel = dndMaxSpellLevel(classId,subclass,level);
+  const selectedSet = new Set(selected || []);
+  const catalogClass = dndSpellCatalogClass(classId,subclass);
+  const rows = (DND_SPELL_CATALOG[catalogClass] || []).filter(([spellLevel]) => {
+    if (spellLevel === 0) return classId !== "ranger";
+    return spellLevel <= maxLevel;
+  });
+
+  if (!rows.length) {
+    return `<div class="system-note">Cette classe n’a pas encore accès aux sorts à ce niveau.</div>`;
+  }
+
+  const groups = new Map();
+  for (const [spellLevel,name] of rows) {
+    if (!groups.has(spellLevel)) groups.set(spellLevel,[]);
+    groups.get(spellLevel).push(name);
+  }
+
+  const summary = dndSpellLimitSummary(classId,subclass,level,characteristics,[...selectedSet]);
+  const modeLabel = summary.mode === "spellbook" ? "Grimoire"
+    : summary.mode === "prepared" ? "Sorts préparés"
+    : "Sorts connus";
+
+  const leveledLimit = summary.mode === "known" ? summary.known
+    : summary.mode === "prepared" ? summary.prepared
+    : summary.classLearned;
+
+  return `
+    <div class="spell-selection-box">
+      <div class="rules-section-head">
+        <div>
+          <div class="card-kicker">SORTS</div>
+          <strong>${modeLabel}</strong>
+        </div>
+        <span class="mini-badge">jusqu’au niveau ${maxLevel}</span>
+      </div>
+      <div id="dndSpellLimits" class="spell-limit-summary">
+        <span>Tours de magie : <strong data-spell-count="cantrips">${summary.selectedCantrips}</strong> / ${summary.cantrips}</span>
+        <span>${summary.mode === "spellbook" ? "Sorts acquis par progression" : modeLabel} :
+          <strong data-spell-count="leveled">${summary.selectedLeveled}</strong> / ${leveledLimit ?? "—"}
+        </span>
+        ${summary.mode === "spellbook" ? `<span>Préparables / jour : <strong>${summary.prepared}</strong></span>` : ""}
+      </div>
+      <div class="system-derived spell-slots-panel">
+        <strong>Emplacements de sorts</strong>
+        ${dndSpellSlotsHtml(summary.slots)}
+      </div>
+      ${[...groups.entries()].map(([spellLevel,names]) => `
+        <div class="spell-level-group">
+          <div class="spell-level-title">${spellLevel===0 ? "Tours de magie" : `Sorts de niveau ${spellLevel}`}</div>
+          <div class="spell-choice-grid">
+            ${names.map(name => `
+              <label class="spell-choice">
+                <input class="dnd-spell-check" type="checkbox" value="${esc(name)}"
+                  ${selectedSet.has(name) ? "checked" : ""} />
+                <span>${esc(name)}</span>
+              </label>
+            `).join("")}
+          </div>
+        </div>
+      `).join("")}
+      <div class="system-value-field">
+        <label>Sorts personnalisés / hors catalogue</label>
+        <input data-system-key="customSpells" type="text" value="${esc(customSpells || "")}" placeholder="Séparer les noms par des virgules" />
+      </div>
+      <div class="system-note">
+        ${summary.mode === "spellbook"
+          ? "Magicien : la limite affichée correspond aux sorts gagnés automatiquement par progression (6 au niveau 1 puis +2 par niveau). Des sorts supplémentaires peuvent être copiés dans le grimoire en jeu."
+          : summary.mode === "prepared"
+            ? "Clerc : la liste représente les sorts préparés du jour ; les sorts de sa liste de classe restent accessibles pour une autre préparation."
+            : "La sélection est limitée au nombre de sorts connus par la classe et le niveau."}
+      </div>
+    </div>`;
+}
+
+const VAMPIRE_ATTRIBUTE_CATEGORIES = {
+  physical:["strength","dexterity","stamina"],
+  social:["charisma","manipulation","appearance"],
+  mental:["perception","intelligence","wits"]
+};
+
+const VAMPIRE_ABILITY_CATEGORIES = {
+  talents:["Vigilance","Athlétisme","Bagarre","Esquive","Empathie","Expression","Intimidation","Commandement","Connaissance de la rue","Subterfuge"],
+  skills:["Animaux","Artisanats","Conduite","Étiquette","Armes à feu","Mêlée","Représentation","Sécurité","Furtivité","Survie"],
+  knowledges:["Bureaucratie","Informatique","Finance","Investigation","Droit","Linguistique","Médecine","Occultisme","Politique","Science"]
+};
+
+const VAMPIRE_QUICK_ROLES = {
+  executive:{
+    attributes:["social","mental","physical"],
+    attrOrder:{
+      social:["charisma","manipulation","appearance"],
+      mental:["wits","intelligence","perception"],
+      physical:["stamina","dexterity","strength"]
+    },
+    abilities:["talents","knowledges","skills"],
+    focus:{
+      talents:["Commandement","Empathie","Intimidation","Subterfuge","Vigilance"],
+      knowledges:["Finance","Politique","Droit","Bureaucratie","Investigation"],
+      skills:["Étiquette","Conduite","Sécurité","Représentation","Armes à feu"]
+    }
+  },
+  artist:{
+    attributes:["social","mental","physical"],
+    attrOrder:{
+      social:["appearance","charisma","manipulation"],
+      mental:["wits","perception","intelligence"],
+      physical:["dexterity","stamina","strength"]
+    },
+    abilities:["talents","skills","knowledges"],
+    focus:{
+      talents:["Expression","Empathie","Subterfuge","Vigilance","Commandement"],
+      skills:["Représentation","Étiquette","Artisanats","Conduite","Furtivité"],
+      knowledges:["Occultisme","Politique","Linguistique","Investigation","Finance"]
+    }
+  },
+  investigator:{
+    attributes:["mental","physical","social"],
+    attrOrder:{
+      mental:["perception","intelligence","wits"],
+      physical:["dexterity","stamina","strength"],
+      social:["manipulation","charisma","appearance"]
+    },
+    abilities:["knowledges","talents","skills"],
+    focus:{
+      knowledges:["Investigation","Droit","Informatique","Médecine","Politique"],
+      talents:["Vigilance","Empathie","Intimidation","Subterfuge","Connaissance de la rue"],
+      skills:["Armes à feu","Conduite","Sécurité","Furtivité","Mêlée"]
+    }
+  },
+  academic:{
+    attributes:["mental","social","physical"],
+    attrOrder:{
+      mental:["intelligence","perception","wits"],
+      social:["charisma","manipulation","appearance"],
+      physical:["stamina","dexterity","strength"]
+    },
+    abilities:["knowledges","talents","skills"],
+    focus:{
+      knowledges:["Science","Occultisme","Linguistique","Investigation","Médecine","Politique"],
+      talents:["Expression","Empathie","Vigilance","Commandement","Subterfuge"],
+      skills:["Étiquette","Conduite","Artisanats","Représentation","Survie"]
+    }
+  },
+  criminal:{
+    attributes:["physical","social","mental"],
+    attrOrder:{
+      physical:["dexterity","strength","stamina"],
+      social:["manipulation","charisma","appearance"],
+      mental:["wits","perception","intelligence"]
+    },
+    abilities:["skills","talents","knowledges"],
+    focus:{
+      skills:["Furtivité","Sécurité","Armes à feu","Mêlée","Conduite","Survie"],
+      talents:["Connaissance de la rue","Subterfuge","Intimidation","Bagarre","Vigilance"],
+      knowledges:["Investigation","Droit","Finance","Informatique","Politique"]
+    }
+  },
+  journalist:{
+    attributes:["mental","social","physical"],
+    attrOrder:{
+      mental:["perception","wits","intelligence"],
+      social:["charisma","manipulation","appearance"],
+      physical:["dexterity","stamina","strength"]
+    },
+    abilities:["knowledges","talents","skills"],
+    focus:{
+      knowledges:["Investigation","Politique","Linguistique","Informatique","Droit"],
+      talents:["Expression","Empathie","Vigilance","Subterfuge","Commandement"],
+      skills:["Conduite","Étiquette","Furtivité","Sécurité","Représentation"]
+    }
+  }
+};
+
+
+const VAMPIRE_PROFESSION_TEMPLATE = {
+  executive:"executive",
+  artist:"artist",
+  investigator:"investigator",
+  academic:"academic",
+  criminal:"criminal",
+  journalist:"journalist",
+  doctor:"academic",
+  lawyer:"executive",
+  police:"investigator",
+  military:"criminal",
+  politician:"executive",
+  clergy:"academic",
+  tech:"academic",
+  socialite:"artist",
+  club_owner:"executive",
+  security:"investigator",
+  occultist:"academic",
+  student:"academic",
+  street:"criminal"
+};
+
+const VAMPIRE_PROFESSION_FOCUS = {
+  doctor:["Médecine","Science","Empathie","Vigilance","Investigation"],
+  lawyer:["Droit","Persuasion","Empathie","Subterfuge","Bureaucratie"],
+  police:["Investigation","Vigilance","Armes à feu","Conduite","Intimidation"],
+  military:["Armes à feu","Athlétisme","Bagarre","Survie","Commandement"],
+  politician:["Politique","Commandement","Persuasion","Subterfuge","Empathie"],
+  clergy:["Occultisme","Empathie","Expression","Linguistique","Commandement"],
+  tech:["Informatique","Science","Investigation","Sécurité","Vigilance"],
+  socialite:["Étiquette","Empathie","Subterfuge","Expression","Finance"],
+  club_owner:["Finance","Étiquette","Connaissance de la rue","Subterfuge","Commandement"],
+  security:["Vigilance","Armes à feu","Athlétisme","Sécurité","Intimidation"],
+  occultist:["Occultisme","Investigation","Linguistique","Science","Empathie"],
+  student:["Investigation","Informatique","Expression","Vigilance","Linguistique"],
+  street:["Connaissance de la rue","Subterfuge","Furtivité","Survie","Vigilance"]
+};
+
+const VAMPIRE_DISCIPLINES = [
+  "Animalisme","Auspex","Célérité","Domination","Endurance (Fortitude)",
+  "Occultation","Puissance","Présence","Protéisme","Thaumaturgie"
+];
+
+const VAMPIRE_CLAN_DISCIPLINES = {
+  brujah:["Célérité","Puissance","Présence"],
+  gangrel:["Animalisme","Endurance (Fortitude)","Protéisme"],
+  malkavian:["Auspex","Domination","Occultation"],
+  nosferatu:["Animalisme","Occultation","Puissance"],
+  toreador:["Auspex","Célérité","Présence"],
+  tremere:["Auspex","Domination","Thaumaturgie"],
+  ventrue:["Domination","Endurance (Fortitude)","Présence"]
+};
+
+function vampireBaseDisciplines(clan, npcTier = null, traitMax = 5) {
+  const values = Object.fromEntries(VAMPIRE_DISCIPLINES.map(name => [name,0]));
+  const clanDisciplines = VAMPIRE_CLAN_DISCIPLINES[clan] || [];
+
+  if (npcTier === 0) return values;
+  if (clan === "caitiff") {
+    if (npcTier === null || npcTier === undefined) return values;
+    const targetDots = {1:3,2:4,3:6,4:9,5:12}[Number(npcTier)] || 3;
+    for (let i=0;i<targetDots;i++) {
+      const name = VAMPIRE_DISCIPLINES[i % VAMPIRE_DISCIPLINES.length];
+      if (values[name] < traitMax) values[name] += 1;
+    }
+    return values;
+  }
+
+  // A young vampire / standard creation starts with 3 discipline dots.
+  clanDisciplines.forEach(name => values[name] = 1);
+
+  if (npcTier === null || npcTier === undefined) return values;
+
+  const targetDots = {1:3,2:4,3:6,4:9,5:12}[Number(npcTier)] || 3;
+  let current = Object.values(values).reduce((a,b)=>a+Number(b||0),0);
+  let cursor = 0;
+
+  while (current < targetDots && clanDisciplines.length && cursor < 100) {
+    const name = clanDisciplines[cursor % clanDisciplines.length];
+    if (values[name] < traitMax) {
+      values[name] += 1;
+      current += 1;
+    }
+    cursor += 1;
+  }
+
+  return values;
+}
+
+function vampireDisciplineGridHtml(clan, disciplines, maxValue) {
+  const clanSet = new Set(VAMPIRE_CLAN_DISCIPLINES[clan] || []);
+  const ordered = [
+    ...(VAMPIRE_CLAN_DISCIPLINES[clan] || []),
+    ...VAMPIRE_DISCIPLINES.filter(name => !clanSet.has(name))
+  ];
+
+  return `
+    <div class="discipline-box">
+      <div class="rules-section-head">
+        <div>
+          <div class="card-kicker">DISCIPLINES</div>
+          <strong>Disciplines vampiriques</strong>
+        </div>
+        <span class="mini-badge">max. ${maxValue}</span>
+      </div>
+      <div class="discipline-grid">
+        ${ordered.map(name => `
+          <div class="discipline-field ${clanSet.has(name) ? "clan-discipline" : ""}">
+            <label>${esc(name)} ${clanSet.has(name) ? '<span class="linked-skill-badge">Clan</span>' : ""}</label>
+            <input class="vampire-discipline-input" data-discipline="${esc(name)}"
+              type="number" min="0" max="${Number(maxValue||5)}"
+              value="${Number(disciplines?.[name] || 0)}" />
+          </div>
+        `).join("")}
+      </div>
+      <div class="system-note">Les Disciplines de clan sont affichées en premier. Les valeurs hors clan restent disponibles pour les PNJ expérimentés ou les dépenses particulières.</div>
+    </div>`;
+}
+
+function vampireCreationAudit(characteristics, skills, data, clan) {
+  const attr = Object.values(VAMPIRE_ATTRIBUTE_CATEGORIES).map(keys => keys.reduce((n,k)=>n+Math.max(0,Number(characteristics?.[k]||1)-1),0)).sort((a,b)=>b-a);
+  const abilities = Object.values(VAMPIRE_ABILITY_CATEGORIES).map(keys => keys.reduce((n,k)=>n+Number(skills?.[k]||0),0)).sort((a,b)=>b-a);
+  const abilityOver3 = Object.entries(skills||{}).filter(([,v])=>Number(v)>3).length;
+  const disciplineTotal = Object.values(data.disciplines||{}).reduce((a,b)=>a+Number(b||0),0);
+  const virtueSpent = Math.max(0,Number(data.virtue1||1)-1)+Math.max(0,Number(data.virtue2||1)-1)+Math.max(0,Number(data.courage||1)-1);
+  const attrOk = JSON.stringify(attr) === JSON.stringify([7,5,3]);
+  const abilityOk = JSON.stringify(abilities) === JSON.stringify([13,9,5]) && abilityOver3===0;
+  const disciplineOk = disciplineTotal===3 && (clan === "caitiff" || Object.entries(data.disciplines||{}).filter(([,v])=>Number(v)>0).every(([name])=>(VAMPIRE_CLAN_DISCIPLINES[clan]||[]).includes(name)));
+  const virtueOk = virtueSpent===7;
+  return {attr,abilities,abilityOver3,disciplineTotal,virtueSpent,attrOk,abilityOk,disciplineOk,virtueOk};
+}
+
+function vampireCreationAuditHtml(characteristics, skills, data, clan) {
+  const a=vampireCreationAudit(characteristics,skills,data,clan);
+  const mark=v=>v?"✓":"⚠";
+  return `<div class="system-derived npc-generator-summary">
+    <strong>Contrôle du socle de création V2 — avant points gratuits</strong>
+    <div>${mark(a.attrOk)} Attributs : ${a.attr.join(" / ")} (attendu 7 / 5 / 3 au-dessus du point gratuit)</div>
+    <div>${mark(a.abilityOk)} Capacités : ${a.abilities.join(" / ")} (attendu 13 / 9 / 5 ; aucune au-dessus de 3 à cette étape)</div>
+    <div>${mark(a.disciplineOk)} Disciplines : ${a.disciplineTotal} point(s) (attendu 3${clan==="caitiff"?", choix libre pour Caitiff":", Disciplines de clan"})</div>
+    <div>${mark(a.virtueOk)} Vertus : ${a.virtueSpent} point(s) ajoutés (attendu 7, chaque Vertu commençant à 1)</div>
+    <div>Points gratuits suivis : ${Number(data.freebieSpent||0)} / 15 · Historiques initiaux suivis : ${Number(data.backgroundsSpent||0)} / 5</div>
+  </div>`;
+}
+
+const VAMPIRE_PATHS = [
+  ["humanity","Humanité"],
+  ["caine","Voie de Caïn"],
+  ["cathari","Voie des Cathares"],
+  ["death_soul","Voie de la Mort et de l’Âme"],
+  ["honorable_accord","Voie de l’Accord honorable"],
+  ["power_inner_voice","Voie du Pouvoir et de la Voix intérieure"],
+  ["metamorphosis","Voie de la Métamorphose"],
+  ["night","Voie de la Nuit"],
+  ["other","Autre voie"]
+];
+
+const VAMPIRE_HEALTH_LEVELS = [
+  "Sain","Contusionné","Blessé","Blessé sérieusement",
+  "Meurtri","Estropié","Invalide","Incapacité"
+];
+
+const TRAIT_CATALOGS = {
+  l5r1: {
+    positiveLabel: "Avantages",
+    negativeLabel: "Désavantages",
+    positive: [
+      ["Allié", "variable", "Relation utile ou influente."],
+      ["Bénédiction de Benten", "2", "Présence sociale particulièrement favorable."],
+      ["Bénédiction de Bishamon", "2", "Aptitude martiale ou physique remarquable."],
+      ["Clairvoyant / esprit clair", "3", "Résiste mieux aux tromperies et confusions."],
+      ["Destinée exceptionnelle", "5", "Le personnage semble promis à un rôle important."],
+      ["Héritage", "variable", "Objet, statut ou bien transmis par la famille."],
+      ["Chance", "3/niveau", "Coup de chance utilisable selon les règles de la campagne."],
+      ["Position sociale", "variable", "Statut supérieur ou accès social privilégié."],
+      ["Rapide", "3", "Réactivité physique supérieure."],
+      ["Résistance magique", "variable", "Meilleure résistance aux effets surnaturels."],
+      ["Richesse", "variable", "Ressources matérielles supérieures."],
+      ["Terre forte", "2", "Résistance et endurance accrues."],
+      ["Voix", "2", "Voix particulièrement impressionnante ou persuasive."]
+    ],
+    negative: [
+      ["Bad Fortune / Mauvaise fortune", "variable", "Malchance ou complication définie avec le MJ."],
+      ["Brebis noire", "3", "Relations dégradées avec la famille ou le clan."],
+      ["Contrariant", "3", "Tendance à s’opposer aux autres."],
+      ["Crédule", "2", "Plus facile à tromper ou influencer."],
+      ["Déshonoré", "variable", "Réputation ou statut compromis."],
+      ["Ennemi juré", "variable", "Adversaire personnel ou politique."],
+      ["Faiblesse", "variable", "Trait ou domaine dans lequel le personnage est particulièrement faible."],
+      ["Idéaliste", "2", "Vision morale rigide pouvant provoquer des difficultés."],
+      ["Incapable de mentir", "3", "Le personnage ne peut volontairement mentir."],
+      ["Jalousie", "2", "Rivalité ou obsession sociale."],
+      ["Obligation", "variable", "Dette ou devoir envers une personne ou une organisation."],
+      ["Phobie", "variable", "Peur marquée d’un déclencheur précis."],
+      ["Présomptueux", "3", "Surestime régulièrement ses capacités."],
+      ["Tendre cœur", "2", "Difficulté à infliger ou accepter certaines souffrances."],
+      ["Amour perdu", "2", "Lien émotionnel douloureux et persistant."]
+    ]
+  },
+
+  dnd5: {
+    positiveLabel: "Dons / atouts",
+    negativeLabel: "Défauts narratifs",
+    positive: [
+      ["Alerte", "don", "Vigilance exceptionnelle."],
+      ["Athlète", "don", "Aptitudes physiques entraînées."],
+      ["Acteur", "don", "Talent d’imitation et de représentation."],
+      ["Chanceux", "don", "Chance exceptionnelle."],
+      ["Chef inspirant", "don", "Capacité à renforcer les alliés."],
+      ["Dur à cuire", "don", "Robustesse accrue."],
+      ["Expert en armes lourdes", "don", "Spécialisation martiale."],
+      ["Guérisseur", "don", "Utilisation efficace des soins et trousses."],
+      ["Incantateur de guerre", "don", "Aptitude à lancer des sorts en situation de combat."],
+      ["Maître d’armes d’hast", "don", "Spécialisation dans les armes d’hast."],
+      ["Observateur", "don", "Perception et lecture accrues."],
+      ["Sentinelle", "don", "Contrôle du terrain en mêlée."],
+      ["Tireur d’élite", "don", "Spécialisation dans le tir à distance."],
+      ["Talentueux", "don", "Maîtrises supplémentaires."]
+    ],
+    negative: [
+      ["Avarice", "narratif", "Recherche excessive du gain."],
+      ["Code personnel rigide", "narratif", "Principes pouvant limiter les choix."],
+      ["Curiosité dangereuse", "narratif", "Difficulté à ignorer un mystère ou un danger."],
+      ["Dette", "narratif", "Dette financière, sociale ou morale."],
+      ["Ennemi", "narratif", "Adversaire personnel récurrent."],
+      ["Impulsif", "narratif", "Agit parfois avant d’avoir évalué les conséquences."],
+      ["Naïf", "narratif", "Confiance excessive envers autrui."],
+      ["Obsession", "narratif", "But ou sujet qui prend trop de place."],
+      ["Peur", "narratif", "Crainte importante d’un élément défini."],
+      ["Secret", "narratif", "Information compromettante à dissimuler."],
+      ["Serment", "narratif", "Engagement qui impose des contraintes."],
+      ["Téméraire", "narratif", "Prend volontiers des risques excessifs."]
+    ]
+  },
+
+  vampire2: {
+    positiveLabel: "Mérites",
+    negativeLabel: "Handicaps / Défauts",
+    positive: [
+      ["Ambidextre", "1", "Utilise les deux mains avec aisance."],
+      ["Bon sens", "1", "Le MJ peut signaler une action manifestement imprudente."],
+      ["Concentration", "1", "Se concentre facilement malgré les distractions."],
+      ["Daredevil / Casse-cou", "3", "À l’aise dans les actions risquées."],
+      ["Mémoire eidétique", "2", "Mémoire particulièrement fidèle."],
+      ["Linguiste naturel", "2", "Facilité à apprendre et comprendre les langues."],
+      ["Sommeil léger", "1", "Se réveille facilement."],
+      ["Sens aigu", "1", "Un sens est particulièrement développé."],
+      ["Volonté de fer", "3", "Résistance mentale exceptionnelle."],
+      ["Chanceux", "3", "Chance inhabituelle."],
+      ["Médium", "2", "Sensibilité particulière aux phénomènes surnaturels."],
+      ["Prestige", "variable", "Réputation favorable dans un milieu défini."]
+    ],
+    negative: [
+      ["Addiction", "variable", "Dépendance à une substance ou un comportement."],
+      ["Ennemi", "variable", "Adversaire actif."],
+      ["Faible volonté", "2", "Résiste mal à certaines pressions."],
+      ["Mauvaise vue", "1-3", "Vision diminuée selon la gravité."],
+      ["Cauchemar", "1", "Sommeil régulièrement perturbé."],
+      ["Phobie", "variable", "Peur intense d’un déclencheur."],
+      ["Colérique", "2", "Contrôle émotionnel difficile."],
+      ["Hanté", "3", "Présence surnaturelle perturbatrice."],
+      ["Sommeil profond", "1", "Difficile à réveiller."],
+      ["Secret sombre", "variable", "Secret potentiellement destructeur."],
+      ["Mauvaise réputation", "2", "Réputation négative dans la société vampirique."],
+      ["Marque distinctive", "1", "Caractéristique qui complique l’anonymat."]
+    ]
+  },
+
+  ward: {
+    positiveLabel: "Traits positifs",
+    negativeLabel: "Traits négatifs",
+    positive: [
+      ["Bonne réputation", "3 PP", "Réputation initiale favorable envers une structure cohérente."],
+      ["Promotion", "4 ou 8 PP", "Commence à un grade supérieur dans une filière cohérente."],
+      ["Décorations", "2 à 12 PP", "Distinctions officielles significatives."],
+      ["Abri Psychique", "5 PP", "Protection contre certaines intrusions psychiques."],
+      ["Ambidextre", "2 PP", "Supprime le malus de main non dominante."],
+      ["Ange Gardien", "6 PP", "Présence surnaturelle bienveillante possible."],
+      ["Animal Empathie", "4 PP", "Facilite les interactions avec les animaux."],
+      ["Aura de Commandement", "4 PP", "Renforce l’autorité naturelle."],
+      ["Bon Auditeur", "3 PP", "Facilite confidences et échanges posés."],
+      ["Charisme", "6 PP", "Renforce présence sociale et impact personnel."],
+      ["Conscience Situationnelle", "4 PP", "Améliore vigilance face aux anomalies et pièges."],
+      ["Concentration Totale", "4 PP", "Aide à rester focalisé sous pression."],
+      ["Conspirateur", "3 PP", "Facilite la lecture des schémas cachés."],
+      ["Coureur", "3 PP", "Améliore déplacements rapides à pied."],
+      ["Dégainer Rapide", "3 PP", "Sort une arme plus rapidement."],
+      ["Dur à Tuer", "5 PP/niveau", "Améliore la survie et l’encaissement."],
+      ["Dormeur Léger", "3 PP", "Se réveille facilement."],
+      ["Entraînement Physique", "5 PP", "Renforce les performances physiques."],
+      ["Empathie Froide", "5 PP", "Lecture analytique des réactions humaines."],
+      ["Esprit Arborescent", "6 PP", "Favorise les raisonnements complexes."],
+      ["Extraordinairement Moyen", "2 PP", "Présence banale et difficile à mémoriser."],
+      ["Famille Aisée", "4 PP", "Origine sociale privilégiée."],
+      ["Faveur", "3 PP", "Une personne influente doit un service."],
+      ["Focalisation Surnaturelle", "4 PP", "Facilite certaines manifestations surnaturelles."],
+      ["Foi Inébranlable", "4 PP", "Renforce la résistance intérieure."],
+      ["Hautement Éduqué", "6 PP", "Formation académique avancée."],
+      ["Lien Psychique", "4 PP", "Lien mental privilégié avec une personne."],
+      ["Linguiste", "8 PP", "Maîtrise linguistique étendue."],
+      ["Mémoire Photographique", "5 PP", "Mémoire détaillée et précise."],
+      ["Maîtrise du Calme", "3 PP", "Contrôle émotionnel amélioré."],
+      ["Mort Officiellement", "4 PP", "Identité réelle déclarée morte."],
+      ["Nageur Expérimenté", "5 PP", "Aisance accrue en milieu aquatique."],
+      ["Nouvelle Identité", "5 PP", "Identité de remplacement crédible."],
+      ["Ombre", "10 PP", "Présence administrative et sociale extrêmement effacée."],
+      ["Passion (Hobby)", "4 PP", "Expertise marquée dans un centre d’intérêt."],
+      ["Psychique : Latent", "2 PP", "Potentiel psychique latent."],
+      ["Psychique : Mineur", "4 PP", "Potentiel psychique développé."],
+      ["Psychique : Avancé", "6 PP", "Potentiel psychique important."],
+      ["Sens Accru", "2 PP/sens", "Améliore un sens défini."],
+      ["Seuil de Douleur Élevé", "4 PP", "Supporte mieux la douleur."],
+      ["Sosie", "4 PP", "Double crédible pouvant brouiller les pistes."],
+      ["Surge d’Adrénaline", "4 PP", "Poussée brève de performance physique."],
+      ["Temps de Réaction Rapide", "4 PP", "Réactivité immédiate améliorée."],
+      ["Vétéran opérationnel", "9 PP", "Expérience opérationnelle exceptionnellement lourde."],
+      ["Vies Antérieures", "5 PP", "Réminiscences anciennes inexpliquées."]
+    ],
+    negative: [
+      ["Addiction", "2 à 6 PP", "Dépendance avec risque de manque."],
+      ["Allergie", "2 à 8 PP", "Réaction à un allergène défini."],
+      ["Âgé", "3 PP", "Vieillissement marqué."],
+      ["Agent Double", "6 PP", "Double loyauté exposant à la suspicion."],
+      ["Accès restreint", "4 PP", "Mobilisation plus difficile des ressources de l’agence."],
+      ["Animosité Animale", "2 PP", "Les animaux réagissent mal au personnage."],
+      ["Boiterie", "3 PP", "Mobilité réduite."],
+      ["Burnout Psychique", "4 PP", "Usure liée aux phénomènes psychiques."],
+      ["Cécité", "6 PP", "Absence totale ou quasi totale de vision."],
+      ["Code d’Honneur", "2 à 5 PP", "Principes contraignants."],
+      ["Compulsion", "3 PP", "Besoin obsessionnel perturbant l’action."],
+      ["Croyances Impopulaires", "3 à 5 PP", "Convictions controversées."],
+      ["Déficit Sensoriel", "2 à 6 PP", "Altération d’un sens."],
+      ["Dérèglement de la Réalité", "7 PP", "Altération de la perception du réel."],
+      ["Déshonoré", "5 PP", "Scandale ou faute grave connue."],
+      ["Dormeur Profond", "2 PP", "Difficulté à se réveiller rapidement."],
+      ["Douleur Chronique", "3 PP", "Douleur persistante."],
+      ["Identité Effacée", "6 PP", "Absence d’existence administrative officielle."],
+      ["Immunodéficience", "2 à 5 PP", "Fragilité immunitaire."],
+      ["Impulsivité", "3 PP", "Tendance à agir trop vite."],
+      ["Maladie Chronique", "4 PP", "Condition médicale persistante."],
+      ["Marque Distinctive", "2 à 5 PP", "Caractéristique physique identifiable."],
+      ["Méfiance Sociale", "3 PP", "Difficulté à faire confiance."],
+      ["Métabolisme Rapide", "2 PP", "Besoin d’apports alimentaires réguliers."],
+      ["Membre Manquant", "3 à 7 PP", "Perte partielle ou totale d’un membre."],
+      ["Ne Sait Pas Nager", "1 PP", "Incapacité à nager efficacement."],
+      ["Pantin", "6 PP", "Emprise extérieure possible."],
+      ["Paranoïa", "4 PP", "Lecture excessive du monde comme hostile."],
+      ["Phobie", "2 à 6 PP", "Peur irrationnelle d’un déclencheur."],
+      ["Préjugés", "3 à 6 PP", "Biais négatif envers un groupe."],
+      ["Proche Cher", "4 PP", "Personne importante pouvant être menacée."],
+      ["Psychique Vide", "6 PP", "Anomalie psychique isolante."],
+      ["Pulsions Létales", "5 PP", "Tendance à une violence excessive."],
+      ["Recherché par la Loi", "3 à 8 PP", "Fiché ou recherché par les autorités."],
+      ["Secret / Secret Sombre", "3 à 8 PP", "Information compromettante cachée."],
+      ["Sensibilité à la Douleur", "3 PP", "Réaction amplifiée à la douleur."],
+      ["Traître", "7 PP", "Ancienne trahison envers une faction."],
+      ["Trouble Dissociatif Sévère", "7 PP", "Rupture de continuité mentale sous stress."],
+      ["Trouble du Sommeil", "3 PP", "Sommeil non réparateur."],
+      ["Volonté Faible", "3 PP", "Résistance mentale fragile."]
+    ]
+  },
+
+  generic: {
+    positiveLabel: "Avantages",
+    negativeLabel: "Désavantages",
+    positive: [
+      ["Allié", "—", "Relation utile."],
+      ["Chanceux", "—", "Chance remarquable."],
+      ["Expert", "—", "Expertise dans un domaine."],
+      ["Ressources", "—", "Ressources matérielles ou sociales."],
+      ["Résistant", "—", "Résistance physique ou mentale."]
+    ],
+    negative: [
+      ["Dette", "—", "Dette ou obligation."],
+      ["Ennemi", "—", "Adversaire récurrent."],
+      ["Phobie", "—", "Peur importante."],
+      ["Secret", "—", "Secret compromettant."],
+      ["Faiblesse", "—", "Point faible défini."]
+    ]
+  }
+};
+
+
+
+// V0.19.20 — bestiaire D&D 5e 2014 enrichi + filtres de recherche ; objets magiques officiels Basic Rules étendus.
+const DND_CREATURES_2014 = [
+  {id:"mummy",name:"Momie",type:"Mort-vivant",size:"Moyenne",alignment:"Loyal Mauvais",ac:11,hp:58,speed:"6 m",cr:"3",xp:700,abilities:{strength:16,dexterity:8,constitution:15,intelligence:6,wisdom:10,charisma:12},summary:"Vulnérable au feu ; résistances physiques non magiques, immunités nécrotiques/poison ; regard effroyable et putréfaction.",actions:["Poing en décomposition +5 : contondants + nécrotiques ; malédiction possible","Regard effroyable : terreur, paralysie possible"]},
+  {id:"mummy_lord",name:"Momie auguste",type:"Mort-vivant",size:"Moyenne",alignment:"Loyal Mauvais",ac:17,hp:97,speed:"6 m",cr:"15",xp:13000,abilities:{strength:18,dexterity:10,constitution:17,intelligence:11,wisdom:18,charisma:16},summary:"Vulnérable au feu ; reconstitution, résistance à la magie et puissante incantation divine.",actions:["Poing en décomposition +9 : dégâts physiques et nécrotiques","Regard effroyable"],spellcasting:"Sagesse ; DD 17, +9 ; lanceuse de sorts de niveau 10, sorts jusqu’au niveau 6"},
+  {id:"demilich",name:"Demi-liche",type:"Mort-vivant",size:"Très Petite",alignment:"Neutre Mauvais",ac:20,hp:80,speed:"0 m, vol 9 m (stationnaire)",cr:"18",xp:20000,abilities:{strength:1,dexterity:20,constitution:10,intelligence:20,wisdom:17,charisma:20},summary:"Évitement, immunité au renvoi, résistance légendaire et nombreuses immunités.",actions:["Absorption de vie : jusqu’à trois cibles, dégâts nécrotiques et récupération de PV"]},
+  {id:"lich",name:"Liche",type:"Mort-vivant",size:"Moyenne",alignment:"Mauvais",ac:17,hp:135,speed:"9 m",cr:"21",xp:33000,abilities:{strength:11,dexterity:16,constitution:16,intelligence:20,wisdom:14,charisma:16},summary:"Phylactère et reconstitution ; résistance légendaire, résistance au renvoi et magie de très haut niveau.",actions:["Contact paralysant"],spellcasting:"Intelligence ; DD 20, +12 ; lanceuse de sorts de niveau 18, sorts jusqu’au niveau 9"},
+  {id:"vampire",name:"Vampire",type:"Mort-vivant (métamorphe)",size:"Moyenne",alignment:"Loyal Mauvais",ac:16,hp:144,speed:"9 m",cr:"13",xp:10000,abilities:{strength:18,dexterity:18,constitution:18,intelligence:17,wisdom:15,charisma:18},summary:"Métamorphe régénérant avec résistances nécrotiques et physiques ; vulnérabilités classiques à l’invitation, l’eau courante, au pieu et au soleil.",actions:["Attaques multiples","Frappe à mains nues","Morsure","Charme","Enfants de la nuit"]},
+  {id:"vampire_spawn",name:"Vampirien",type:"Mort-vivant",size:"Moyenne",alignment:"Neutre Mauvais",ac:15,hp:82,speed:"9 m",cr:"5",xp:1800,abilities:{strength:16,dexterity:16,constitution:16,intelligence:11,wisdom:10,charisma:12},summary:"Rejeton vampire doté de régénération, pattes d’araignée, résistances et faiblesses vampiriques.",actions:["Attaques multiples","Griffes","Morsure"]},
+  {id:"wraith",name:"Âme-en-peine",type:"Mort-vivant",size:"Moyenne",alignment:"Neutre Mauvais",ac:13,hp:67,speed:"0 m, vol 18 m (stationnaire)",cr:"5",xp:1800,abilities:{strength:6,dexterity:16,constitution:16,intelligence:12,wisdom:14,charisma:15},summary:"Déplacement intangible, nombreuses résistances/immunités et sensibilité au soleil.",actions:["Absorption de vie","Création de spectre"]},
+  {id:"ghost",name:"Fantôme",type:"Mort-vivant",size:"Moyenne",alignment:"au choix",ac:11,hp:45,speed:"0 m, vol 12 m (stationnaire)",cr:"4",xp:1100,abilities:{strength:7,dexterity:13,constitution:10,intelligence:10,wisdom:12,charisma:17},summary:"Déplacement intangible, vision éthérée, possession et visage terrifiant.",actions:["Contact flétrissant +5 : 4d6+3 nécrotiques","Forme éthérée","Possession (Recharge 6)","Visage terrifiant"]},
+  {id:"revenant",name:"Revenant",type:"Mort-vivant",size:"Moyenne",alignment:"Neutre",ac:13,hp:136,speed:"9 m",cr:"5",xp:1800,abilities:{strength:18,dexterity:14,constitution:18,intelligence:13,wisdom:16,charisma:18},summary:"Régénération, immunité au renvoi et traqueur vindicatif ; peut conserver armes ou magie de son vivant.",actions:["Attaques multiples","Poing vengeur","Regard vengeur"]},
+  {id:"death_knight",name:"Chevalier de la mort",type:"Mort-vivant",size:"Moyenne",alignment:"Chaotique Mauvais",ac:20,hp:180,speed:"9 m",cr:"17",xp:18000,abilities:{strength:20,dexterity:11,constitution:20,intelligence:12,wisdom:16,charisma:18},summary:"Ancien champion déchu ; immunités nécrotiques/poison, magie de paladin et puissance martiale.",actions:["Attaques multiples","Épée longue","Orbe de feu infernal"],spellcasting:"Charisme ; DD 18, +10 ; lanceur de sorts de niveau 19 utilisant une sélection de sorts de paladin"},
+  {id:"beholder_zombie",name:"Zombi tyrannœil",type:"Mort-vivant",size:"Grande",alignment:"Neutre Mauvais",ac:15,hp:93,speed:"0 m, vol 6 m (stationnaire)",cr:"5",xp:1800,abilities:{strength:10,dexterity:8,constitution:16,intelligence:3,wisdom:8,charisma:5},summary:"Robustesse de la non-vie ; vol stationnaire et rayons oculaires aléatoires.",actions:["Morsure +3 : 4d6 perforants","Rayon oculaire aléatoire : paralysie, terreur, nécrose ou désintégration"]},
+  {id:"balor",name:"Balor",type:"Fiélon (démon)",size:"Très Grande",alignment:"Chaotique Mauvais",ac:19,hp:262,speed:"12 m, vol 24 m",cr:"19",xp:22000,abilities:{strength:26,dexterity:15,constitution:22,intelligence:20,wisdom:16,charisma:22},summary:"Armes magiques, aura de feu, résistance à la magie et explosion à la mort.",actions:["Attaques multiples : épée longue et fouet","Épée longue +14 : tranchants + foudre","Fouet +14 : attaque à longue allonge"]},
+  {id:"chasme",name:"Chasme",type:"Fiélon (démon)",size:"Grande",alignment:"Chaotique Mauvais",ac:15,hp:84,speed:"6 m, vol 18 m",cr:"6",xp:2300,abilities:{strength:15,dexterity:15,constitution:12,intelligence:11,wisdom:14,charisma:10},summary:"Bourdonnement incapacitant, pattes d’araignée et résistance à la magie.",actions:["Trompe +5 : 4d6+2 perforants + 7d6 nécrotiques ; réduit les PV maximum"]},
+  {id:"dretch",name:"Dretch",type:"Fiélon (démon)",size:"Petite",alignment:"Chaotique Mauvais",ac:11,hp:18,speed:"6 m",cr:"1/4",xp:50,abilities:{strength:11,dexterity:11,constitution:12,intelligence:5,wisdom:8,charisma:3},summary:"Démon inférieur résistant aux éléments et immunisé au poison ; nuage fétide.",actions:["Attaques multiples : morsure et griffes","Morsure +2, 1d6 perforants","Griffes +2, 2d4 tranchants","Nuage fétide (1/jour)"]},
+  {id:"yochlol",name:"Yochlol",type:"Fiélon (démon, métamorphe)",size:"Moyenne",alignment:"Chaotique Mauvais",ac:15,hp:136,speed:"9 m, escalade 9 m",cr:"10",xp:5900,abilities:{strength:15,dexterity:14,constitution:18,intelligence:13,wisdom:15,charisma:15},summary:"Servante de Lolth ; métamorphe, marche dans les toiles, résistance à la magie et forme de brume.",actions:["Attaques multiples : deux attaques de corps à corps","Coup/morsure +6 : dégâts physiques + poison","Forme de brume"],spellcasting:"Charisme ; DD 14 ; incantation innée"},
+  {id:"bearded_devil",name:"Diable barbu",type:"Fiélon (diable)",size:"Moyenne",alignment:"Loyal Mauvais",ac:13,hp:52,speed:"9 m",cr:"3",xp:700,abilities:{strength:16,dexterity:15,constitution:15,intelligence:9,wisdom:11,charisma:11},summary:"Inébranlable, vue du diable et résistance à la magie.",actions:["Attaques multiples : barbe et coutille","Barbe +5 : attaque empoisonnante","Coutille : blessure infernale"]},
+  {id:"chain_devil",name:"Diable des chaînes",type:"Fiélon (diable)",size:"Moyenne",alignment:"Loyal Mauvais",ac:16,hp:85,speed:"9 m",cr:"8",xp:3900,abilities:{strength:18,dexterity:15,constitution:18,intelligence:11,wisdom:12,charisma:14},summary:"Vue du diable, résistance à la magie et animation de chaînes.",actions:["Attaques multiples : deux chaînes","Chaîne +8, 2d6+4 tranchants ; empoigne et entrave","Animer des chaînes (recharge après repos)"]},
+  {id:"bone_devil",name:"Diable osseux",type:"Fiélon (diable)",size:"Grande",alignment:"Loyal Mauvais",ac:19,hp:142,speed:"12 m, vol 12 m",cr:"9",xp:5000,abilities:{strength:18,dexterity:16,constitution:18,intelligence:13,wisdom:14,charisma:16},summary:"Vue du diable et résistance à la magie ; dard venimeux.",actions:["Attaques multiples : deux griffes et un dard","Griffe +8, 1d8+4 tranchants","Dard +8, 2d8+4 perforants + poison"]},
+  {id:"erinyes",name:"Érinye",type:"Fiélon (diable)",size:"Moyenne",alignment:"Loyal Mauvais",ac:18,hp:153,speed:"9 m, vol 18 m",cr:"12",xp:8400,abilities:{strength:18,dexterity:16,constitution:18,intelligence:14,wisdom:14,charisma:18},summary:"Armes infernales, résistance à la magie et parade ; combattante ailée.",actions:["Attaques multiples : trois attaques","Épée longue +8 : tranchants + poison","Arc long +7 : perforants + poison"],reactions:["Parade : +4 CA contre une attaque de mêlée visible"]},
+  {id:"pit_fiend",name:"Diantrefosse",type:"Fiélon (diable)",size:"Grande",alignment:"Loyal Mauvais",ac:19,hp:300,speed:"9 m, vol 18 m",cr:"20",xp:25000,abilities:{strength:26,dexterity:14,constitution:24,intelligence:22,wisdom:18,charisma:24},summary:"Armes magiques, aura de terreur, incantation innée, résistance à la magie et vue parfaite.",actions:["Attaques multiples : morsure, griffes, masse d’armes et queue","Morsure +14 : perforants et poison persistant","Griffe","Masse d’armes","Queue"],spellcasting:"Charisme ; DD 21 ; incantation innée"},
+  {id:"spined_devil",name:"Diable épineux",type:"Fiélon (diable)",size:"Petite",alignment:"Loyal Mauvais",ac:13,hp:22,speed:"6 m, vol 12 m",cr:"2",xp:450,abilities:{strength:10,dexterity:15,constitution:12,intelligence:11,wisdom:14,charisma:8},summary:"Repli aérien, pointes caudales limitées, résistance à la magie et vue du diable.",actions:["Attaques multiples : morsure + fourche ou deux pointes caudales","Morsure +2, 2d4 tranchants","Fourche +2, 1d6 perforants","Pointes caudales +4 : perforants + feu"]},
+  {id:"barlgura",name:"Barlgura",type:"Fiélon (démon)",size:"Grande",alignment:"Chaotique Mauvais",ac:15,hp:68,speed:"12 m, escalade 12 m",cr:"5",xp:1800,abilities:{strength:18,dexterity:15,constitution:16,intelligence:7,wisdom:14,charisma:9},summary:"Démon puissant et mobile ; résistance à la magie, téméraire et incantation innée.",actions:["Attaques multiples : morsure et deux poings","Morsure +7, 2d6+4 perforants","Poing +7, 1d10+4 contondants"],spellcasting:"Sagesse ; DD 13 ; incantation innée"},
+  {id:"glabrezu",name:"Glabrezu",type:"Fiélon (démon)",size:"Grande",alignment:"Chaotique Mauvais",ac:17,hp:157,speed:"12 m",cr:"9",xp:5000,abilities:{strength:20,dexterity:15,constitution:21,intelligence:19,wisdom:17,charisma:16},summary:"Démon à pinces ; résistance à la magie et incantation innée.",actions:["Attaques multiples : deux pinces et deux poings, ou deux pinces et un sort","Pince +9, 2d10+5 contondants ; empoignade possible","Poing +9, 2d4+2 contondants"],spellcasting:"Intelligence ; DD 16 ; incantation innée"},
+  {id:"hezrou",name:"Hezrou",type:"Fiélon (démon)",size:"Grande",alignment:"Chaotique Mauvais",ac:16,hp:136,speed:"9 m",cr:"8",xp:3900,abilities:{strength:19,dexterity:17,constitution:20,intelligence:5,wisdom:12,charisma:13},summary:"Puanteur, résistance à la magie et résistances démoniaques.",actions:["Attaques multiples : morsure et deux griffes","Morsure +7, 2d10+4 perforants","Griffe +7, 2d6+4 tranchants"]},
+  {id:"manes",name:"Mâne",type:"Fiélon (démon)",size:"Petite",alignment:"Chaotique Mauvais",ac:9,hp:9,speed:"6 m",cr:"1/8",xp:25,abilities:{strength:10,dexterity:9,constitution:13,intelligence:3,wisdom:8,charisma:4},summary:"Démon inférieur ; résistances élémentaires et immunité au poison.",actions:["Griffes +2, 2d4 tranchants"]},
+  {id:"marilith",name:"Marilith",type:"Fiélon (démon)",size:"Grande",alignment:"Chaotique Mauvais",ac:18,hp:189,speed:"12 m",cr:"16",xp:15000,abilities:{strength:18,dexterity:20,constitution:20,intelligence:18,wisdom:16,charisma:20},summary:"Armes magiques, résistance à la magie et réactions multiples.",actions:["Attaques multiples : six épées longues et une queue","Épée longue +9, 2d8+4 tranchants","Queue +9, 2d10+4 contondants ; empoignade possible"]},
+  {id:"nalfeshnee",name:"Nalfeshnie",type:"Fiélon (démon)",size:"Grande",alignment:"Chaotique Mauvais",ac:18,hp:184,speed:"6 m, vol 9 m",cr:"13",xp:10000,abilities:{strength:21,dexterity:10,constitution:22,intelligence:19,wisdom:12,charisma:15},summary:"Halo d’épouvante, résistance à la magie et téléportation.",actions:["Attaques multiples : morsure et deux griffes","Morsure +10, 5d10+5 perforants","Griffe +10, 3d6+5 tranchants","Téléportation jusqu’à 36 m"]},
+  {id:"goristro",name:"Goristro",type:"Fiélon (démon)",size:"Très Grande",alignment:"Chaotique Mauvais",ac:19,hp:310,speed:"12 m",cr:"17",xp:18000,abilities:{strength:25,dexterity:11,constitution:25,intelligence:6,wisdom:13,charisma:14},summary:"Charge, mémoire des labyrinthes, monstre assiégeur et résistance à la magie.",actions:["Attaques multiples : deux poings et un sabot","Coup de corne +13, 7d10+7 perforants","Poing +13, 3d8+7 contondants","Sabot +13, 3d10+7 contondants"]},
+  {id:"vrock",name:"Vrock",type:"Fiélon (démon)",size:"Grande",alignment:"Chaotique Mauvais",ac:15,hp:104,speed:"12 m, vol 18 m",cr:"6",xp:2300,abilities:{strength:17,dexterity:15,constitution:18,intelligence:8,wisdom:13,charisma:8},summary:"Démon volant ; résistance à la magie et piaillement étourdissant.",actions:["Attaques multiples : bec et serres","Bec +6, 2d6+3 perforants","Serres +6, 2d10+3 tranchants","Piaillement étourdissant (1/jour)"]},
+  {id:"quasit",name:"Quasit",type:"Fiélon (démon, métamorphe)",size:"Très Petite",alignment:"Chaotique Mauvais",ac:13,hp:7,speed:"12 m",cr:"1",xp:200,abilities:{strength:5,dexterity:17,constitution:10,intelligence:7,wisdom:10,charisma:10},summary:"Métamorphe, résistance à la magie, invisibilité et frayeur.",actions:["Frayeur (1/jour)","Invisibilité"]},
+  {id:"barbed_devil",name:"Diable barbelé",type:"Fiélon (diable)",size:"Moyenne",alignment:"Loyal Mauvais",ac:15,hp:110,speed:"9 m",cr:"5",xp:1800,abilities:{strength:16,dexterity:17,constitution:18,intelligence:12,wisdom:14,charisma:14},summary:"Peau barbelée, vue du diable et résistance à la magie.",actions:["Attaques multiples : deux griffes et une queue, ou deux flammes","Griffe +6, 1d6+3 perforants","Queue +6, 2d6+3 perforants","Projeter une flamme +5, 3d6 feu"]},
+  {id:"horned_devil",name:"Diable cornu",type:"Fiélon (diable)",size:"Grande",alignment:"Loyal Mauvais",ac:18,hp:148,speed:"6 m, vol 18 m",cr:"11",xp:7200,abilities:{strength:22,dexterity:17,constitution:21,intelligence:12,wisdom:16,charisma:17},summary:"Diable volant ; résistance à la magie et blessure infernale.",actions:["Attaques multiples : deux fourches et une queue","Fourche +10, 2d8+6 perforants","Queue +10, 1d8+6 perforants ; blessure infernale","Projeter une flamme +7, 4d6 feu"]},
+  {id:"ice_devil",name:"Diable gelé",type:"Fiélon (diable)",size:"Grande",alignment:"Loyal Mauvais",ac:18,hp:180,speed:"12 m",cr:"14",xp:11500,abilities:{strength:21,dexterity:14,constitution:18,intelligence:18,wisdom:15,charisma:18},summary:"Immunisé au feu, froid et poison ; résistance à la magie et mur de glace.",actions:["Attaques multiples : morsure, griffes et queue","Lance de glace +10, 2d8+5 perforants + 3d6 froid (variante)","Griffes +10, 2d4+5 tranchants + 3d6 froid","Queue +10, 2d6+5 contondants + 3d6 froid","Mur de glace (Recharge 6)"]},
+  {id:"lemure",name:"Lémure",type:"Fiélon (diable)",size:"Moyenne",alignment:"Loyal Mauvais",ac:7,hp:13,speed:"4,5 m",cr:"0",xp:10,abilities:{strength:10,dexterity:5,constitution:11,intelligence:1,wisdom:11,charisma:3},summary:"Diable inférieur ; vue du diable et reconstitution infernale.",actions:["Poing +3, 1d4 contondants"]},
+  {id:"goblin",name:"Gobelin",type:"Humanoïde (gobelinoïde)",size:"Petite",alignment:"Neutre Mauvais",ac:15,hp:7,speed:"9 m",cr:"1/4",xp:50,abilities:{strength:8,dexterity:14,constitution:10,intelligence:10,wisdom:8,charisma:8},summary:"Vision dans le noir, Fuite agile ; cimeterre et arc court.",actions:["Cimeterre +4, 1d6+2 tranchants","Arc court +4, 1d6+2 perforants"]},
+  {id:"goblin_boss",name:"Chef gobelin",type:"Humanoïde (gobelinoïde)",size:"Petite",alignment:"Neutre Mauvais",ac:17,hp:27,speed:"9 m",cr:"1",xp:200,abilities:{strength:10,dexterity:14,constitution:10,intelligence:10,wisdom:8,charisma:10},summary:"Fuite agile ; attaques multiples ; réaction d’attaque redirigée.",actions:["2 attaques au cimeterre (la seconde avec désavantage)","Cimeterre +4, 1d6+2 tranchants","Javeline +4, 1d6+2 perforants"]},
+  {id:"kobold",name:"Kobold",type:"Humanoïde (kobold)",size:"Petite",alignment:"Loyal Mauvais",ac:12,hp:5,speed:"9 m",cr:"1/8",xp:25,abilities:{strength:7,dexterity:15,constitution:9,intelligence:8,wisdom:7,charisma:8},summary:"Vision dans le noir, sensibilité à la lumière du soleil, tactique de groupe.",actions:["Dague","Fronde"]},
+  {id:"winged_kobold",name:"Kobold ailé",type:"Humanoïde (kobold)",size:"Petite",alignment:"Loyal Mauvais",ac:13,hp:7,speed:"9 m, vol 9 m",cr:"1/4",xp:50,abilities:{strength:7,dexterity:16,constitution:9,intelligence:8,wisdom:7,charisma:8},summary:"Vision dans le noir, sensibilité à la lumière du soleil, tactique de groupe ; vol.",actions:["Dague +5, 1d4+3 perforants","Lâcher de rocher +5, 1d6+3 contondants"]},
+  {id:"orc",name:"Orc",type:"Humanoïde (orc)",size:"Moyenne",alignment:"Chaotique Mauvais",ac:13,hp:15,speed:"9 m",cr:"1/2",xp:100,abilities:{strength:16,dexterity:12,constitution:16,intelligence:7,wisdom:11,charisma:10},summary:"Vision dans le noir, Agressif ; hache à deux mains et javeline.",actions:["Hache à deux mains +5, 1d12+3 tranchants","Javeline +5, 1d6+3 perforants"]},
+  {id:"bandit",name:"Bandit",type:"Humanoïde (n’importe quelle race)",size:"Moyenne",alignment:"non Loyal",ac:12,hp:11,speed:"9 m",cr:"1/8",xp:25,abilities:{strength:11,dexterity:12,constitution:12,intelligence:10,wisdom:10,charisma:10},summary:"Combattant hors-la-loi ; cimeterre et arbalète légère.",actions:["Cimeterre +3, 1d6+1 tranchants","Arbalète légère +3, 1d8+1 perforants"]},
+  {id:"berserker",name:"Berserker",type:"Humanoïde (n’importe quelle race)",size:"Moyenne",alignment:"Chaotique",ac:13,hp:67,speed:"9 m",cr:"2",xp:450,abilities:{strength:16,dexterity:12,constitution:17,intelligence:9,wisdom:11,charisma:9},summary:"Téméraire ; puissant combattant de mêlée.",actions:["Hache à deux mains +5, 1d12+3 tranchants"]},
+  {id:"bandit_captain",name:"Capitaine bandit",type:"Humanoïde (n’importe quelle race)",size:"Moyenne",alignment:"non Loyal",ac:15,hp:65,speed:"9 m",cr:"2",xp:450,abilities:{strength:15,dexterity:16,constitution:14,intelligence:14,wisdom:11,charisma:14},summary:"Attaques multiples ; cimeterre, dague et parade.",actions:["3 attaques de mêlée : 2 cimeterres + 1 dague, ou 2 dagues à distance","Cimeterre +5, 1d6+3 tranchants","Dague +5, 1d4+3 perforants"]},
+  {id:"acolyte",name:"Acolyte",type:"Humanoïde (n’importe quelle race)",size:"Moyenne",alignment:"au choix",ac:10,hp:9,speed:"9 m",cr:"1/4",xp:50,abilities:{strength:10,dexterity:10,constitution:10,intelligence:10,wisdom:14,charisma:11},summary:"Lanceur de sorts divins de niveau 1 ; Médecine et Religion.",actions:["Gourdin +2, 1d4 contondants"],spellcasting:"Sagesse ; DD 12, +4 ; 3 emplacements de niveau 1"},
+  {id:"veteran",name:"Vétéran",type:"Humanoïde (n’importe quelle race)",size:"Moyenne",alignment:"au choix",ac:17,hp:58,speed:"9 m",cr:"3",xp:700,abilities:{strength:16,dexterity:13,constitution:14,intelligence:10,wisdom:11,charisma:10},summary:"Guerrier professionnel ; attaques multiples et armement polyvalent.",actions:["2 attaques à l’épée longue, plus épée courte si disponible","Épée longue +5, 1d8+3 tranchants","Épée courte +5, 1d6+3 perforants","Arbalète lourde +3, 1d10+1 perforants"]},
+  {id:"hobgoblin_captain",name:"Capitaine hobgobelin",type:"Humanoïde (gobelinoïde)",size:"Moyenne",alignment:"Loyal Mauvais",ac:17,hp:39,speed:"9 m",cr:"3",xp:700,abilities:{strength:15,dexterity:14,constitution:14,intelligence:12,wisdom:10,charisma:13},summary:"Avantage martial, attaques multiples et commandement.",actions:["2 attaques à l’épée à deux mains","Épée à deux mains +4, 2d6+2","Javeline +4, 1d6+2 perforants"]},
+  {id:"guard",name:"Garde",type:"Humanoïde (n’importe quelle race)",size:"Moyenne",alignment:"au choix",ac:16,hp:11,speed:"9 m",cr:"1/8",xp:25,abilities:{strength:13,dexterity:12,constitution:12,intelligence:10,wisdom:11,charisma:10},summary:"Milicien, sentinelle ou garde du corps ; Perception entraînée.",actions:["Lance +3, 1d6+1 perforants (1d8+1 à deux mains)"]},
+  {id:"gladiator",name:"Gladiateur",type:"Humanoïde (n’importe quelle race)",size:"Moyenne",alignment:"au choix",ac:16,hp:112,speed:"9 m",cr:"5",xp:1800,abilities:{strength:18,dexterity:15,constitution:16,intelligence:10,wisdom:12,charisma:15},summary:"Brave et brutal ; combattant d’arène expérimenté, avec parade.",actions:["3 attaques de mêlée ou 2 attaques à distance","Lance +7, 2d6+4 perforants (2d8+4 à deux mains)","Coup de bouclier +7, 2d4+4 contondants ; peut jeter à terre"]},
+  {id:"tribal_warrior",name:"Guerrier tribal",type:"Humanoïde (n’importe quelle race)",size:"Moyenne",alignment:"au choix",ac:12,hp:11,speed:"9 m",cr:"1/8",xp:25,abilities:{strength:13,dexterity:11,constitution:12,intelligence:8,wisdom:11,charisma:8},summary:"Tactique de groupe ; combattant tribal armé d’une lance.",actions:["Lance +3, 1d6+1 perforants (1d8+1 à deux mains)"]},
+  {id:"cultist",name:"Membre de secte",type:"Humanoïde (n’importe quelle race)",size:"Moyenne",alignment:"non Bon",ac:12,hp:9,speed:"9 m",cr:"1/8",xp:25,abilities:{strength:11,dexterity:12,constitution:10,intelligence:10,wisdom:11,charisma:10},summary:"Sombre dévotion ; Religion et Supercherie.",actions:["Cimeterre +3, 1d6+1 tranchants"]},
+  {id:"noble",name:"Noble",type:"Humanoïde (n’importe quelle race)",size:"Moyenne",alignment:"au choix",ac:15,hp:9,speed:"9 m",cr:"1/8",xp:25,abilities:{strength:11,dexterity:12,constitution:11,intelligence:12,wisdom:14,charisma:16},summary:"Courtisan ou aristocrate influent ; Perspicacité, Persuasion, Supercherie et parade.",actions:["Rapière +3, 1d8+1 perforants"]},
+  {id:"commoner",name:"Roturier",type:"Humanoïde (n’importe quelle race)",size:"Moyenne",alignment:"au choix",ac:10,hp:4,speed:"9 m",cr:"0",xp:10,abilities:{strength:10,dexterity:10,constitution:10,intelligence:10,wisdom:10,charisma:10},summary:"Profil générique pour paysan, artisan, serviteur, marchand ou pèlerin.",actions:["Gourdin +2, 1d4 contondants"]},
+  {id:"spy",name:"Espion",type:"Humanoïde (n’importe quelle race)",size:"Moyenne",alignment:"au choix",ac:12,hp:27,speed:"9 m",cr:"1",xp:200,abilities:{strength:10,dexterity:15,constitution:10,intelligence:12,wisdom:14,charisma:16},summary:"Action fourbe et attaque sournoise ; expert en infiltration et renseignement.",actions:["2 attaques de mêlée","Épée courte +4, 1d6+2 perforants","Arbalète de poing +4, 1d6+2 perforants"]},
+  {id:"mage",name:"Mage",type:"Humanoïde (n’importe quelle race)",size:"Moyenne",alignment:"au choix",ac:12,hp:40,speed:"9 m",cr:"6",xp:2300,abilities:{strength:9,dexterity:14,constitution:11,intelligence:17,wisdom:12,charisma:11},summary:"Lanceur de sorts de niveau 9 ; magie offensive et défensive.",actions:["Dague"],spellcasting:"Intelligence ; DD 14, +6 ; sorts de magicien jusqu’au niveau 5"},
+  {id:"ogre",name:"Ogre",type:"Géant",size:"Grande",alignment:"Chaotique",ac:12,hp:30,speed:"9 m",cr:"1",xp:200,abilities:{strength:17,dexterity:10,constitution:14,intelligence:7,wisdom:9,charisma:10},summary:"Géant brutal ; hache d’armes et javeline.",actions:["Hache d’armes +5, 2d8+3 tranchants (2d10+3 à deux mains)","Javeline +5, 2d6+3 perforants"]},
+  {id:"worg",name:"Worg",type:"Créature monstrueuse",size:"Grande",alignment:"Neutre Mauvais",ac:13,hp:26,speed:"15 m",cr:"1/2",xp:100,abilities:{strength:16,dexterity:13,constitution:13,intelligence:7,wisdom:11,charisma:8},summary:"Vision dans le noir, odorat et ouïe aiguisés ; prédateur gobelinoïde.",actions:["Morsure +5, 2d6+3 perforants"]},
+  {id:"giant_eagle",name:"Aigle géant",type:"Bête",size:"Grande",alignment:"Neutre Bon",ac:13,hp:26,speed:"3 m, vol 24 m",cr:"1",xp:200,abilities:{strength:16,dexterity:17,constitution:13,intelligence:8,wisdom:14,charisma:10},summary:"Vue aiguisée ; attaques de bec et serres."},
+  {id:"giant_spider",name:"Araignée géante",type:"Bête",size:"Grande",alignment:"non-alignée",ac:14,hp:26,speed:"9 m, escalade 9 m",cr:"1",xp:200,abilities:{strength:14,dexterity:16,constitution:12,intelligence:2,wisdom:11,charisma:4},summary:"Pattes d’araignée, perception sur les toiles ; morsure venimeuse et toile entravante.",actions:["Morsure +5, 1d8+3 perforants + poison (Con DD 11)","Toile (Recharge 5–6) +5, portée 9/18 m ; entravé, Force DD 12 pour se libérer"]},
+  {id:"cat",name:"Chat",type:"Bête",size:"Très Petite",alignment:"non-alignée",ac:12,hp:2,speed:"12 m, escalade 9 m",cr:"0",xp:10,abilities:{strength:3,dexterity:15,constitution:10,intelligence:3,wisdom:12,charisma:7},summary:"Odorat aiguisé ; griffes."},
+  {id:"bat",name:"Chauve-souris",type:"Bête",size:"Très Petite",alignment:"non-alignée",ac:12,hp:1,speed:"1,5 m, vol 9 m",cr:"0",xp:10,abilities:{strength:2,dexterity:15,constitution:8,intelligence:2,wisdom:12,charisma:4},summary:"Écholocalisation et ouïe aiguisée ; morsure."},
+  {id:"warhorse",name:"Cheval de guerre",type:"Bête",size:"Grande",alignment:"non-alignée",ac:11,hp:19,speed:"18 m",cr:"1/2",xp:100,abilities:{strength:18,dexterity:12,constitution:13,intelligence:2,wisdom:12,charisma:7},summary:"Charge écrasante ; sabots."},
+  {id:"riding_horse",name:"Cheval de selle",type:"Bête",size:"Grande",alignment:"non-alignée",ac:10,hp:13,speed:"18 m",cr:"1/4",xp:50,abilities:{strength:16,dexterity:10,constitution:12,intelligence:2,wisdom:11,charisma:7},summary:"Monture ; profil de créature 2014."},
+  {id:"reef_shark",name:"Requin de récif",type:"Bête",size:"Moyenne",alignment:"non-alignée",ac:12,hp:22,speed:"nage 12 m",cr:"1/2",xp:100,abilities:{strength:14,dexterity:13,constitution:13,intelligence:1,wisdom:10,charisma:4},summary:"Respiration aquatique, tactique de groupe ; morsure."},
+  {id:"boar",name:"Sanglier",type:"Bête",size:"Moyenne",alignment:"non-alignée",ac:11,hp:11,speed:"12 m",cr:"1/4",xp:50,abilities:{strength:13,dexterity:11,constitution:12,intelligence:2,wisdom:9,charisma:5},summary:"Charge et implacable ; défense."},
+  {id:"constrictor_snake",name:"Serpent constricteur",type:"Bête",size:"Grande",alignment:"non-alignée",ac:12,hp:13,speed:"9 m, nage 9 m",cr:"1/4",xp:50,abilities:{strength:15,dexterity:14,constitution:12,intelligence:1,wisdom:10,charisma:3},summary:"Morsure et constriction."},
+  {id:"poisonous_snake",name:"Serpent venimeux",type:"Bête",size:"Très Petite",alignment:"non-alignée",ac:13,hp:2,speed:"9 m, nage 9 m",cr:"1/8",xp:25,abilities:{strength:2,dexterity:16,constitution:11,intelligence:1,wisdom:10,charisma:3},summary:"Morsure venimeuse."},
+  {id:"skeleton",name:"Squelette",type:"Mort-vivant",size:"Moyenne",alignment:"Loyal Mauvais",ac:13,hp:13,speed:"9 m",cr:"1/4",xp:50,abilities:{strength:10,dexterity:14,constitution:15,intelligence:6,wisdom:8,charisma:5},summary:"Vulnérable au contondant ; immunisé au poison ; vision dans le noir.",actions:["Épée courte +4, 1d6+2 perforants","Arc court +4, 1d6+2 perforants"]},
+  {id:"sprite",name:"Esprit follet",type:"Fée",size:"Très Petite",alignment:"Neutre Bon",ac:15,hp:2,speed:"3 m, vol 12 m",cr:"1/4",xp:50,abilities:{strength:3,dexterity:18,constitution:10,intelligence:14,wisdom:13,charisma:11},summary:"Invisibilité ; épée longue et arc court."},
+  {id:"dire_wolf",name:"Loup sanguinaire",type:"Bête",size:"Grande",alignment:"non-alignée",ac:14,hp:37,speed:"15 m",cr:"1",xp:200,abilities:{strength:17,dexterity:15,constitution:15,intelligence:3,wisdom:12,charisma:7},summary:"Odorat et ouïe aiguisés, tactique de groupe ; morsure pouvant jeter à terre."},
+  {id:"mastiff",name:"Mastiff",type:"Bête",size:"Moyenne",alignment:"non-alignée",ac:12,hp:5,speed:"12 m",cr:"1/8",xp:25,abilities:{strength:13,dexterity:14,constitution:12,intelligence:3,wisdom:12,charisma:7},summary:"Odorat et ouïe aiguisés ; morsure pouvant jeter à terre."},
+  {id:"tiger",name:"Tigre",type:"Bête",size:"Grande",alignment:"non-alignée",ac:12,hp:37,speed:"12 m",cr:"1",xp:200,abilities:{strength:17,dexterity:15,constitution:14,intelligence:3,wisdom:12,charisma:8},summary:"Bond agressif et odorat aiguisé ; morsure et griffes."},
+  {id:"zombie",name:"Zombi",type:"Mort-vivant",size:"Moyenne",alignment:"Neutre Mauvais",ac:8,hp:22,speed:"6 m",cr:"1/4",xp:50,abilities:{strength:13,dexterity:6,constitution:16,intelligence:3,wisdom:6,charisma:5},summary:"Immunisé au poison ; Robustesse de la non-vie.",actions:["Coup +3, 1d6+1 contondants"]},
+  {id:"mule",name:"Mule",type:"Bête",size:"Moyenne",alignment:"non-alignée",ac:10,hp:11,speed:"12 m",cr:"1/8",xp:25,abilities:{strength:14,dexterity:10,constitution:13,intelligence:2,wisdom:10,charisma:5},summary:"Bête de somme ; stable ; sabots."},
+  {id:"brown_bear",name:"Ours brun",type:"Bête",size:"Grande",alignment:"non-alignée",ac:11,hp:34,speed:"12 m, escalade 9 m",cr:"1",xp:200,abilities:{strength:19,dexterity:10,constitution:16,intelligence:2,wisdom:13,charisma:7},summary:"Odorat aiguisé ; morsure et griffes."},
+  {id:"black_bear",name:"Ours noir",type:"Bête",size:"Moyenne",alignment:"non-alignée",ac:11,hp:19,speed:"12 m, escalade 9 m",cr:"1/2",xp:100,abilities:{strength:15,dexterity:10,constitution:14,intelligence:2,wisdom:12,charisma:7},summary:"Odorat aiguisé ; morsure et griffes."},
+  {id:"panther",name:"Panthère",type:"Bête",size:"Grande",alignment:"non-alignée",ac:12,hp:13,speed:"15 m, escalade 12 m",cr:"1/4",xp:50,abilities:{strength:14,dexterity:15,constitution:10,intelligence:3,wisdom:14,charisma:7},summary:"Bond agressif, odorat aiguisé ; morsure et griffe."},
+  {id:"owl",name:"Chouette",type:"Bête",size:"Très Petite",alignment:"non-alignée",ac:11,hp:1,speed:"1,5 m, vol 18 m",cr:"0",xp:10,abilities:{strength:3,dexterity:13,constitution:8,intelligence:2,wisdom:12,charisma:7},summary:"Ouïe et vue aiguisées ; repli aérien ; serres."},
+  {id:"raven",name:"Corbeau",type:"Bête",size:"Très Petite",alignment:"non-alignée",ac:12,hp:1,speed:"3 m, vol 15 m",cr:"0",xp:10,abilities:{strength:2,dexterity:14,constitution:8,intelligence:2,wisdom:12,charisma:6},summary:"Imitation ; bec."},
+  {id:"crocodile",name:"Crocodile",type:"Bête",size:"Grande",alignment:"non-alignée",ac:12,hp:19,speed:"6 m, nage 9 m",cr:"1/2",xp:100,abilities:{strength:15,dexterity:10,constitution:13,intelligence:2,wisdom:10,charisma:5},summary:"Retient son souffle ; morsure et empoignade."},
+  {id:"rat",name:"Rat",type:"Bête",size:"Très Petite",alignment:"non-alignée",ac:10,hp:1,speed:"6 m",cr:"0",xp:10,abilities:{strength:2,dexterity:11,constitution:9,intelligence:2,wisdom:10,charisma:4},summary:"Odorat aiguisé ; morsure."},
+  {id:"pseudodragon",name:"Pseudodragon",type:"Dragon",size:"Très Petite",alignment:"Neutre Bon",ac:13,hp:7,speed:"4,5 m, vol 18 m",cr:"1/4",xp:50,abilities:{strength:6,dexterity:15,constitution:13,intelligence:10,wisdom:12,charisma:10},summary:"Résistance à la magie, sens aiguisés, télépathie limitée ; morsure et dard."},
+  {id:"hawk",name:"Faucon",type:"Bête",size:"Très Petite",alignment:"non-alignée",ac:13,hp:1,speed:"3 m, vol 18 m",cr:"0",xp:10,abilities:{strength:5,dexterity:16,constitution:8,intelligence:2,wisdom:14,charisma:6},summary:"Vue aiguisée ; serres."},
+  {id:"frog",name:"Grenouille",type:"Bête",size:"Très Petite",alignment:"non-alignée",ac:11,hp:1,speed:"6 m, nage 6 m",cr:"0",xp:0,abilities:{strength:1,dexterity:13,constitution:8,intelligence:1,wisdom:8,charisma:3},summary:"Amphibie ; saut sans élan."},
+  {id:"lion",name:"Lion",type:"Bête",size:"Grande",alignment:"non-alignée",ac:12,hp:26,speed:"15 m",cr:"1",xp:200,abilities:{strength:17,dexterity:15,constitution:13,intelligence:3,wisdom:12,charisma:8},summary:"Bond agressif, odorat aiguisé, saut avec élan, tactique de groupe."}
+  ,{id:"hobgoblin",name:"Hobgobelin",type:"Humanoïde (gobelinoïde)",size:"Moyenne",alignment:"Loyal Mauvais",ac:18,hp:11,speed:"9 m",cr:"1/2",xp:100,abilities:{strength:13,dexterity:12,constitution:12,intelligence:10,wisdom:10,charisma:9},summary:"Avantage martial ; soldat gobelinoïde discipliné.",actions:["Épée longue +3, 1d8+1 tranchants (1d10+1 à deux mains)","Arc long +3, 1d8+1 perforants"]}
+  ,{id:"bugbear",name:"Gobelours",type:"Humanoïde (gobelinoïde)",size:"Moyenne",alignment:"Chaotique Mauvais",ac:16,hp:27,speed:"9 m",cr:"1",xp:200,abilities:{strength:15,dexterity:14,constitution:13,intelligence:8,wisdom:11,charisma:9},summary:"Brute, attaque surprise et longue allonge.",actions:["Morgenstern +4, 2d8+2 perforants","Javeline +4, 2d6+2 perforants"]}
+  ,{id:"bugbear_chief",name:"Chef gobelours",type:"Humanoïde (gobelinoïde)",size:"Moyenne",alignment:"Chaotique Mauvais",ac:17,hp:65,speed:"9 m",cr:"3",xp:700,abilities:{strength:17,dexterity:14,constitution:14,intelligence:11,wisdom:12,charisma:11},summary:"Brute, attaque surprise ; chef gobelours endurant.",actions:["2 attaques de morgenstern","Morgenstern +5, 2d8+3 perforants","Javeline +5, 2d6+3 perforants"]}
+  ,{id:"gnoll",name:"Gnoll",type:"Humanoïde (gnoll)",size:"Moyenne",alignment:"Chaotique Mauvais",ac:15,hp:22,speed:"9 m",cr:"1/2",xp:100,abilities:{strength:14,dexterity:12,constitution:11,intelligence:6,wisdom:10,charisma:7},summary:"Déchaîné ; combattant de meute agressif.",actions:["Morsure +4, 1d4+2 perforants","Lance +4, 1d6+2 perforants (1d8+2 à deux mains)","Arc long +3, 1d8+1 perforants"]}
+  ,{id:"gnoll_pack_lord",name:"Chef de meute gnoll",type:"Humanoïde (gnoll)",size:"Moyenne",alignment:"Chaotique Mauvais",ac:15,hp:49,speed:"9 m",cr:"2",xp:450,abilities:{strength:16,dexterity:14,constitution:13,intelligence:8,wisdom:11,charisma:9},summary:"Déchaîné ; attaques multiples et incitation des alliés.",actions:["2 attaques : morsure et coutille, ou arc long","Morsure +5, 1d4+3 perforants","Coutille +5, 1d10+3 tranchants","Arc long +4, 1d8+2 perforants"]}
+  ,{id:"orog",name:"Orog",type:"Humanoïde (orc)",size:"Moyenne",alignment:"Chaotique Mauvais",ac:18,hp:42,speed:"9 m",cr:"2",xp:450,abilities:{strength:18,dexterity:12,constitution:18,intelligence:12,wisdom:11,charisma:12},summary:"Agressif ; orc d'élite en harnois.",actions:["2 attaques à la grande hache","Grande hache +6, 1d12+4 tranchants","Javeline +6, 1d6+4 perforants"]}
+  ,{id:"ghoul",name:"Goule",type:"Mort-vivant",size:"Moyenne",alignment:"Chaotique Mauvais",ac:12,hp:22,speed:"9 m",cr:"1",xp:200,abilities:{strength:13,dexterity:15,constitution:10,intelligence:7,wisdom:10,charisma:6},summary:"Griffes paralysantes ; immunités de mort-vivant.",actions:["Morsure +2, 2d6+2 perforants","Griffes +4, 2d4+2 tranchants ; paralysie Con DD 10"]}
+  ,{id:"ghast",name:"Blême",type:"Mort-vivant",size:"Moyenne",alignment:"Chaotique Mauvais",ac:13,hp:36,speed:"9 m",cr:"2",xp:450,abilities:{strength:16,dexterity:17,constitution:10,intelligence:11,wisdom:10,charisma:8},summary:"Puanteur, mépris du renvoi et griffes paralysantes.",actions:["Morsure +3, 2d8+3 perforants","Griffes +5, 2d6+3 tranchants ; paralysie Con DD 10"]}
+  ,{id:"shadow",name:"Ombre",type:"Mort-vivant",size:"Moyenne",alignment:"Chaotique Mauvais",ac:12,hp:16,speed:"12 m",cr:"1/2",xp:100,abilities:{strength:6,dexterity:14,constitution:13,intelligence:6,wisdom:10,charisma:8},summary:"Amorphe, discrétion dans les ombres, sensibilité à la lumière ; ponction de Force.",actions:["Ponction de force +4, 2d6+2 nécrotiques ; Force réduite de 1d4"]}
+  ,{id:"specter",name:"Spectre",type:"Mort-vivant",size:"Moyenne",alignment:"Chaotique Mauvais",ac:12,hp:22,speed:"0 m, vol 15 m",cr:"1",xp:200,abilities:{strength:1,dexterity:14,constitution:11,intelligence:10,wisdom:10,charisma:11},summary:"Déplacement intangible ; absorption de vie.",actions:["Absorption de vie +4, 3d6 nécrotiques ; Con DD 10 réduit les PV max"]}
+  ,{id:"ogre_zombie",name:"Zombi ogre",type:"Mort-vivant",size:"Grande",alignment:"Neutre Mauvais",ac:8,hp:85,speed:"9 m",cr:"2",xp:450,abilities:{strength:19,dexterity:6,constitution:18,intelligence:3,wisdom:6,charisma:5},summary:"Robustesse de la non-vie ; immense mort-vivant.",actions:["Morgenstern +6, 2d8+4 contondants"]}
+  ,{id:"owlbear",name:"Hibours",type:"Créature monstrueuse",size:"Grande",alignment:"non-alignée",ac:13,hp:59,speed:"12 m",cr:"3",xp:700,abilities:{strength:20,dexterity:12,constitution:17,intelligence:3,wisdom:12,charisma:7},summary:"Odorat et vue aiguisés ; prédateur brutal.",actions:["Attaques multiples : bec et griffes","Bec +7, 1d10+5 perforants","Griffes +7, 2d8+5 tranchants"]}
+  ,{id:"phase_spider",name:"Araignée de phase",type:"Créature monstrueuse",size:"Grande",alignment:"non-alignée",ac:13,hp:32,speed:"9 m, escalade 9 m",cr:"3",xp:700,abilities:{strength:15,dexterity:15,constitution:12,intelligence:6,wisdom:10,charisma:6},summary:"Pattes d'araignée ; saut éthéré ; morsure venimeuse.",actions:["Morsure +4, 1d10+2 perforants + 4d8 poison (Con DD 11)"]}
+  ,{id:"giant_wolf_spider",name:"Araignée-loup géante",type:"Bête",size:"Moyenne",alignment:"non-alignée",ac:13,hp:11,speed:"12 m, escalade 12 m",cr:"1/4",xp:50,abilities:{strength:12,dexterity:16,constitution:13,intelligence:3,wisdom:12,charisma:4},summary:"Pattes d'araignée, marche et perception sur les toiles ; morsure venimeuse.",actions:["Morsure +3, 1d6+1 perforants + 2d6 poison (Con DD 11)"]}
+  ,{id:"harpy",name:"Harpie",type:"Créature monstrueuse",size:"Moyenne",alignment:"Chaotique Mauvaise",ac:11,hp:38,speed:"6 m, vol 12 m",cr:"1",xp:200,abilities:{strength:12,dexterity:13,constitution:12,intelligence:7,wisdom:10,charisma:13},summary:"Chant captivant ; prédatrice volante.",actions:["Attaques multiples : griffes et gourdin","Griffes +3, 2d4+1 tranchants","Gourdin +3, 1d4+1 contondants","Chant captivant : Sag DD 11, charmé"]}
+  ,{id:"grick",name:"Grick",type:"Créature monstrueuse",size:"Moyenne",alignment:"Neutre",ac:14,hp:27,speed:"9 m, escalade 9 m",cr:"2",xp:450,abilities:{strength:14,dexterity:14,constitution:11,intelligence:3,wisdom:14,charisma:5},summary:"Camouflage dans la rocaille ; résistance aux armes non magiques.",actions:["Tentacules +4, 2d6+2 tranchants ; si touche, attaque de bec","Bec +4, 1d6+2 perforants"]}
+  ,{id:"ettercap",name:"Ettercap",type:"Créature monstrueuse",size:"Moyenne",alignment:"Neutre Mauvaise",ac:13,hp:44,speed:"9 m, escalade 9 m",cr:"2",xp:450,abilities:{strength:14,dexterity:15,constitution:13,intelligence:7,wisdom:12,charisma:8},summary:"Pattes d'araignée, marche/perception sur les toiles ; toile entravante.",actions:["Morsure +4, 1d8+2 perforants + 1d8 poison ; Con DD 11","Griffes +4, 2d4+2 tranchants","Toile (Recharge 5–6) +4, 9/18 m ; entravé, Force DD 11"]}
+  ,{id:"hippogriff",name:"Hippogriffe",type:"Créature monstrueuse",size:"Grande",alignment:"non-alignée",ac:11,hp:19,speed:"12 m, vol 18 m",cr:"1",xp:200,abilities:{strength:17,dexterity:13,constitution:13,intelligence:2,wisdom:12,charisma:8},summary:"Vue aiguisée ; monture volante sauvage.",actions:["Attaques multiples : bec et griffes","Bec +5, 1d10+3 perforants","Griffes +5, 2d6+3 tranchants"]}
+  ,{id:"wight",name:"Nécrophage",type:"Mort-vivant",size:"Moyenne",alignment:"Neutre Mauvais",ac:14,hp:45,speed:"9 m",cr:"3",xp:700,abilities:{strength:15,dexterity:14,constitution:16,intelligence:10,wisdom:13,charisma:15},summary:"Sensibilité au soleil ; absorption de vie ; armes martiales.",actions:["2 attaques à l'épée longue ou à l'arc long","Absorption de vie +4, 1d6+2 nécrotiques ; Con DD 13 réduit les PV max","Épée longue +4, 1d8+2 tranchants (1d10+2 à deux mains)","Arc long +4, 1d8+2 perforants"]}
+  ,{id:"otyugh",name:"Otyugh",type:"Aberration",size:"Grande",alignment:"Neutre",ac:14,hp:114,speed:"9 m",cr:"5",xp:1800,abilities:{strength:16,dexterity:11,constitution:19,intelligence:6,wisdom:13,charisma:6},summary:"Télépathie limitée ; morsure maladive et tentacules empoignants.",actions:["Attaques multiples : morsure et 2 tentacules","Morsure +6, 2d8+3 perforants ; maladie Con DD 15","Tentacule +6, 1d8+3 contondants + 1d8 perforants ; empoigne DD 13","Coup de tentacule : Con DD 14, 2d6+3 contondants et étourdi"]}
+  ,{id:"air_elemental",name:"Élémentaire de l'air",type:"Élémentaire",size:"Grande",alignment:"Neutre",ac:15,hp:90,speed:"0 m, vol 27 m",cr:"5",xp:1800,abilities:{strength:14,dexterity:20,constitution:14,intelligence:6,wisdom:10,charisma:6},summary:"Corps d'air, vol stationnaire ; tourbillon.",actions:["2 coups +8, 2d8+5 contondants","Tourbillon (Recharge 4–6) : For DD 13, 3d8+2 contondants, repoussé et à terre"]}
+  ,{id:"earth_elemental",name:"Élémentaire de la terre",type:"Élémentaire",size:"Grande",alignment:"Neutre",ac:17,hp:126,speed:"9 m, fouissement 9 m",cr:"5",xp:1800,abilities:{strength:20,dexterity:8,constitution:20,intelligence:5,wisdom:10,charisma:5},summary:"Traverse la terre ; monstre assiégeur ; vulnérable au tonnerre.",actions:["2 coups +8, 2d8+5 contondants"]}
+  ,{id:"fire_elemental",name:"Élémentaire du feu",type:"Élémentaire",size:"Grande",alignment:"Neutre",ac:13,hp:102,speed:"15 m",cr:"5",xp:1800,abilities:{strength:10,dexterity:17,constitution:16,intelligence:6,wisdom:10,charisma:7},summary:"Corps de feu, illumination, vulnérabilité à l'eau.",actions:["2 contacts +6, 2d6+3 feu ; la cible prend feu"]}
+  ,{id:"water_elemental",name:"Élémentaire de l'eau",type:"Élémentaire",size:"Grande",alignment:"Neutre",ac:14,hp:114,speed:"9 m, nage 27 m",cr:"5",xp:1800,abilities:{strength:18,dexterity:14,constitution:18,intelligence:5,wisdom:10,charisma:8},summary:"Corps d'eau ; le froid réduit temporairement sa vitesse ; trombe.",actions:["2 coups +7, 2d8+4 contondants","Trombe (Recharge 4–6) : For DD 15, 2d8+4 contondants et empoignade"]}
+  ,{id:"hill_giant",name:"Géant des collines",type:"Géant",size:"Très Grande",alignment:"Chaotique Mauvais",ac:13,hp:105,speed:"12 m",cr:"5",xp:1800,abilities:{strength:21,dexterity:8,constitution:19,intelligence:5,wisdom:9,charisma:6},summary:"Géant brutal ; massue et lancer de rocher.",actions:["2 attaques de massue","Massue +8, 3d8+5 contondants","Rocher +8, 3d10+5 contondants, portée 18/72 m"]}
+  ,{id:"troll",name:"Troll",type:"Géant",size:"Grande",alignment:"Chaotique Mauvais",ac:15,hp:84,speed:"9 m",cr:"5",xp:1800,abilities:{strength:18,dexterity:13,constitution:20,intelligence:7,wisdom:9,charisma:7},summary:"Régénération 10 PV ; l'acide ou le feu suspendent la régénération.",actions:["Attaques multiples : morsure et 2 griffes","Morsure +7, 1d6+4 perforants","Griffe +7, 2d6+4 tranchants"]}
+  ,{id:"fire_giant",name:"Géant du feu",type:"Géant",size:"Très Grande",alignment:"Loyal Mauvais",ac:18,hp:162,speed:"9 m",cr:"9",xp:5000,abilities:{strength:25,dexterity:9,constitution:23,intelligence:10,wisdom:14,charisma:13},summary:"Immunité au feu ; guerrier lourd en harnois.",actions:["2 attaques à l'épée à deux mains","Épée à deux mains +11, 6d6+7 tranchants","Rocher +11, 4d10+7 contondants, portée 18/72 m"]}
+  ,{id:"frost_giant",name:"Géant du givre",type:"Géant",size:"Très Grande",alignment:"Neutre Mauvais",ac:15,hp:138,speed:"12 m",cr:"8",xp:3900,abilities:{strength:23,dexterity:9,constitution:21,intelligence:9,wisdom:10,charisma:12},summary:"Immunité au froid ; combattant massif à la hache.",actions:["2 attaques à la hache à deux mains","Hache à deux mains +9, 3d12+6 tranchants","Rocher +9, 4d10+6 contondants, portée 18/72 m"]}
+  ,{id:"cloud_giant",name:"Géant des nuages",type:"Géant",size:"Très Grande",alignment:"Neutre Bon ou Neutre Mauvais",ac:14,hp:200,speed:"12 m",cr:"9",xp:5000,abilities:{strength:27,dexterity:10,constitution:22,intelligence:12,wisdom:16,charisma:16},summary:"Incantation innée, odorat aiguisé ; morgenstern et rochers.",actions:["2 attaques de morgenstern","Morgenstern +12, 3d8+8 perforants","Rocher +12, 4d10+8 contondants, portée 18/72 m"]}
+  ,{id:"stone_giant",name:"Géant des pierres",type:"Géant",size:"Très Grande",alignment:"Neutre",ac:17,hp:126,speed:"12 m",cr:"7",xp:2900,abilities:{strength:23,dexterity:15,constitution:20,intelligence:10,wisdom:12,charisma:9},summary:"Camouflage dans la rocaille ; excellent lanceur et réceptionneur de rochers.",actions:["2 attaques de massue","Massue +9, 3d8+6 contondants","Rocher +9, 4d10+6 contondants ; For DD 17 ou à terre"]}
+  ,{id:"storm_giant",name:"Géant des tempêtes",type:"Géant",size:"Très Grande",alignment:"Chaotique Bon",ac:16,hp:230,speed:"15 m, nage 15 m",cr:"13",xp:10000,abilities:{strength:29,dexterity:14,constitution:20,intelligence:16,wisdom:18,charisma:18},summary:"Amphibie, magie innée ; résiste au froid et immunisé à la foudre et au tonnerre.",actions:["Profil de géant des tempêtes : attaques et magie à consulter dans la fiche détaillée"]}
+  ,{id:"ettin",name:"Ettin",type:"Géant",size:"Grande",alignment:"Chaotique Mauvais",ac:12,hp:85,speed:"12 m",cr:"4",xp:1100,abilities:{strength:21,dexterity:8,constitution:17,intelligence:6,wisdom:10,charisma:8},summary:"Bicéphale, petit dormeur ; une arme contrôlée par chaque tête.",actions:["Hache d'armes +7, 2d8+5 tranchants","Morgenstern +7, 2d8+5 perforants"]}
+  ,{id:"flesh_golem",name:"Golem de chair",type:"Créature artificielle",size:"Moyenne",alignment:"Neutre",ac:9,hp:93,speed:"9 m",cr:"5",xp:1800,abilities:{strength:19,dexterity:9,constitution:18,intelligence:6,wisdom:10,charisma:5},summary:"Absorbe la foudre, aversion du feu, forme immuable, résistance à la magie ; peut devenir fou furieux.",actions:["2 coups +7, 2d8+4 contondants"]}
+  ,{id:"stone_golem",name:"Golem de pierre",type:"Créature artificielle",size:"Grande",alignment:"non-alignée",ac:17,hp:178,speed:"9 m",cr:"10",xp:5900,abilities:{strength:22,dexterity:9,constitution:20,intelligence:3,wisdom:11,charisma:1},summary:"Armes magiques, forme immuable et résistance à la magie ; pouvoir de lenteur.",actions:["2 coups +10, 3d8+6 contondants","Lenteur (Recharge 5–6) : Sag DD 17"]}
+  ,{id:"iron_golem",name:"Golem de fer",type:"Créature artificielle",size:"Grande",alignment:"non-alignée",ac:20,hp:210,speed:"9 m",cr:"16",xp:15000,abilities:{strength:24,dexterity:9,constitution:20,intelligence:3,wisdom:11,charisma:1},summary:"Absorbe le feu, armes magiques, forme immuable et résistance à la magie.",actions:["2 attaques au corps à corps","Coup +13, 3d8+7 contondants","Épée +13, 3d10+7 tranchants","Souffle empoisonné (Recharge 6), Con DD 19, 10d8 poison"]}
+  ,{id:"gelatinous_cube",name:"Cube gélatineux",type:"Vase",size:"Grande",alignment:"non-alignée",ac:6,hp:84,speed:"15 m",cr:"2",xp:450,abilities:{strength:14,dexterity:3,constitution:20,intelligence:1,wisdom:6,charisma:1},summary:"Transparent ; enveloppe et digère les créatures qui traversent son volume.",actions:["Pseudopode +4, 3d6 acide","Enveloppement : Dex DD 12 ; 3d6 acide puis 6d6 au début des tours du cube"]}
+  ,{id:"giant_shark",name:"Requin géant",type:"Bête",size:"Très Grande",alignment:"non-alignée",ac:13,hp:126,speed:"0 m, nage 15 m",cr:"5",xp:1800,abilities:{strength:23,dexterity:11,constitution:21,intelligence:1,wisdom:10,charisma:5},summary:"Frénésie sanguinaire ; respiration uniquement aquatique.",actions:["Morsure +9, 3d10+6 perforants"]}
+  ,{id:"rhinoceros",name:"Rhinocéros",type:"Bête",size:"Grande",alignment:"non-alignée",ac:11,hp:45,speed:"12 m",cr:"2",xp:450,abilities:{strength:21,dexterity:8,constitution:15,intelligence:2,wisdom:12,charisma:6},summary:"Charge puissante pouvant jeter la cible à terre.",actions:["Coup de corne +7, 2d8+5 contondants","Charge : +2d8 contondants ; For DD 15 ou à terre"]}
+  ,{id:"black_dragon_wyrmling",name:"Dragonnet noir",type:"Dragon",size:"Moyenne",alignment:"Chaotique Mauvais",ac:17,hp:33,speed:"9 m, nage 9 m, vol 18 m",cr:"2",xp:450,dragonColor:"Noir",dragonAge:"Dragonnet",abilities:{strength:15,dexterity:14,constitution:13,intelligence:10,wisdom:11,charisma:13},summary:"Amphibie ; immunité à l’acide ; souffle d’acide en ligne.",actions:["Morsure +4 : perforants + acide","Souffle d’acide (Recharge 5–6), Dex DD 11"]}
+  ,{id:"black_dragon_young",name:"Jeune dragon noir",type:"Dragon",size:"Grande",alignment:"Chaotique Mauvais",ac:18,hp:127,speed:"12 m, nage 12 m, vol 24 m",cr:"7",xp:2900,dragonColor:"Noir",dragonAge:"Jeune",abilities:{strength:19,dexterity:14,constitution:17,intelligence:12,wisdom:11,charisma:15},summary:"Amphibie ; immunité à l’acide ; attaques multiples et souffle d’acide.",actions:["Attaques multiples : morsure + 2 griffes","Morsure +7 : perforants + acide","Souffle d’acide (Recharge 5–6)"]}
+  ,{id:"black_dragon_adult",name:"Dragon noir adulte",type:"Dragon",size:"Très Grande",alignment:"Chaotique Mauvais",ac:19,hp:195,speed:"12 m, nage 12 m, vol 24 m",cr:"14",xp:11500,dragonColor:"Noir",dragonAge:"Adulte",abilities:{strength:23,dexterity:14,constitution:21,intelligence:14,wisdom:13,charisma:17},summary:"Amphibie ; résistance légendaire ; présence terrifiante ; souffle d’acide ; actions légendaires.",actions:["Attaques multiples : présence terrifiante, morsure + 2 griffes","Souffle d’acide (Recharge 5–6), Dex DD 18","Actions légendaires : détecter, queue, ailes"]}
+  ,{id:"blue_dragon_wyrmling",name:"Dragonnet bleu",type:"Dragon",size:"Moyenne",alignment:"Loyal Mauvais",ac:17,hp:52,speed:"9 m, fouissement 4,50 m, vol 18 m",cr:"3",xp:700,dragonColor:"Bleu",dragonAge:"Dragonnet",abilities:{strength:17,dexterity:10,constitution:15,intelligence:12,wisdom:11,charisma:15},summary:"Immunité à la foudre ; souffle de foudre en ligne.",actions:["Morsure +5 : perforants + foudre","Souffle de foudre (Recharge 5–6), Dex DD 12"]}
+  ,{id:"blue_dragon_young",name:"Jeune dragon bleu",type:"Dragon",size:"Grande",alignment:"Loyal Mauvais",ac:18,hp:152,speed:"12 m, fouissement 6 m, vol 24 m",cr:"9",xp:5000,dragonColor:"Bleu",dragonAge:"Jeune",abilities:{strength:21,dexterity:10,constitution:19,intelligence:14,wisdom:13,charisma:17},summary:"Immunité à la foudre ; attaques multiples et souffle de foudre.",actions:["Attaques multiples : morsure + 2 griffes","Morsure +9 : perforants + foudre","Souffle de foudre (Recharge 5–6), Dex DD 16"]}
+  ,{id:"blue_dragon_adult",name:"Dragon bleu adulte",type:"Dragon",size:"Très Grande",alignment:"Loyal Mauvais",ac:19,hp:225,speed:"12 m, fouissement 9 m, vol 24 m",cr:"16",xp:15000,dragonColor:"Bleu",dragonAge:"Adulte",abilities:{strength:25,dexterity:10,constitution:23,intelligence:16,wisdom:15,charisma:19},summary:"Immunité à la foudre ; résistance légendaire ; présence terrifiante ; souffle de foudre ; actions légendaires.",actions:["Attaques multiples : présence terrifiante, morsure + 2 griffes","Souffle de foudre (Recharge 5–6), Dex DD 19","Actions légendaires : détecter, queue, ailes"]}
+  ,{id:"green_dragon_wyrmling",name:"Dragonnet vert",type:"Dragon",size:"Moyenne",alignment:"Loyal Mauvais",ac:17,hp:38,speed:"9 m, nage 9 m, vol 18 m",cr:"2",xp:450,dragonColor:"Vert",dragonAge:"Dragonnet",abilities:{strength:15,dexterity:12,constitution:13,intelligence:14,wisdom:11,charisma:13},summary:"Amphibie ; immunité au poison et à l’état empoisonné ; souffle empoisonné.",actions:["Morsure +4 : perforants + poison","Souffle empoisonné (Recharge 5–6), Con DD 11"]}
+  ,{id:"green_dragon_young",name:"Jeune dragon vert",type:"Dragon",size:"Grande",alignment:"Loyal Mauvais",ac:18,hp:136,speed:"12 m, nage 12 m, vol 24 m",cr:"8",xp:3900,dragonColor:"Vert",dragonAge:"Jeune",abilities:{strength:19,dexterity:12,constitution:17,intelligence:16,wisdom:13,charisma:15},summary:"Amphibie ; immunité au poison ; attaques multiples et souffle empoisonné.",actions:["Attaques multiples : morsure + 2 griffes","Morsure : perforants + poison","Souffle empoisonné (Recharge 5–6)"]}
+  ,{id:"green_dragon_adult",name:"Dragon vert adulte",type:"Dragon",size:"Très Grande",alignment:"Loyal Mauvais",ac:19,hp:207,speed:"12 m, nage 12 m, vol 24 m",cr:"15",xp:13000,dragonColor:"Vert",dragonAge:"Adulte",abilities:{strength:23,dexterity:12,constitution:21,intelligence:18,wisdom:15,charisma:17},summary:"Amphibie ; immunité au poison ; résistance légendaire ; présence terrifiante ; actions légendaires.",actions:["Attaques multiples : présence terrifiante, morsure + 2 griffes","Souffle empoisonné (Recharge 5–6)","Actions légendaires : détecter, queue, ailes"]}
+  ,{id:"red_dragon_wyrmling",name:"Dragonnet rouge",type:"Dragon",size:"Moyenne",alignment:"Chaotique Mauvais",ac:17,hp:75,speed:"9 m, escalade 9 m, vol 18 m",cr:"4",xp:1100,dragonColor:"Rouge",dragonAge:"Dragonnet",abilities:{strength:19,dexterity:10,constitution:17,intelligence:12,wisdom:11,charisma:15},summary:"Immunité au feu ; souffle de feu en cône.",actions:["Morsure +6 : perforants + feu","Souffle de feu (Recharge 5–6), Dex DD 13"]}
+  ,{id:"red_dragon_young",name:"Jeune dragon rouge",type:"Dragon",size:"Grande",alignment:"Chaotique Mauvais",ac:18,hp:178,speed:"12 m, escalade 12 m, vol 24 m",cr:"10",xp:5900,dragonColor:"Rouge",dragonAge:"Jeune",abilities:{strength:23,dexterity:10,constitution:21,intelligence:14,wisdom:11,charisma:19},summary:"Immunité au feu ; attaques multiples et souffle de feu.",actions:["Attaques multiples : morsure + 2 griffes","Morsure +10 : perforants + feu","Souffle de feu (Recharge 5–6), Dex DD 17"]}
+  ,{id:"red_dragon_adult",name:"Dragon rouge adulte",type:"Dragon",size:"Très Grande",alignment:"Chaotique Mauvais",ac:19,hp:256,speed:"12 m, escalade 12 m, vol 24 m",cr:"17",xp:18000,dragonColor:"Rouge",dragonAge:"Adulte",abilities:{strength:27,dexterity:10,constitution:25,intelligence:16,wisdom:13,charisma:21},summary:"Immunité au feu ; résistance légendaire ; présence terrifiante ; souffle de feu ; actions légendaires.",actions:["Attaques multiples : présence terrifiante, morsure + 2 griffes","Souffle de feu (Recharge 5–6), Dex DD 21","Actions légendaires : détecter, queue, ailes"]}
+  ,{id:"white_dragon_wyrmling",name:"Dragonnet blanc",type:"Dragon",size:"Moyenne",alignment:"Chaotique Mauvais",ac:16,hp:32,speed:"9 m, fouissement 4,50 m, nage 9 m, vol 18 m",cr:"2",xp:450,dragonColor:"Blanc",dragonAge:"Dragonnet",abilities:{strength:14,dexterity:10,constitution:14,intelligence:5,wisdom:10,charisma:11},summary:"Immunité au froid ; souffle de glace en cône.",actions:["Morsure +4 : perforants + froid","Souffle de glace (Recharge 5–6), Con DD 12"]}
+  ,{id:"white_dragon_young",name:"Jeune dragon blanc",type:"Dragon",size:"Grande",alignment:"Chaotique Mauvais",ac:17,hp:133,speed:"12 m, fouissement 6 m, nage 12 m, vol 24 m",cr:"6",xp:2300,dragonColor:"Blanc",dragonAge:"Jeune",abilities:{strength:18,dexterity:10,constitution:18,intelligence:6,wisdom:11,charisma:12},summary:"Immunité au froid ; marche sur la glace ; attaques multiples et souffle de glace.",actions:["Attaques multiples : morsure + 2 griffes","Morsure : perforants + froid","Souffle de glace (Recharge 5–6)"]}
+  ,{id:"white_dragon_adult",name:"Dragon blanc adulte",type:"Dragon",size:"Très Grande",alignment:"Chaotique Mauvais",ac:18,hp:200,speed:"12 m, fouissement 9 m, nage 12 m, vol 24 m",cr:"13",xp:10000,dragonColor:"Blanc",dragonAge:"Adulte",abilities:{strength:22,dexterity:10,constitution:22,intelligence:8,wisdom:12,charisma:12},summary:"Immunité au froid ; marche sur la glace ; résistance légendaire ; présence terrifiante ; actions légendaires.",actions:["Attaques multiples : présence terrifiante, morsure + 2 griffes","Souffle de glace (Recharge 5–6)","Actions légendaires : détecter, queue, ailes"]}
+  ,{id:"brass_dragon_wyrmling",name:"Dragonnet d’airain",type:"Dragon",size:"Moyenne",alignment:"Chaotique Bon",ac:16,hp:16,speed:"9 m, fouissement 4,50 m, vol 18 m",cr:"1",xp:200,dragonColor:"Airain",dragonAge:"Dragonnet",abilities:{strength:15,dexterity:10,constitution:13,intelligence:10,wisdom:11,charisma:13},summary:"Immunité au feu ; souffle de feu et souffle soporifique.",actions:["Morsure +4, 1d10+2 perforants","Souffles (Recharge 5–6) : feu ou soporifique"]}
+  ,{id:"brass_dragon_young",name:"Jeune dragon d’airain",type:"Dragon",size:"Grande",alignment:"Chaotique Bon",ac:17,hp:110,speed:"12 m, fouissement 6 m, vol 24 m",cr:"6",xp:2300,dragonColor:"Airain",dragonAge:"Jeune",abilities:{strength:19,dexterity:10,constitution:17,intelligence:12,wisdom:11,charisma:15},summary:"Immunité au feu ; attaques multiples ; souffle de feu et souffle soporifique.",actions:["Attaques multiples : morsure + 2 griffes","Souffles (Recharge 5–6) : feu ou soporifique"]}
+  ,{id:"brass_dragon_adult",name:"Dragon d’airain adulte",type:"Dragon",size:"Très Grande",alignment:"Chaotique Bon",ac:18,hp:172,speed:"12 m, fouissement 9 m, vol 24 m",cr:"13",xp:10000,dragonColor:"Airain",dragonAge:"Adulte",abilities:{strength:23,dexterity:10,constitution:21,intelligence:14,wisdom:13,charisma:17},summary:"Immunité au feu ; résistance légendaire ; présence terrifiante ; deux souffles ; actions légendaires.",actions:["Attaques multiples : présence terrifiante, morsure + 2 griffes","Souffles (Recharge 5–6) : feu ou soporifique","Actions légendaires : détecter, queue, ailes"]}
+  ,{id:"brass_dragon_ancient",name:"Dragon d’airain vénérable",type:"Dragon",size:"Gigantesque",alignment:"Chaotique Bon",ac:20,hp:297,speed:"12 m, fouissement 12 m, vol 24 m",cr:"20",xp:25000,dragonColor:"Airain",dragonAge:"Vénérable",abilities:{strength:27,dexterity:10,constitution:25,intelligence:16,wisdom:15,charisma:19},summary:"Immunité au feu ; résistance légendaire ; présence terrifiante ; souffle de feu et souffle soporifique ; actions légendaires.",actions:["Attaques multiples : présence terrifiante, morsure + 2 griffes","Souffles (Recharge 5–6) : feu ou soporifique","Actions légendaires : détecter, queue, ailes"]}
+  ,{id:"bronze_dragon_wyrmling",name:"Dragonnet de bronze",type:"Dragon",size:"Moyenne",alignment:"Loyal Bon",ac:17,hp:32,speed:"9 m, nage 9 m, vol 18 m",cr:"2",xp:450,dragonColor:"Bronze",dragonAge:"Dragonnet",abilities:{strength:17,dexterity:10,constitution:15,intelligence:12,wisdom:11,charisma:15},summary:"Amphibie ; immunité à la foudre ; souffle de foudre et souffle répulsif.",actions:["Morsure +5, 1d10+3 perforants","Souffles (Recharge 5–6) : foudre ou répulsif"]}
+  ,{id:"bronze_dragon_young",name:"Jeune dragon de bronze",type:"Dragon",size:"Grande",alignment:"Loyal Bon",ac:18,hp:142,speed:"12 m, nage 12 m, vol 24 m",cr:"8",xp:3900,dragonColor:"Bronze",dragonAge:"Jeune",abilities:{strength:21,dexterity:10,constitution:19,intelligence:14,wisdom:13,charisma:17},summary:"Amphibie ; immunité à la foudre ; attaques multiples ; deux souffles.",actions:["Attaques multiples : morsure + 2 griffes","Souffles (Recharge 5–6) : foudre ou répulsif"]}
+  ,{id:"bronze_dragon_adult",name:"Dragon de bronze adulte",type:"Dragon",size:"Très Grande",alignment:"Loyal Bon",ac:19,hp:212,speed:"12 m, nage 12 m, vol 24 m",cr:"15",xp:13000,dragonColor:"Bronze",dragonAge:"Adulte",abilities:{strength:25,dexterity:10,constitution:23,intelligence:16,wisdom:15,charisma:19},summary:"Amphibie ; immunité à la foudre ; résistance légendaire ; présence terrifiante ; changement de forme ; actions légendaires.",actions:["Attaques multiples : présence terrifiante, morsure + 2 griffes","Souffles (Recharge 5–6) : foudre ou répulsif","Changer de forme","Actions légendaires : détecter, queue, ailes"]}
+  ,{id:"bronze_dragon_ancient",name:"Dragon de bronze vénérable",type:"Dragon",size:"Gigantesque",alignment:"Loyal Bon",ac:22,hp:444,speed:"12 m, nage 12 m, vol 24 m",cr:"22",xp:41000,dragonColor:"Bronze",dragonAge:"Vénérable",abilities:{strength:29,dexterity:10,constitution:27,intelligence:18,wisdom:17,charisma:21},summary:"Amphibie ; immunité à la foudre ; résistance légendaire ; présence terrifiante ; changement de forme ; actions légendaires.",actions:["Attaques multiples : présence terrifiante, morsure + 2 griffes","Souffles (Recharge 5–6) : foudre ou répulsif","Changer de forme","Actions légendaires : détecter, queue, ailes"]}
+  ,{id:"copper_dragon_wyrmling",name:"Dragonnet de cuivre",type:"Dragon",size:"Moyenne",alignment:"Chaotique Bon",ac:16,hp:22,speed:"9 m, escalade 9 m, vol 18 m",cr:"1",xp:200,dragonColor:"Cuivre",dragonAge:"Dragonnet",abilities:{strength:15,dexterity:12,constitution:13,intelligence:14,wisdom:11,charisma:13},summary:"Immunité à l’acide ; souffle d’acide et souffle ralentissant.",actions:["Morsure +4, 1d10+2 perforants","Souffles (Recharge 5–6) : acide ou ralentissant"]}
+  ,{id:"copper_dragon_young",name:"Jeune dragon de cuivre",type:"Dragon",size:"Grande",alignment:"Chaotique Bon",ac:17,hp:119,speed:"12 m, escalade 12 m, vol 24 m",cr:"7",xp:2900,dragonColor:"Cuivre",dragonAge:"Jeune",abilities:{strength:19,dexterity:12,constitution:17,intelligence:16,wisdom:13,charisma:15},summary:"Immunité à l’acide ; attaques multiples ; souffle d’acide et souffle ralentissant.",actions:["Attaques multiples : morsure + 2 griffes","Souffles (Recharge 5–6) : acide ou ralentissant"]}
+  ,{id:"copper_dragon_adult",name:"Dragon de cuivre adulte",type:"Dragon",size:"Très Grande",alignment:"Chaotique Bon",ac:18,hp:184,speed:"12 m, escalade 12 m, vol 24 m",cr:"14",xp:11500,dragonColor:"Cuivre",dragonAge:"Adulte",abilities:{strength:23,dexterity:12,constitution:21,intelligence:18,wisdom:15,charisma:17},summary:"Immunité à l’acide ; résistance légendaire ; présence terrifiante ; deux souffles ; actions légendaires.",actions:["Attaques multiples : présence terrifiante, morsure + 2 griffes","Souffles (Recharge 5–6) : acide ou ralentissant","Actions légendaires : détecter, queue, ailes"]}
+  ,{id:"copper_dragon_ancient",name:"Dragon de cuivre vénérable",type:"Dragon",size:"Gigantesque",alignment:"Chaotique Bon",ac:21,hp:350,speed:"12 m, escalade 12 m, vol 24 m",cr:"21",xp:33000,dragonColor:"Cuivre",dragonAge:"Vénérable",abilities:{strength:27,dexterity:12,constitution:25,intelligence:20,wisdom:17,charisma:19},summary:"Immunité à l’acide ; résistance légendaire ; présence terrifiante ; souffle d’acide et souffle ralentissant ; actions légendaires.",actions:["Attaques multiples : présence terrifiante, morsure + 2 griffes","Souffles (Recharge 5–6) : acide ou ralentissant","Actions légendaires : détecter, queue, ailes"]}
+  ,{id:"silver_dragon_wyrmling",name:"Dragonnet d’argent",type:"Dragon",size:"Moyenne",alignment:"Loyal Bon",ac:17,hp:45,speed:"9 m, vol 18 m",cr:"2",xp:450,dragonColor:"Argent",dragonAge:"Dragonnet",abilities:{strength:19,dexterity:10,constitution:17,intelligence:12,wisdom:11,charisma:15},summary:"Immunité au froid ; souffle de glace et souffle paralysant.",actions:["Morsure +6, 1d10+4 perforants","Souffles (Recharge 5–6) : glace ou paralysant"]}
+  ,{id:"silver_dragon_young",name:"Jeune dragon d’argent",type:"Dragon",size:"Grande",alignment:"Loyal Bon",ac:18,hp:168,speed:"12 m, vol 24 m",cr:"9",xp:5000,dragonColor:"Argent",dragonAge:"Jeune",abilities:{strength:23,dexterity:10,constitution:21,intelligence:14,wisdom:11,charisma:19},summary:"Immunité au froid ; attaques multiples ; souffle de glace et souffle paralysant.",actions:["Attaques multiples : morsure + 2 griffes","Souffles (Recharge 5–6) : glace ou paralysant"]}
+  ,{id:"silver_dragon_adult",name:"Dragon d’argent adulte",type:"Dragon",size:"Très Grande",alignment:"Loyal Bon",ac:19,hp:243,speed:"12 m, vol 24 m",cr:"16",xp:15000,dragonColor:"Argent",dragonAge:"Adulte",abilities:{strength:27,dexterity:10,constitution:25,intelligence:16,wisdom:13,charisma:21},summary:"Immunité au froid ; résistance légendaire ; présence terrifiante ; deux souffles ; changement de forme ; actions légendaires.",actions:["Attaques multiples : présence terrifiante, morsure + 2 griffes","Souffles (Recharge 5–6) : glace ou paralysant","Changer de forme","Actions légendaires : détecter, queue, ailes"]}
+  ,{id:"silver_dragon_ancient",name:"Dragon d’argent vénérable",type:"Dragon",size:"Gigantesque",alignment:"Loyal Bon",ac:22,hp:487,speed:"12 m, vol 24 m",cr:"23",xp:50000,dragonColor:"Argent",dragonAge:"Vénérable",abilities:{strength:30,dexterity:10,constitution:29,intelligence:18,wisdom:15,charisma:23},summary:"Immunité au froid ; résistance légendaire ; présence terrifiante ; deux souffles ; changement de forme ; actions légendaires.",actions:["Attaques multiples : présence terrifiante, morsure + 2 griffes","Souffles (Recharge 5–6) : glace ou paralysant","Changer de forme","Actions légendaires : détecter, queue, ailes"]}
+  ,{id:"gold_dragon_wyrmling",name:"Dragonnet d’or",type:"Dragon",size:"Moyenne",alignment:"Loyal Bon",ac:17,hp:60,speed:"9 m, nage 9 m, vol 18 m",cr:"3",xp:700,dragonColor:"Or",dragonAge:"Dragonnet",abilities:{strength:19,dexterity:14,constitution:17,intelligence:14,wisdom:11,charisma:16},summary:"Amphibie ; immunité au feu ; souffle de feu et souffle affaiblissant.",actions:["Morsure +6, 1d10+4 perforants","Souffles (Recharge 5–6) : feu ou affaiblissant"]}
+  ,{id:"gold_dragon_young",name:"Jeune dragon d’or",type:"Dragon",size:"Grande",alignment:"Loyal Bon",ac:18,hp:178,speed:"12 m, nage 12 m, vol 24 m",cr:"10",xp:5900,dragonColor:"Or",dragonAge:"Jeune",abilities:{strength:23,dexterity:14,constitution:21,intelligence:16,wisdom:13,charisma:20},summary:"Amphibie ; immunité au feu ; attaques multiples ; souffle de feu et souffle affaiblissant.",actions:["Attaques multiples : morsure + 2 griffes","Souffles (Recharge 5–6) : feu ou affaiblissant"]}
+  ,{id:"gold_dragon_adult",name:"Dragon d’or adulte",type:"Dragon",size:"Très Grande",alignment:"Loyal Bon",ac:19,hp:256,speed:"12 m, nage 12 m, vol 24 m",cr:"17",xp:18000,dragonColor:"Or",dragonAge:"Adulte",abilities:{strength:27,dexterity:14,constitution:25,intelligence:16,wisdom:15,charisma:24},summary:"Amphibie ; immunité au feu ; résistance légendaire ; présence terrifiante ; deux souffles ; changement de forme ; actions légendaires.",actions:["Attaques multiples : présence terrifiante, morsure + 2 griffes","Souffles (Recharge 5–6) : feu ou affaiblissant","Changer de forme","Actions légendaires : détecter, queue, ailes"]}
+  ,{id:"gold_dragon_ancient",name:"Dragon d’or vénérable",type:"Dragon",size:"Gigantesque",alignment:"Loyal Bon",ac:22,hp:546,speed:"12 m, nage 12 m, vol 24 m",cr:"24",xp:62000,dragonColor:"Or",dragonAge:"Vénérable",abilities:{strength:30,dexterity:14,constitution:29,intelligence:18,wisdom:17,charisma:28},summary:"Amphibie ; immunité au feu ; résistance légendaire ; présence terrifiante ; deux souffles ; changement de forme ; actions légendaires.",actions:["Attaques multiples : présence terrifiante, morsure + 2 griffes","Souffles (Recharge 5–6) : feu ou affaiblissant","Changer de forme","Actions légendaires : détecter, queue, ailes"]}
+  ,{id:"black_dragon_ancient",name:"Dragon noir vénérable",type:"Dragon",size:"Gigantesque",alignment:"Chaotique Mauvais",ac:22,hp:367,speed:"12 m, nage 12 m, vol 24 m",cr:"21",xp:33000,dragonColor:"Noir",dragonAge:"Vénérable",abilities:{strength:27,dexterity:14,constitution:25,intelligence:16,wisdom:15,charisma:19},summary:"Amphibie ; immunité à l’acide ; résistance légendaire ; présence terrifiante ; souffle d’acide ; actions légendaires.",actions:["Attaques multiples : présence terrifiante, morsure + 2 griffes","Souffle d’acide (Recharge 5–6), Dex DD 22","Actions légendaires : détecter, queue, ailes"]}
+  ,{id:"blue_dragon_ancient",name:"Dragon bleu vénérable",type:"Dragon",size:"Gigantesque",alignment:"Loyal Mauvais",ac:22,hp:481,speed:"12 m, fouissement 12 m, vol 24 m",cr:"23",xp:50000,dragonColor:"Bleu",dragonAge:"Vénérable",abilities:{strength:29,dexterity:10,constitution:27,intelligence:18,wisdom:17,charisma:21},summary:"Immunité à la foudre ; résistance légendaire ; présence terrifiante ; souffle de foudre ; actions légendaires.",actions:["Attaques multiples : présence terrifiante, morsure + 2 griffes","Souffle de foudre (Recharge 5–6), Dex DD 23","Actions légendaires : détecter, queue, ailes"]}
+  ,{id:"green_dragon_ancient",name:"Dragon vert vénérable",type:"Dragon",size:"Gigantesque",alignment:"Loyal Mauvais",ac:21,hp:385,speed:"12 m, nage 12 m, vol 24 m",cr:"22",xp:41000,dragonColor:"Vert",dragonAge:"Vénérable",abilities:{strength:27,dexterity:12,constitution:25,intelligence:20,wisdom:17,charisma:19},summary:"Amphibie ; immunité au poison et à l’état empoisonné ; résistance légendaire ; présence terrifiante ; actions légendaires.",actions:["Attaques multiples : présence terrifiante, morsure + 2 griffes","Souffle empoisonné (Recharge 5–6), Con DD 22","Actions légendaires : détecter, queue, ailes"]}
+  ,{id:"red_dragon_ancient",name:"Dragon rouge vénérable",type:"Dragon",size:"Gigantesque",alignment:"Chaotique Mauvais",ac:22,hp:546,speed:"12 m, escalade 12 m, vol 24 m",cr:"24",xp:62000,dragonColor:"Rouge",dragonAge:"Vénérable",abilities:{strength:30,dexterity:10,constitution:29,intelligence:18,wisdom:15,charisma:23},summary:"Immunité au feu ; résistance légendaire ; présence terrifiante ; souffle de feu ; actions légendaires.",actions:["Attaques multiples : présence terrifiante, morsure + 2 griffes","Souffle de feu (Recharge 5–6), Dex DD 24","Actions légendaires : détecter, queue, ailes"]}
+  ,{id:"white_dragon_ancient",name:"Dragon blanc vénérable",type:"Dragon",size:"Gigantesque",alignment:"Chaotique Mauvais",ac:20,hp:333,speed:"12 m, fouissement 12 m, nage 12 m, vol 24 m",cr:"20",xp:25000,dragonColor:"Blanc",dragonAge:"Vénérable",abilities:{strength:26,dexterity:10,constitution:26,intelligence:10,wisdom:13,charisma:14},summary:"Immunité au froid ; marche sur la glace ; résistance légendaire ; présence terrifiante ; souffle de glace ; actions légendaires.",actions:["Attaques multiples : présence terrifiante, morsure + 2 griffes","Souffle de glace (Recharge 5–6), Con DD 22","Actions légendaires : détecter, queue, ailes"]}
+  ,{id:"clay_golem",name:"Golem d’argile",type:"Créature artificielle",size:"Grande",alignment:"non-alignée",ac:14,hp:133,speed:"6 m",cr:"9",xp:5000,abilities:{strength:20,dexterity:9,constitution:18,intelligence:3,wisdom:8,charisma:1},summary:"Absorption de l’acide, forme immuable et résistance à la magie ; peut devenir fou furieux.",actions:["2 coups +8, 2d10+5 contondants ; réduction possible du maximum de PV","Hâte (Recharge 5–6) : CA +2, avantage Dex et coup en action bonus"]}
+  ,{id:"animated_armor",name:"Armure animée",type:"Créature artificielle",size:"Moyenne",alignment:"non-alignée",ac:18,hp:33,speed:"7,5 m",cr:"1",xp:200,abilities:{strength:14,dexterity:11,constitution:13,intelligence:1,wisdom:3,charisma:1},summary:"Faux-semblant ; vulnérabilité à l’antimagie ; immunités typiques des objets animés.",actions:["2 coups +4, 1d6+2 contondants"]}
+  ,{id:"flying_sword",name:"Épée volante",type:"Créature artificielle",size:"Petite",alignment:"non-alignée",ac:17,hp:17,speed:"0 m, vol 15 m (stationnaire)",cr:"1/4",xp:50,abilities:{strength:12,dexterity:15,constitution:11,intelligence:1,wisdom:5,charisma:1},summary:"Faux-semblant ; vulnérabilité à l’antimagie ; vision aveugle.",actions:["Épée longue +3, 1d8+1 tranchants"]}
+  ,{id:"rug_of_smothering",name:"Tapis étrangleur",type:"Créature artificielle",size:"Grande",alignment:"non-alignée",ac:12,hp:33,speed:"3 m",cr:"2",xp:450,abilities:{strength:17,dexterity:14,constitution:10,intelligence:1,wisdom:3,charisma:1},summary:"Faux-semblant, transfert de dégâts et vulnérabilité à l’antimagie.",actions:["Étrangler +5 : empoigne DD 13 ; cible entravée/aveuglée et 2d6+3 contondants au début de ses tours"]}
+  ,{id:"helmed_horror",name:"Horreur casquée",type:"Créature artificielle",size:"Moyenne",alignment:"Neutre",ac:20,hp:60,speed:"9 m, vol 9 m",cr:"4",xp:1100,abilities:{strength:18,dexterity:13,constitution:16,intelligence:10,wisdom:10,charisma:10},summary:"Résistance à la magie ; immunisée contre trois sorts choisis par son créateur ; nombreuses immunités.",actions:["2 épées longues +6, 1d8+4 tranchants (1d10+4 à deux mains)"]}
+  ,{id:"scarecrow",name:"Épouvantail",type:"Créature artificielle",size:"Moyenne",alignment:"Chaotique Mauvaise",ac:11,hp:36,speed:"9 m",cr:"1",xp:200,abilities:{strength:11,dexterity:13,constitution:11,intelligence:10,wisdom:10,charisma:13},summary:"Vulnérable au feu ; faux-semblant ; résistance aux armes non magiques et immunité au poison.",actions:["2 griffes +3, 2d4+1 tranchants ; terreur possible (Sag DD 11)","Regard terrifiant : Sag DD 11, cible terrorisée et paralysée"]}
+
+
+
+,
+  {id:"aboleth",name:"Aboleth",type:"Aberration",size:"Grande",alignment:"Loyal Mauvais",ac:17,hp:135,speed:"3 m, nage 12 m",cr:"10",xp:5900,abilities:{strength:21,dexterity:9,constitution:15,intelligence:18,wisdom:15,charisma:18},summary:"Amphibie ; nuage muqueux ; télépathie inquisitrice ; asservissement et actions légendaires.",actions:["Attaques multiples : 3 tentacules","Tentacule +9, 2d6+5 contondants ; maladie (Con DD 14)","Queue +9, 3d6+5 contondants","Asservir (3/jour) : Sag DD 14"],legendaryActions:["Détecter","Balayage de la queue","Succion psychique (2 actions)"]},
+  {id:"beholder",name:"Tyrannœil",type:"Aberration",size:"Grande",alignment:"Loyal Mauvais",ac:18,hp:180,speed:"0 m, vol 6 m (vol stationnaire)",cr:"13",xp:10000,abilities:{strength:10,dexterity:14,constitution:18,intelligence:17,wisdom:15,charisma:17},summary:"Cône d’antimagie de 45 m ; rayons oculaires aléatoires ; actions légendaires.",actions:["Morsure +5, 4d6 perforants","Rayons oculaires : 3 rayons aléatoires sur des cibles à 36 m"],legendaryActions:["Rayon oculaire"]},
+  {id:"mind_flayer",name:"Flagelleur mental",type:"Aberration",size:"Moyenne",alignment:"Loyal Mauvais",ac:15,hp:71,speed:"9 m",cr:"7",xp:2900,abilities:{strength:11,dexterity:12,constitution:12,intelligence:19,wisdom:17,charisma:17},summary:"Psionique ; résistance à la magie ; télépathie 36 m ; décharge mentale.",actions:["Tentacules +7, 2d10+4 psychiques ; empoignade et étourdissement possibles","Extraction de cerveau +7, 10d10 perforants contre humanoïde neutralisé empoigné","Décharge mentale (recharge 5–6) : cône 18 m, Int DD 15, 4d8+4 psychiques et étourdi"],spellcasting:"Psionique innée : détection des pensées et lévitation à volonté ; dominer un monstre et changement de plan (soi) 1/jour."},
+  {id:"intellect_devourer",name:"Dévoreur d’intellect",type:"Aberration",size:"Très Petite",alignment:"Loyal Mauvais",ac:12,hp:21,speed:"12 m",cr:"2",xp:450,abilities:{strength:6,dexterity:14,constitution:13,intelligence:12,wisdom:11,charisma:10},summary:"Détection des consciences à 90 m ; télépathie 18 m ; prédateur mental au service des illithids.",actions:["Attaques multiples : griffes et attaque mentale","Peut neutraliser l’intellect puis prendre le contrôle du corps d’une victime"]},
+  {id:"grell",name:"Grell",type:"Créature monstrueuse",size:"Moyenne",alignment:"Neutre Mauvais",ac:12,hp:55,speed:"3 m, vol 9 m (vol stationnaire)",cr:"3",xp:700,abilities:{strength:15,dexterity:14,constitution:13,intelligence:12,wisdom:11,charisma:9},summary:"Vision aveugle ; immunisé à la foudre ; tentacules paralysants et agrippants.",actions:["Attaques multiples : tentacules et bec","Tentacules +4, 1d10+2 perforants ; Con DD 11 ou empoisonné/paralysé ; empoignade","Bec +4, 2d4+2 perforants"]},
+  {id:"nothic",name:"Nothic",type:"Aberration",size:"Moyenne",alignment:"Neutre Mauvais",ac:15,hp:45,speed:"9 m",cr:"2",xp:450,abilities:{strength:14,dexterity:16,constitution:16,intelligence:13,wisdom:10,charisma:8},summary:"Vision parfaite 36 m ; vue aiguisée ; regard corrupteur.",actions:["Attaques multiples : 2 griffes","Regard corrupteur : attaque surnaturelle à distance"]},
+  {id:"spectator",name:"Spectateur",type:"Aberration",size:"Moyenne",alignment:"Loyal Neutre",ac:14,hp:39,speed:"0 m, vol 9 m (vol stationnaire)",cr:"3",xp:700,abilities:{strength:8,dexterity:14,constitution:14,intelligence:13,wisdom:14,charisma:11},summary:"Gardien tyrannœil mineur ; télépathie 36 m ; quatre rayons oculaires.",actions:["Morsure +1, 1d6-1 perforants","Rayons oculaires : jusqu’à 2 rayons différents sur des cibles à 27 m"]},
+  {id:"gibbering_mouther",name:"Babélien",type:"Aberration",size:"Moyenne",alignment:"Neutre",ac:9,hp:67,speed:"3 m, nage 3 m",cr:"2",xp:450,abilities:{strength:10,dexterity:8,constitution:16,intelligence:3,wisdom:10,charisma:6},summary:"Charabia perturbant ; sol aberrant ; crachat aveuglant ; immunisé à l’état à terre.",actions:["Morsures +2, 5d6 perforants ; peut jeter à terre","Crachat aveuglant (recharge 5–6) : explosion aveuglante"]},
+  {id:"slaad_tadpole",name:"Slaad têtard",type:"Aberration",size:"Très Petite",alignment:"Chaotique Neutre",ac:12,hp:10,speed:"9 m",cr:"1/8",xp:25,abilities:{strength:7,dexterity:15,constitution:10,intelligence:3,wisdom:5,charisma:3},summary:"Résistance à l’acide, au feu, à la foudre, au froid et au tonnerre ; résistance à la magie.",actions:["Morsure +4, 1d4+2 perforants"]},
+  {id:"slaad_blue",name:"Slaad bleu",type:"Aberration",size:"Grande",alignment:"Chaotique Neutre",ac:15,hp:123,speed:"9 m",cr:"7",xp:2900,abilities:{strength:20,dexterity:15,constitution:18,intelligence:7,wisdom:7,charisma:9},summary:"Régénération 10 PV ; résistance à la magie et aux dégâts élémentaires ; télépathie 18 m.",actions:["Attaques multiples : morsure et 2 griffes","Morsure +8, 2d6+5 perforants","Griffe +8, 2d6+5 tranchants"]}
+
+
+,
+  {id:"slaad_red",name:"Slaad rouge",type:"Aberration",size:"Grande",alignment:"Chaotique Neutre",ac:14,hp:93,speed:"9 m",cr:"5",xp:1800,abilities:{strength:16,dexterity:12,constitution:16,intelligence:6,wisdom:6,charisma:7},summary:"Régénération 10 PV ; résistance à la magie et aux dégâts élémentaires ; télépathie 18 m ; les griffes peuvent implanter un œuf de slaad.",actions:["Attaques multiples : morsure et 2 griffes","Morsure +6, 2d4+3 perforants","Griffe +6, 1d8+3 perforants ; Con DD 14 contre implantation d’un œuf"]},
+  {id:"slaad_green",name:"Slaad vert",type:"Aberration",size:"Grande",alignment:"Chaotique Neutre",ac:16,hp:127,speed:"9 m",cr:"8",xp:3900,abilities:{strength:18,dexterity:15,constitution:16,intelligence:11,wisdom:8,charisma:12},summary:"Métamorphe ; régénération 10 PV ; résistance à la magie et aux dégâts élémentaires ; incantation innée.",actions:["Attaques multiples : morsure et 2 griffes ou bâton ; ou 2 projections de flamme","Bâton +7, 2d6+4 contondants","Griffe +7, 1d6+4 tranchants","Morsure +7, 2d6+4 perforants","Projeter une flamme +4, 3d6 feu"],spellcasting:"Innate : détection de la magie, détection des pensées et main du mage à volonté ; invisibilité (soi) et peur 2/jour ; boule de feu 1/jour."},
+  {id:"slaad_gray",name:"Slaad gris",type:"Aberration",size:"Moyenne",alignment:"Chaotique Neutre",ac:18,hp:127,speed:"9 m",cr:"9",xp:5000,abilities:{strength:17,dexterity:17,constitution:16,intelligence:13,wisdom:8,charisma:14},summary:"Métamorphe ; armes magiques ; régénération 10 PV ; résistance à la magie et aux dégâts élémentaires ; incantation innée.",actions:["Attaques multiples : morsure et 2 griffes ou épée à deux mains","Épée à deux mains +7, 2d6+3 tranchants","Griffes +7, 1d10+3 tranchants","Morsure +7, 1d6+3 perforants"],spellcasting:"Innate : détection de la magie, détection des pensées, image majeure, invisibilité (soi) et main du mage à volonté ; boule de feu, langues, peur et vol 2/jour ; changement de plan (soi) 1/jour."},
+  {id:"slaad_death",name:"Slaad funeste",type:"Aberration",size:"Moyenne",alignment:"Chaotique Mauvais",ac:18,hp:170,speed:"9 m",cr:"10",xp:5900,abilities:{strength:20,dexterity:15,constitution:19,intelligence:15,wisdom:10,charisma:16},summary:"Métamorphe ; armes magiques ; régénération 10 PV ; résistance à la magie et aux dégâts élémentaires ; incantation innée.",actions:["Attaques multiples : morsure et 2 griffes ou épée à deux mains","Épée à deux mains +9, attaque magique","Griffes et morsure sous forme de slaad"],spellcasting:"Innate : magie de slaad avancée, incluant boule de feu, peur, vol, changement de plan et nuage mortel."},
+  {id:"chuul",name:"Chuul",type:"Aberration",size:"Grande",alignment:"Chaotique Mauvais",ac:16,hp:93,speed:"9 m, nage 9 m",cr:"4",xp:1100,abilities:{strength:19,dexterity:10,constitution:16,intelligence:5,wisdom:11,charisma:5},summary:"Amphibie ; perception de la magie à 36 m ; immunisé au poison ; pinces agrippantes et tentacules paralysants.",actions:["Attaques multiples : 2 pinces ; tentacules si une cible est empoignée","Pince +6, 2d6+4 contondants ; empoignade DD 14","Tentacules : Con DD 13 ou empoisonné et paralysé"]},
+  {id:"cloaker",name:"Manteleur",type:"Aberration",size:"Grande",alignment:"Chaotique Neutre",ac:14,hp:78,speed:"3 m, vol 12 m",cr:"8",xp:3900,abilities:{strength:17,dexterity:15,constitution:12,intelligence:13,wisdom:12,charisma:14},summary:"Faux-semblant ; sensibilité à la lumière ; transfert de dégâts lorsqu’il est fixé à une victime.",actions:["Attaques multiples : morsure et queue","Morsure +6, 2d6+3 perforants ; peut se fixer sur une cible","Queue +6, attaque à allonge 3 m","Gémissement et fantasmes défensifs"]}
+
+
+,
+  {id:"basilisk",name:"Basilic",type:"Créature monstrueuse",size:"Moyenne",alignment:"Non-alignée",ac:15,hp:52,speed:"6 m",cr:"3",xp:700,abilities:{strength:16,dexterity:8,constitution:15,intelligence:2,wisdom:8,charisma:7},summary:"Regard pétrifiant à 9 m ; peut être affecté par son propre reflet.",actions:["Morsure +5, 2d6+3 perforants + 2d6 poison"]},
+  {id:"cockatrice",name:"Cockatrice",type:"Créature monstrueuse",size:"Petite",alignment:"Non-alignée",ac:11,hp:27,speed:"6 m, vol 12 m",cr:"1/2",xp:100,abilities:{strength:6,dexterity:12,constitution:12,intelligence:2,wisdom:13,charisma:5},summary:"Sa morsure peut pétrifier temporairement une créature.",actions:["Morsure +3, 1d4+1 perforants ; Con DD 11 contre pétrification"]},
+  {id:"chimera",name:"Chimère",type:"Créature monstrueuse",size:"Grande",alignment:"Chaotique Mauvais",ac:14,hp:114,speed:"9 m, vol 18 m",cr:"6",xp:2300,abilities:{strength:19,dexterity:11,constitution:19,intelligence:3,wisdom:14,charisma:10},summary:"Prédateur à trois têtes ; souffle de feu rechargeable.",actions:["Attaques multiples : morsure, cornes et griffes","Cornes +7, 1d12+4 contondants","Griffes +7, 2d6+4 tranchants","Morsure +7, 2d6+4 perforants","Souffle de feu (recharge 5–6) : cône 4,5 m, Dex DD 15, 7d8 feu"]},
+  {id:"griffon",name:"Griffon",type:"Créature monstrueuse",size:"Grande",alignment:"Non-alignée",ac:12,hp:59,speed:"9 m, vol 24 m",cr:"2",xp:450,abilities:{strength:18,dexterity:15,constitution:16,intelligence:2,wisdom:13,charisma:8},summary:"Vue aiguisée ; prédateur volant très rapide.",actions:["Attaques multiples : bec et griffes","Bec +6, 1d8+4 perforants","Griffes +6, 2d6+4 tranchants"]},
+  {id:"hydra",name:"Hydre",type:"Créature monstrueuse",size:"Très Grande",alignment:"Non-alignée",ac:15,hp:172,speed:"9 m, nage 9 m",cr:"8",xp:3900,abilities:{strength:20,dexterity:12,constitution:20,intelligence:2,wisdom:10,charisma:7},summary:"Cinq têtes ; têtes réactives et régénération de nouvelles têtes sauf après dégâts de feu ; retient son souffle 1 heure.",actions:["Attaques multiples : une morsure par tête","Morsure +8, 1d10+5 perforants, allonge 3 m"]},
+  {id:"manticore",name:"Manticore",type:"Créature monstrueuse",size:"Grande",alignment:"Loyal Mauvais",ac:14,hp:68,speed:"9 m, vol 15 m",cr:"3",xp:700,abilities:{strength:17,dexterity:16,constitution:17,intelligence:7,wisdom:12,charisma:8},summary:"Dispose de 24 piquants caudaux qui repoussent après un repos long.",actions:["Attaques multiples : morsure + 2 griffes, ou 3 piquants","Griffe +5, 1d6+3 tranchants","Morsure +5, 1d8+3 perforants","Piquant caudal +5, 1d8+3 perforants, portée 30/60 m"]},
+  {id:"medusa",name:"Méduse",type:"Créature monstrueuse",size:"Moyenne",alignment:"Loyal Mauvais",ac:15,hp:127,speed:"9 m",cr:"6",xp:2300,abilities:{strength:10,dexterity:15,constitution:16,intelligence:12,wisdom:13,charisma:15},summary:"Regard pétrifiant à 9 m ; la méduse peut être victime de son propre reflet.",actions:["Attaques multiples : attaques d’armes et serpents selon la situation","Regard pétrifiant : Con DD 14"]},
+  {id:"minotaur",name:"Minotaure",type:"Créature monstrueuse",size:"Grande",alignment:"Chaotique Mauvais",ac:14,hp:76,speed:"12 m",cr:"3",xp:700,abilities:{strength:18,dexterity:11,constitution:16,intelligence:6,wisdom:16,charisma:9},summary:"Charge ; mémoire parfaite des labyrinthes ; peut combattre témérairement.",actions:["Coup de corne +6, 2d8+4 perforants","Hache à deux mains ; attaque lourde au corps à corps"]},
+  {id:"grick_alpha",name:"Grick dominant",type:"Créature monstrueuse",size:"Grande",alignment:"Neutre",ac:18,hp:75,speed:"9 m, escalade 9 m",cr:"7",xp:2900,abilities:{strength:18,dexterity:16,constitution:15,intelligence:4,wisdom:14,charisma:9},summary:"Camouflage dans la rocaille ; résistance aux attaques physiques non magiques.",actions:["Attaques multiples : queue et tentacules ; bec si les tentacules touchent","Queue +7, 2d6+4 contondants","Tentacules +7, 4d8+4 tranchants","Bec +7, attaque perforante"]},
+  {id:"merrow",name:"Merrow",type:"Créature monstrueuse",size:"Grande",alignment:"Chaotique Mauvais",ac:13,hp:45,speed:"3 m, nage 12 m",cr:"2",xp:450,abilities:{strength:18,dexterity:10,constitution:15,intelligence:8,wisdom:10,charisma:9},summary:"Amphibie ; son harpon peut tracter une cible vers lui.",actions:["Attaques multiples : morsure et griffes ou harpon","Griffes +6, 2d4+4 tranchants","Harpon +6, 2d6+4 perforants, portée 6/18 m ; traction possible","Morsure +6, 1d8+4 perforants"]},
+  {id:"mimic",name:"Mimique",type:"Créature monstrueuse",size:"Moyenne",alignment:"Neutre",ac:12,hp:58,speed:"4,5 m",cr:"2",xp:450,abilities:{strength:17,dexterity:12,constitution:15,intelligence:5,wisdom:13,charisma:8},summary:"Métamorphe prenant l’apparence d’objets ; collante et avantagée contre les créatures qu’elle empoigne ; immunisée à l’acide.",actions:["Pseudopode : attaque adhésive et empoignade","Morsure contre une cible à portée"]}
+
+
+,
+  {id:"ankheg",name:"Ankheg",type:"Créature monstrueuse",size:"Grande",alignment:"Non-alignée",ac:14,hp:39,speed:"9 m, fouissement 3 m",cr:"2",xp:450,abilities:{strength:17,dexterity:11,constitution:13,intelligence:1,wisdom:13,charisma:6},summary:"Prédateur fouisseur ; CA 11 lorsqu’il est à terre ; mandibules acides et aspersion d’acide.",actions:["Morsure +5, 2d6+3 tranchants + 1d6 acide ; empoignade DD 13","Aspersion acide (recharge 6) : ligne 9 m, Dex DD 13, 3d6 acide"]},
+  {id:"centaur",name:"Centaure",type:"Créature monstrueuse",size:"Grande",alignment:"Neutre Bon",ac:12,hp:45,speed:"15 m",cr:"2",xp:450,abilities:{strength:18,dexterity:14,constitution:14,intelligence:9,wisdom:13,charisma:11},summary:"Combattant mobile ; charge à la pique.",actions:["Attaques multiples : pique et sabots, ou 2 tirs à l’arc long","Pique +6, 1d10+4 perforants ; charge +3d6 après 9 m en ligne droite","Sabots +6, 2d6+4 contondants","Arc long +4, 1d8+2 perforants, portée 45/180 m"]},
+  {id:"drider",name:"Drider",type:"Créature monstrueuse",size:"Grande",alignment:"Chaotique Mauvais",ac:19,hp:123,speed:"9 m, escalade 9 m",cr:"6",xp:2300,abilities:{strength:16,dexterity:16,constitution:18,intelligence:13,wisdom:14,charisma:12},summary:"Ascendance féerique ; pattes d’araignée ; sensibilité à la lumière du soleil ; magie innée drow.",actions:["Attaques multiples avec armes ou arc selon l’équipement"],spellcasting:"Innate : lumières dansantes à volonté ; lueurs féeriques et ténèbres 1/jour. Variante du Manuel : certains driders conservent une incantation de niveau 7."},
+  {id:"gorgon",name:"Gorgone",type:"Créature monstrueuse",size:"Grande",alignment:"Non-alignée",ac:19,hp:114,speed:"12 m",cr:"5",xp:1800,abilities:{strength:20,dexterity:11,constitution:18,intelligence:2,wisdom:12,charisma:7},summary:"Immunisée à la pétrification ; charge écrasante ; souffle pétrifiant rechargeable.",actions:["Coup de corne +8, 2d12+5 perforants","Sabots +8, 2d10+5 contondants","Souffle pétrifiant (recharge 5–6)"]},
+  {id:"peryton",name:"Péryton",type:"Créature monstrueuse",size:"Moyenne",alignment:"Chaotique Mauvais",ac:13,hp:33,speed:"6 m, vol 18 m",cr:"2",xp:450,abilities:{strength:16,dexterity:12,constitution:13,intelligence:9,wisdom:12,charisma:10},summary:"Résistant aux armes non magiques ; attaque en piqué ; repli aérien ; vue et odorat aiguisés.",actions:["Attaques multiples : corne et serres","Corne +5, 1d8+3 perforants","Serres +5, 2d4+3 perforants"]},
+  {id:"young_remorhaz",name:"Jeune remorhaz",type:"Créature monstrueuse",size:"Grande",alignment:"Non-alignée",ac:14,hp:93,speed:"9 m, fouissement 6 m",cr:"5",xp:1800,abilities:{strength:18,dexterity:13,constitution:17,intelligence:3,wisdom:10,charisma:4},summary:"Immunisé au feu et au froid ; corps surchauffé infligeant des dégâts au contact.",actions:["Morsure +6, 3d10+4 perforants + 2d6 feu"]},
+  {id:"wyvern",name:"Vouivre",type:"Dragon",size:"Grande",alignment:"Non-alignée",ac:13,hp:110,speed:"6 m, vol 24 m",cr:"6",xp:2300,abilities:{strength:19,dexterity:10,constitution:16,intelligence:5,wisdom:12,charisma:6},summary:"Prédateur draconique volant ; dard caudal venimeux.",actions:["Attaques multiples : morsure et dard caudal ; en vol, griffes possibles","Dard caudal +7, 2d6+4 perforants plus poison","Morsure et griffes selon le profil du Manuel"]}
+
+
+,
+  {id:"behir",name:"Béhir",type:"Créature monstrueuse",size:"Très Grande",alignment:"Neutre Mauvais",ac:17,hp:168,speed:"15 m, escalade 12 m",cr:"11",xp:7200,abilities:{strength:23,dexterity:16,constitution:18,intelligence:7,wisdom:14,charisma:12},summary:"Immunisé à la foudre ; constriction, engloutissement et souffle de foudre.",actions:["Attaques multiples : morsure et constriction","Morsure +10, 3d10+6 perforants","Constriction +10, 2d10+6 contondants + 2d10+6 tranchants ; empoignade DD 16","Engloutir une cible Moyenne ou plus petite déjà empoignée","Souffle de foudre (recharge 5–6)"]},
+  {id:"carrion_crawler",name:"Charognard rampant",type:"Aberration",size:"Grande",alignment:"Non-alignée",ac:13,hp:51,speed:"9 m, escalade 9 m",cr:"2",xp:450,abilities:{strength:14,dexterity:13,constitution:16,intelligence:1,wisdom:12,charisma:5},summary:"Odorat aiguisé ; pattes d’araignée ; tentacules empoisonnés pouvant paralyser.",actions:["Attaques multiples : tentacules et morsure","Morsure +4, 2d4+2 perforants","Tentacules +8, 1d4+2 poison ; Con DD 13 ou empoisonné et paralysé"]},
+  {id:"bulette",name:"Bulette",type:"Créature monstrueuse",size:"Grande",alignment:"Non-alignée",ac:17,hp:94,speed:"12 m, fouissement 12 m",cr:"5",xp:1800,abilities:{strength:19,dexterity:11,constitution:21,intelligence:2,wisdom:10,charisma:5},summary:"Prédateur fouisseur à carapace ; saut sans élan et saut meurtrier.",actions:["Morsure +7, 4d12+4 perforants","Saut meurtrier après au moins 4,50 m : For ou Dex DD 16 ; dégâts contondants et tranchants, cible à terre en cas d’échec"]},
+  {id:"winter_wolf",name:"Loup arctique",type:"Créature monstrueuse",size:"Grande",alignment:"Neutre Mauvais",ac:13,hp:75,speed:"15 m",cr:"3",xp:700,abilities:{strength:18,dexterity:13,constitution:14,intelligence:7,wisdom:12,charisma:8},summary:"Immunisé au froid ; camouflage neigeux, tactique de groupe et souffle glacial.",actions:["Morsure +6, 2d6+4 perforants ; For DD 14 ou à terre","Souffle glacial (recharge 5–6) : cône 4,50 m, Dex DD 12, 4d8 froid"]},
+  {id:"death_dog",name:"Chien du trépas",type:"Créature monstrueuse",size:"Moyenne",alignment:"Neutre Mauvais",ac:12,hp:39,speed:"12 m",cr:"1",xp:200,abilities:{strength:15,dexterity:14,constitution:14,intelligence:3,wisdom:13,charisma:6},summary:"Molosse bicéphale ; morsures susceptibles de transmettre une maladie débilitante.",actions:["Attaques multiples : 2 morsures","Morsure +4, 1d6+2 perforants ; Con DD 12 contre la maladie"]}
+
+,
+{id:"flameskull",name:"Crânefeu",type:"Mort-vivant",size:"Très Petite",alignment:"Neutre Mauvais",ac:13,hp:40,speed:"0 m, vol 12 m (vol stationnaire)",cr:"4",xp:1100,abilities:{strength:1,dexterity:17,constitution:14,intelligence:16,wisdom:10,charisma:11},summary:"Résistance à la magie ; illumination ; reconstitution après destruction sauf contre-mesure appropriée ; lanceur de sorts de niveau 5.",actions:["Attaques multiples : 2 rayons de feu","Rayon de feu +5, 3d6 feu, portée 9 m"],spellcasting:"Magicien niveau 5 : main du mage ; bouclier, projectile magique ; flou, sphère de feu ; boule de feu."},
+  {id:"will_o_wisp",name:"Feu follet",type:"Mort-vivant",size:"Très Petite",alignment:"Chaotique Mauvais",ac:19,hp:22,speed:"0 m, vol 15 m (vol stationnaire)",cr:"2",xp:450,abilities:{strength:1,dexterity:28,constitution:10,intelligence:13,wisdom:14,charisma:11},summary:"Déplacement intangible ; dévore la vie des créatures à 0 PV ; illumination variable ; peut devenir invisible.",actions:["Décharge +4, 2d8 foudre","Invisibilité"]},
+  {id:"succubus_incubus",name:"Succube/Incube",type:"Fiélon",size:"Moyenne",alignment:"Neutre Mauvais",ac:15,hp:66,speed:"9 m, vol 18 m",cr:"4",xp:1100,abilities:{strength:8,dexterity:17,constitution:13,intelligence:15,wisdom:12,charisma:20},summary:"Métamorphe ; lien télépathique ; charme et baiser dévitalisant.",actions:["Griffe +5, 1d6+3 tranchants","Charme : Sag DD 15","Baiser dévitalisant : Con DD 15, dégâts psychiques et réduction du maximum de PV"]},
+  {id:"hell_hound",name:"Molosse infernal",type:"Fiélon",size:"Moyenne",alignment:"Loyal Mauvais",ac:15,hp:45,speed:"15 m",cr:"3",xp:700,abilities:{strength:17,dexterity:12,constitution:14,intelligence:6,wisdom:13,charisma:6},summary:"Immunisé au feu ; odorat et ouïe aiguisés ; tactique de groupe ; souffle de feu.",actions:["Morsure +5, 1d8+3 perforants + 2d6 feu","Souffle de feu (recharge 5–6) : cône 4,50 m, Dex DD 12, 6d6 feu"]}
+,
+{id:"couatl",name:"Couatl",type:"Céleste",size:"Moyenne",alignment:"Loyal Bon",ac:19,hp:97,speed:"9 m, vol 27 m",cr:"4",xp:1100,abilities:{strength:16,dexterity:20,constitution:17,intelligence:18,wisdom:20,charisma:18},summary:"Vision parfaite ; immunités et résistances élevées ; esprit protégé ; armes magiques ; métamorphe.",actions:["Morsure +8, 1d6+5 perforants ; poison","Constriction +6, 2d6+3 contondants ; empoignade","Changer de forme"],spellcasting:"Magie innée : détections à volonté ; bénédiction, bouclier, nourriture/eau, protection contre poison, restauration inférieure, sanctuaire et soins 3/jour ; restauration supérieure, rêve et scrutation 1/jour."},
+  {id:"deva",name:"Déva",type:"Céleste",size:"Moyenne",alignment:"Loyal Bon",ac:17,hp:136,speed:"9 m, vol 27 m",cr:"10",xp:5900,abilities:{strength:18,dexterity:18,constitution:18,intelligence:17,wisdom:20,charisma:20},summary:"Armes angéliques ; résistance à la magie ; métamorphe ; contact curatif.",actions:["Attaques multiples : 2 attaques au corps à corps","Masse d’armes +8, dégâts contondants + 4d8 radiants","Contact curatif (3/jour) : 4d8+2 PV et plusieurs afflictions guéries","Changer de forme"],spellcasting:"Magie innée divine fondée sur le Charisme."},
+  {id:"planetar",name:"Planétar",type:"Céleste",size:"Grande",alignment:"Loyal Bon",ac:19,hp:200,speed:"12 m, vol 36 m",cr:"16",xp:15000,abilities:{strength:24,dexterity:20,constitution:24,intelligence:19,wisdom:22,charisma:25},summary:"Armes angéliques ; résistance à la magie ; vigilance divine ; puissant contact curatif.",actions:["Attaques multiples : 2 attaques au corps à corps","Contact curatif (4/jour) : 6d8+3 PV et plusieurs afflictions guéries"],spellcasting:"Magie innée : détection du mal et du bien, invisibilité ; barrière de lames, colonne de feu, dissipation du mal et du bien, relever les morts ; communion, contrôle du climat, fléau d’insectes."},
+  {id:"solar",name:"Solar",type:"Céleste",size:"Grande",alignment:"Loyal Bon",ac:21,hp:243,speed:"15 m, vol 45 m",cr:"21",xp:33000,abilities:{strength:26,dexterity:22,constitution:26,intelligence:25,wisdom:25,charisma:30},summary:"Ange majeur ; armes angéliques ; résistance à la magie ; vigilance divine ; immunités importantes.",actions:["Attaques multiples : 2 attaques à l’épée à deux mains","Arc long tueur +13, portée 45/180 m"],spellcasting:"Magie innée : détection du mal et du bien, invisibilité ; barrière de lames, dissipation du mal et du bien, résurrection ; communion et contrôle du climat."},
+  {id:"empyrean",name:"Empyréen",type:"Céleste",size:"Très Grande",alignment:"Chaotique Bon ou Neutre Mauvais",ac:22,hp:313,speed:"15 m, nage 15 m, vol 15 m",cr:"23",xp:50000,abilities:{strength:30,dexterity:21,constitution:30,intelligence:21,wisdom:22,charisma:27},summary:"Titan céleste ; armes magiques ; résistance à la magie ; résistance légendaire.",actions:["Maillet d’armes +17, 6d6+10 contondants"],spellcasting:"Magie innée : marche sur l’eau, passage sans trace, respiration aquatique et restauration supérieure à volonté ; plusieurs sorts majeurs 1/jour."}
+,
+{id:"satyr",name:"Satyre",type:"Fée",size:"Moyenne",alignment:"Chaotique Neutre",ac:14,hp:31,speed:"12 m",cr:"1/2",xp:100,abilities:{strength:12,dexterity:16,constitution:11,intelligence:12,wisdom:10,charisma:14},summary:"Résistance à la magie ; combattant sylvestre agile.",actions:["Arc court +5, 1d6+3 perforants","Coup de bélier +3, 2d4+1 contondants","Épée courte +5, 1d6+3 perforants"]},
+  {id:"blight_vine",name:"Lierre malade",type:"Plante",size:"Moyenne",alignment:"Neutre Mauvais",ac:12,hp:26,speed:"3 m",cr:"1/2",xp:100,abilities:{strength:15,dexterity:8,constitution:14,intelligence:5,wisdom:10,charisma:3},summary:"Faux-semblant ; vision aveugle ; constriction et plantes agrippeuses.",actions:["Constriction +4, 2d6+2 contondants ; empoignade DD 12","Plantes agrippeuses (recharge 5–6) : zone de terrain difficile et entrave, For DD 12"]},
+  {id:"quadrone",name:"Quadrone",type:"Créature artificielle",size:"Moyenne",alignment:"Loyal Neutre",ac:16,hp:22,speed:"9 m, vol 9 m",cr:"1",xp:200,abilities:{strength:12,dexterity:14,constitution:12,intelligence:10,wisdom:10,charisma:11},summary:"Modron ; esprit axiomatique ; se désintègre à sa mort.",actions:["Attaques multiples : 2 poings ou 4 attaques à l’arc court","Attaque à distance +4, 1d6+2 perforants","Poing +3, 1d4+1 contondants"]},
+  {id:"pentadrone",name:"Pentadrone",type:"Créature artificielle",size:"Grande",alignment:"Loyal Neutre",ac:16,hp:32,speed:"12 m",cr:"2",xp:450,abilities:{strength:15,dexterity:14,constitution:12,intelligence:10,wisdom:10,charisma:13},summary:"Modron supérieur ; esprit axiomatique ; se désintègre à sa mort.",actions:["Attaques multiples au corps à corps","Attaques et capacités spéciales de pentadrone selon le profil du Manuel"]}
+,
+{id:"gargoyle",name:"Gargouille",type:"Élémentaire",size:"Moyenne",alignment:"Chaotique Mauvais",ac:15,hp:52,speed:"9 m, vol 18 m",cr:"2",xp:450,abilities:{strength:15,dexterity:11,constitution:16,intelligence:6,wisdom:11,charisma:7},summary:"Faux-semblant ; résistante aux armes non magiques sauf adamantium.",actions:["Attaques multiples : morsure et griffes","Morsure +4, 1d6+2 perforants","Griffes +4, 1d6+2 tranchants"]}
+,
+{id:"mud_mephit",name:"Méphite de boue",type:"Élémentaire",size:"Petite",alignment:"Neutre Mauvais",ac:11,hp:27,speed:"6 m, vol 6 m, nage 6 m",cr:"1/4",xp:50,abilities:{strength:8,dexterity:12,constitution:12,intelligence:9,wisdom:11,charisma:7},summary:"Explosion finale entravante ; faux-semblant.",actions:["Poings +3, 1d6+1 contondants","Souffle de boue (recharge 6) : Dex DD 11, entravé"]},
+{id:"smoke_mephit",name:"Méphite de fumée",type:"Élémentaire",size:"Petite",alignment:"Neutre Mauvais",ac:12,hp:22,speed:"9 m, vol 9 m",cr:"1/4",xp:50,abilities:{strength:6,dexterity:14,constitution:12,intelligence:10,wisdom:10,charisma:11},summary:"Explosion finale en nuage de fumée ; magie innée.",actions:["Griffes +4, 1d4+2 tranchants","Souffle de scories (recharge 6) : Dex DD 10, aveuglement"],spellcasting:"Lumières dansantes 1/jour."},
+{id:"ice_mephit",name:"Méphite de glace",type:"Élémentaire",size:"Petite",alignment:"Neutre Mauvais",ac:11,hp:21,speed:"9 m, vol 9 m",cr:"1/2",xp:100,abilities:{strength:7,dexterity:13,constitution:10,intelligence:9,wisdom:11,charisma:12},summary:"Explosion finale d’éclats ; faux-semblant ; magie innée.",actions:["Griffes +3, tranchants + froid","Souffle de givre (recharge 6) : Dex DD 10, 2d4 froid"],spellcasting:"Nappe de brouillard 1/jour."},
+{id:"magma_mephit",name:"Méphite de magma",type:"Élémentaire",size:"Petite",alignment:"Neutre Mauvais",ac:11,hp:22,speed:"9 m, vol 9 m",cr:"1/2",xp:100,abilities:{strength:8,dexterity:12,constitution:12,intelligence:7,wisdom:10,charisma:10},summary:"Explosion finale de lave ; faux-semblant ; vulnérable au froid.",actions:["Griffes","Souffle ardent"],spellcasting:"Chauffer le métal 1/jour."},
+{id:"dust_mephit",name:"Méphite de poussière",type:"Élémentaire",size:"Petite",alignment:"Neutre Mauvais",ac:12,hp:17,speed:"9 m, vol 9 m",cr:"1/2",xp:100,abilities:{strength:5,dexterity:14,constitution:10,intelligence:9,wisdom:11,charisma:10},summary:"Explosion finale aveuglante ; vulnérable au feu ; magie innée.",actions:["Griffes +4, 1d4+2 tranchants","Souffle aveuglant (recharge 6) : Dex DD 10"],spellcasting:"Sommeil 1/jour."},
+{id:"steam_mephit",name:"Méphite de vapeur",type:"Élémentaire",size:"Petite",alignment:"Neutre Mauvais",ac:10,hp:21,speed:"9 m, vol 9 m",cr:"1/4",xp:50,abilities:{strength:5,dexterity:11,constitution:10,intelligence:11,wisdom:10,charisma:12},summary:"Explosion finale de vapeur ; immunisé au feu et au poison ; magie innée.",actions:["Griffes +2, tranchants + feu","Souffle de vapeur (recharge 6)"],spellcasting:"Flou 1/jour."}
+,
+{id:"gas_spore",name:"Spore gazeuse",type:"Plante",size:"Grande",alignment:"non-alignée",ac:5,hp:1,speed:"0 m, vol 3 m (vol stationnaire)",cr:"1/2",xp:100,abilities:{strength:5,dexterity:1,constitution:3,intelligence:1,wisdom:1,charisma:1},summary:"Ressemble à un tyrannœil ; explosion mortelle et spores infectieuses.",actions:["Contact : poison et risque de maladie"]},
+{id:"shrieker",name:"Criard",type:"Plante",size:"Moyenne",alignment:"non-alignée",ac:5,hp:13,speed:"0 m",cr:"0",xp:10,abilities:{strength:1,dexterity:1,constitution:10,intelligence:1,wisdom:3,charisma:1},summary:"Champignon immobile à vision aveugle ; pousse un cri d’alarme quand il est stimulé.",actions:[]},
+{id:"pony",name:"Poney",type:"Bête",size:"Moyenne",alignment:"non-alignée",ac:10,hp:11,speed:"12 m",cr:"1/8",xp:25,abilities:{strength:15,dexterity:10,constitution:13,intelligence:2,wisdom:11,charisma:7},summary:"Monture animale.",actions:["Sabots +4, 2d4+2 contondants"]},
+{id:"giant_fire_beetle",name:"Punaise de feu géante",type:"Bête",size:"Petite",alignment:"non-alignée",ac:13,hp:4,speed:"9 m",cr:"0",xp:10,abilities:{strength:8,dexterity:10,constitution:12,intelligence:1,wisdom:7,charisma:3},summary:"Glandes lumineuses ; vision aveugle.",actions:["Morsure +1, 1d6-1 tranchants"]}
+,
+{id:"aarakocra",name:"Aarakocre",type:"Humanoïde",size:"Moyenne",alignment:"Neutre Bon",ac:12,hp:13,speed:"6 m, vol 15 m",cr:"1/4",xp:50,abilities:{strength:10,dexterity:14,constitution:10,intelligence:11,wisdom:12,charisma:11},summary:"Humanoïde aviaire ; attaque en piqué.",actions:["Javeline +4, 1d6+2 perforants","Serre +4, 1d4+2 tranchants"]},
+{id:"marid",name:"Maride",type:"Élémentaire",size:"Grande",alignment:"Chaotique Neutre",ac:17,hp:229,speed:"9 m, nage 27 m, vol 18 m",cr:"11",xp:7200,abilities:{strength:22,dexterity:12,constitution:26,intelligence:18,wisdom:17,charisma:18},summary:"Génie de l’eau ; amphibie ; trépas élémentaire ; magie innée.",actions:["Attaques multiples : 2 tridents","Trident +10","Jet d’eau : ligne 18 m, Dex DD 16, 6d6 contondants et repoussement"],spellcasting:"Magie innée : création/destruction d’eau, détections, brouillard, purification ; langues, marche sur l’eau, respiration aquatique ; changement de plan, contrôle de l’eau, forme gazeuse, invisibilité et invocation d’élémentaire."},
+{id:"gynosphinx",name:"Gynosphinx",type:"Créature monstrueuse",size:"Grande",alignment:"Loyal Neutre",ac:17,hp:136,speed:"12 m, vol 18 m",cr:"11",xp:7200,abilities:{strength:18,dexterity:15,constitution:16,intelligence:18,wisdom:18,charisma:18},summary:"Armes magiques ; insondable ; lanceur de sorts de niveau 9 ; actions légendaires.",actions:["Attaques multiples : 2 griffes","Griffe +8, 2d8+4 tranchants"],legendaryActions:["Attaque de griffe","Téléportation (2 actions)","Lancer un sort (3 actions)"],spellcasting:"Magicien niveau 9, Intelligence."},
+{id:"androsphinx",name:"Androsphinx",type:"Créature monstrueuse",size:"Grande",alignment:"Loyal Neutre",ac:17,hp:199,speed:"12 m, vol 18 m",cr:"17",xp:18000,abilities:{strength:22,dexterity:10,constitution:20,intelligence:16,wisdom:18,charisma:23},summary:"Sphinx puissant ; armes magiques ; lanceur de sorts de niveau 12 ; capacités légendaires.",actions:["Attaques multiples : 2 griffes","Griffe"],spellcasting:"Prêtre niveau 12, Sagesse."}
+,
+{id:"spirit_naga",name:"Naga corrupteur",type:"Créature monstrueuse",size:"Grande",alignment:"Chaotique Mauvais",ac:15,hp:75,speed:"12 m",cr:"8",xp:3900,abilities:{strength:18,dexterity:17,constitution:14,intelligence:16,wisdom:15,charisma:16},summary:"Immunisé au poison ; reconstitution en 1d6 jours sauf souhait ; lanceur de sorts de niveau 10.",actions:["Morsure +7, 1d6+4 perforants + poison"],spellcasting:"Magicien niveau 10 : illusion mineure, main du mage, rayon de givre ; charme-personne, détection de la magie, sommeil ; détection des pensées, immobiliser un humanoïde ; éclair, respiration aquatique ; flétrissement, porte dimensionnelle ; dominer un humanoïde."}
+,
+{id:"guardian_naga",name:"Naga gardien",type:"Créature monstrueuse",size:"Grande",alignment:"Loyal Bon",ac:18,hp:127,speed:"12 m",cr:"10",xp:5900,abilities:{strength:19,dexterity:18,constitution:16,intelligence:16,wisdom:19,charisma:18},summary:"Naga immortel protecteur ; reconstitution en 1d6 jours sauf souhait ; magie divine.",actions:["Morsure +8, perforants et poison","Cracher du poison +8"],spellcasting:"Prêtre niveau 11, Sagesse ; sorts jusqu’au niveau 6."},
+{id:"bone_naga",name:"Naga osseux",type:"Mort-vivant",size:"Grande",alignment:"Loyal Mauvais",ac:15,hp:58,speed:"9 m",cr:"4",xp:1100,abilities:{strength:15,dexterity:16,constitution:12,intelligence:15,wisdom:15,charisma:16},summary:"Naga transformé en serviteur squelettique ; magie réduite selon son origine.",actions:["Morsure +5, 2d6+3 perforants + 3d6 poison"],spellcasting:"Lanceur de sorts niveau 5 ; liste de prêtre s’il était gardien, liste de magicien s’il était corrupteur."}
+,
+{id:"roc",name:"Roc",type:"Créature monstrueuse",size:"Gigantesque",alignment:"non-alignée",ac:15,hp:248,speed:"6 m, vol 36 m",cr:"11",xp:7200,abilities:{strength:28,dexterity:10,constitution:20,intelligence:3,wisdom:10,charisma:9},summary:"Oiseau gigantesque à vue aiguisée.",actions:["Attaques multiples : bec et serres","Bec +13, 4d8+9 perforants","Serres +13, 4d6+9 tranchants et empoignade DD 19"]},
+{id:"pegasus",name:"Pégase",type:"Céleste",size:"Grande",alignment:"Chaotique Bon",ac:12,hp:59,speed:"18 m, vol 27 m",cr:"2",xp:450,abilities:{strength:18,dexterity:15,constitution:16,intelligence:10,wisdom:15,charisma:13},summary:"Cheval ailé céleste, intelligent et très rapide.",actions:["Sabots +6, 2d6+4 contondants"]},
+{id:"unicorn",name:"Licorne",type:"Céleste",size:"Grande",alignment:"Loyal Bon",ac:12,hp:67,speed:"15 m",cr:"5",xp:1800,abilities:{strength:18,dexterity:14,constitution:15,intelligence:11,wisdom:17,charisma:16},summary:"Armes magiques ; charge ; magie innée ; guérison et téléportation.",actions:["Attaques multiples : sabots et corne","Corne +7, 1d8+4 perforants","Sabots +7, 2d6+4 contondants","Contact guérisseur 3/jour","Téléportation 1/jour"],spellcasting:"À volonté : détection du mal et du bien, druidisme, passage sans trace ; 1/jour : apaisement des émotions, dissipation du mal et du bien, enchevêtrement."}
+,
+{id:"lamia",name:"Lamie",type:"Créature monstrueuse",size:"Grande",alignment:"Chaotique Mauvaise",ac:13,hp:97,speed:"9 m",cr:"4",xp:1100,abilities:{strength:16,dexterity:13,constitution:15,intelligence:14,wisdom:15,charisma:16},summary:"Prédatrice corruptrice ; contact enivrant et magie innée d’illusion/enchantement.",actions:["Attaques multiples","Contact enivrant +5 : malédiction","Dague +5, 1d4+3 perforants","Griffes +5, 2d10+3 tranchants"],spellcasting:"À volonté : déguisement, image majeure ; 3/jour : charme-personne, image miroir, scrutation, suggestion ; 1/jour : quête."},
+{id:"piercer",name:"Perforateur",type:"Créature monstrueuse",size:"Moyenne",alignment:"non-alignée",ac:15,hp:22,speed:"1,50 m, escalade 1,50 m",cr:"1/2",xp:100,abilities:{strength:10,dexterity:13,constitution:16,intelligence:1,wisdom:7,charisma:3},summary:"Prédateur cavernicole camouflé en stalactite ; chute sur ses proies.",actions:["Chute : attaque dépendant de la hauteur selon le profil du Manuel"]}
+,
+{id:"allosaurus",name:"Allosaure",type:"Bête",size:"Grande",alignment:"non-alignée",ac:13,hp:51,speed:"18 m",cr:"2",xp:450,abilities:{strength:19,dexterity:13,constitution:17,intelligence:2,wisdom:12,charisma:5},summary:"Dinosaure prédateur ; bond agressif.",actions:["Morsure +6, 2d10+4 perforants","Griffe +6, 1d8+4 tranchants"]},
+{id:"ankylosaurus",name:"Ankylosaure",type:"Bête",size:"Très Grande",alignment:"non-alignée",ac:15,hp:68,speed:"9 m",cr:"3",xp:700,abilities:{strength:19,dexterity:11,constitution:15,intelligence:2,wisdom:12,charisma:5},summary:"Dinosaure cuirassé à lourde queue.",actions:["Queue +7, 4d6+4 contondants ; For DD 14 ou à terre"]},
+{id:"plesiosaurus",name:"Plésiosaure",type:"Bête",size:"Grande",alignment:"non-alignée",ac:13,hp:68,speed:"6 m, nage 12 m",cr:"2",xp:450,abilities:{strength:18,dexterity:15,constitution:16,intelligence:2,wisdom:12,charisma:5},summary:"Reptile aquatique ; retient son souffle 1 heure.",actions:["Morsure +6, 3d6+4 perforants"]},
+{id:"pteranodon",name:"Ptéranodon",type:"Bête",size:"Moyenne",alignment:"non-alignée",ac:13,hp:13,speed:"3 m, vol 18 m",cr:"1/4",xp:50,abilities:{strength:12,dexterity:15,constitution:10,intelligence:2,wisdom:9,charisma:5},summary:"Repli aérien.",actions:["Morsure +3, 2d4+1 perforants"]},
+{id:"triceratops",name:"Tricératops",type:"Bête",size:"Très Grande",alignment:"non-alignée",ac:13,hp:95,speed:"15 m",cr:"5",xp:1800,abilities:{strength:22,dexterity:9,constitution:17,intelligence:2,wisdom:11,charisma:5},summary:"Charge écrasante ; peut piétiner une cible mise à terre.",actions:["Coup de corne +9, 4d8+6 perforants","Piétinement +9, 3d10+6 contondants"]},
+{id:"tyrannosaurus",name:"Tyrannosaure",type:"Bête",size:"Très Grande",alignment:"non-alignée",ac:13,hp:136,speed:"15 m",cr:"8",xp:3900,abilities:{strength:25,dexterity:10,constitution:19,intelligence:2,wisdom:12,charisma:9},summary:"Prédateur gigantesque ; morsure empoignante.",actions:["Attaques multiples : morsure et queue sur deux cibles différentes","Morsure +10, 4d12+7 perforants et empoignade DD 17","Queue +10, 3d8+7 contondants"]}
+,
+{id:"giant_crocodile",name:"Crocodile géant",type:"Bête",size:"Très Grande",alignment:"non-alignée",ac:14,hp:85,speed:"9 m, nage 15 m",cr:"5",xp:1800,abilities:{strength:21,dexterity:9,constitution:17,intelligence:2,wisdom:10,charisma:7},summary:"Retient son souffle 30 minutes ; morsure empoignante.",actions:["Attaques multiples : morsure et queue","Morsure +8, 3d10+5 perforants et empoignade DD 16","Queue +8, 2d8+5 contondants ; For DD 16 ou à terre"]},
+{id:"elephant",name:"Éléphant",type:"Bête",size:"Très Grande",alignment:"non-alignée",ac:12,hp:76,speed:"12 m",cr:"4",xp:1100,abilities:{strength:22,dexterity:9,constitution:17,intelligence:3,wisdom:11,charisma:6},summary:"Charge écrasante ; piétinement sur cible à terre.",actions:["Coup de défense +8, 3d8+6 perforants","Piétinement +8, 3d10+6 contondants"]}
+,
+{id:"polar_bear",name:"Ours polaire",type:"Bête",size:"Grande",alignment:"non-alignée",ac:12,hp:42,speed:"12 m, nage 9 m",cr:"2",xp:450,abilities:{strength:20,dexterity:10,constitution:16,intelligence:2,wisdom:13,charisma:7},summary:"Odorat aiguisé.",actions:["Attaques multiples : morsure et griffes","Griffes +7, 2d6+5 tranchants","Morsure +7, 1d8+5 perforants"]}
+,
+{id:"mammoth",name:"Mammouth",type:"Bête",size:"Très Grande",alignment:"non-alignée",ac:13,hp:126,speed:"12 m",cr:"6",xp:2300,abilities:{strength:24,dexterity:9,constitution:21,intelligence:3,wisdom:11,charisma:6},summary:"Charge écrasante ; piétinement d’une cible à terre.",actions:["Coup de défense +10, 4d8+7 perforants","Piétinement +10, 4d10+7 contondants"]}
+,
+{id:"giant_scorpion",name:"Scorpion géant",type:"Bête",size:"Grande",alignment:"non-alignée",ac:15,hp:52,speed:"12 m",cr:"3",xp:700,abilities:{strength:15,dexterity:13,constitution:15,intelligence:1,wisdom:9,charisma:3},summary:"Deux pinces empoignantes et un dard venimeux.",actions:["Attaques multiples : deux pinces et un dard","Pince +4, 1d8+2 contondants, empoignade DD 12","Dard +4, 1d10+2 perforants ; Con DD 12, 4d10 poison ou moitié"]},
+{id:"giant_constrictor_snake",name:"Serpent constricteur géant",type:"Bête",size:"Très Grande",alignment:"non-alignée",ac:12,hp:60,speed:"9 m, nage 9 m",cr:"2",xp:450,abilities:{strength:19,dexterity:14,constitution:12,intelligence:1,wisdom:10,charisma:3},summary:"Serpent géant capable d’empoigner et d’entraver par constriction.",actions:["Comprimer +6, 2d8+4 contondants, empoignade DD 16"]}
+,
+{id:"giant_toad",name:"Crapaud géant",type:"Bête",size:"Grande",alignment:"non-alignée",ac:11,hp:39,speed:"6 m, nage 12 m",cr:"1",xp:200,abilities:{strength:15,dexterity:13,constitution:13,intelligence:2,wisdom:10,charisma:3},summary:"Amphibie ; saut sans élan ; peut engloutir une petite créature.",actions:["Morsure +4, 1d10+2 perforants + 1d10 poison, empoignade DD 13","Engloutir une cible empoignée de Petite taille ou inférieure"]},
+{id:"giant_elk",name:"Élan géant",type:"Bête",size:"Très Grande",alignment:"non-alignée",ac:14,hp:42,speed:"18 m",cr:"2",xp:450,abilities:{strength:19,dexterity:16,constitution:14,intelligence:7,wisdom:14,charisma:10},summary:"Charge ; comprend le commun, l’elfique et le sylvestre sans pouvoir les parler.",actions:["Coup de bélier +6, 2d6+4 contondants","Sabots contre une cible à terre"]}
+,
+{id:"hunter_shark",name:"Requin-chasseur",type:"Bête",size:"Grande",alignment:"non-alignée",ac:12,hp:45,speed:"0 m, nage 12 m",cr:"2",xp:450,abilities:{strength:18,dexterity:13,constitution:15,intelligence:1,wisdom:10,charisma:4},summary:"Frénésie sanguinaire ; respiration aquatique.",actions:["Morsure +6, 2d8+4 perforants"]},
+{id:"giant_boar",name:"Sanglier géant",type:"Bête",size:"Grande",alignment:"non-alignée",ac:12,hp:42,speed:"12 m",cr:"2",xp:450,abilities:{strength:17,dexterity:10,constitution:16,intelligence:2,wisdom:7,charisma:5},summary:"Charge ; implacable après repos court ou long.",actions:["Défense +5, 2d6+3 tranchants"]}
+,
+{id:"giant_hyena",name:"Hyène géante",type:"Bête",size:"Grande",alignment:"non-alignée",ac:12,hp:45,speed:"15 m",cr:"1",xp:200,abilities:{strength:16,dexterity:14,constitution:14,intelligence:2,wisdom:12,charisma:7},summary:"Déchaînée après avoir réduit une créature à 0 PV.",actions:["Morsure +5, 2d6+3 perforants"]},
+{id:"giant_lizard",name:"Lézard géant",type:"Bête",size:"Grande",alignment:"non-alignée",ac:12,hp:19,speed:"9 m, escalade 9 m",cr:"1/4",xp:50,abilities:{strength:15,dexterity:12,constitution:13,intelligence:2,wisdom:10,charisma:5},summary:"Peut servir de monture ou de bête de somme ; variantes possibles.",actions:["Morsure +4, 1d8+2 perforants"]}
+,
+{id:"giant_crab",name:"Crabe géant",type:"Bête",size:"Moyenne",alignment:"non-alignée",ac:15,hp:13,speed:"9 m, nage 9 m",cr:"1/8",xp:25,abilities:{strength:13,dexterity:15,constitution:11,intelligence:1,wisdom:9,charisma:3},summary:"Amphibie ; deux pinces capables d’empoigner.",actions:["Pince +3, 1d6+1 contondants, empoignade DD 11"]},
+{id:"giant_centipede",name:"Mille-pattes géant",type:"Bête",size:"Petite",alignment:"non-alignée",ac:13,hp:4,speed:"9 m, escalade 9 m",cr:"1/4",xp:50,abilities:{strength:5,dexterity:14,constitution:12,intelligence:1,wisdom:7,charisma:3},summary:"Morsure venimeuse pouvant paralyser une victime réduite à 0 PV par le poison.",actions:["Morsure +4, 1d4+2 perforants ; Con DD 11 ou 3d6 poison"]}
+,
+{id:"giant_bat",name:"Chauve-souris géante",type:"Bête",size:"Grande",alignment:"non-alignée",ac:13,hp:22,speed:"3 m, vol 18 m",cr:"1/4",xp:50,abilities:{strength:15,dexterity:16,constitution:11,intelligence:2,wisdom:12,charisma:6},summary:"Écholocalisation et ouïe aiguisée.",actions:["Morsure +4, 1d6+2 perforants"]},
+{id:"giant_owl",name:"Chouette géante",type:"Bête",size:"Grande",alignment:"Neutre",ac:12,hp:19,speed:"1,50 m, vol 18 m",cr:"1/4",xp:50,abilities:{strength:13,dexterity:15,constitution:12,intelligence:8,wisdom:13,charisma:10},summary:"Ouïe et vue aiguisées ; repli aérien.",actions:["Serres +3, 2d6+1 tranchants"]}
+,
+{id:"giant_goat",name:"Chèvre géante",type:"Bête",size:"Grande",alignment:"non-alignée",ac:11,hp:19,speed:"12 m",cr:"1/2",xp:100,abilities:{strength:17,dexterity:11,constitution:12,intelligence:3,wisdom:12,charisma:6},summary:"Charge et pied sûr.",actions:["Coup de bélier +5, 2d4+3 contondants"]},
+{id:"axe_beak",name:"Bec de hache",type:"Bête",size:"Grande",alignment:"non-alignée",ac:11,hp:19,speed:"15 m",cr:"1/4",xp:50,abilities:{strength:14,dexterity:12,constitution:12,intelligence:2,wisdom:10,charisma:5},summary:"Grand oiseau terrestre agressif.",actions:["Bec +4, 1d8+2 tranchants"]}
+,
+{id:"giant_weasel",name:"Belette géante",type:"Bête",size:"Moyenne",alignment:"non-alignée",ac:13,hp:9,speed:"12 m",cr:"1/8",xp:25,abilities:{strength:11,dexterity:16,constitution:10,intelligence:4,wisdom:12,charisma:5},summary:"Odorat et ouïe aiguisés ; vision dans le noir.",actions:["Morsure +5, 1d4+3 perforants"]}
+,
+{id:"azer",name:"Azer",type:"Élémentaire",size:"Moyenne",alignment:"Loyal Neutre",ac:17,hp:39,speed:"9 m",cr:"2",xp:450,abilities:{strength:17,dexterity:12,constitution:15,intelligence:12,wisdom:13,charisma:10},summary:"Profil de créature du Manuel des Monstres ; caractéristiques principales intégrées.",actions:[]},
+{id:"banshee",name:"Banshie",type:"Mort-vivant",size:"Moyenne",alignment:"Chaotique Mauvais",ac:12,hp:58,speed:"0 m, vol 12 m",cr:"4",xp:1100,abilities:{strength:1,dexterity:14,constitution:10,intelligence:12,wisdom:11,charisma:17},summary:"Profil de créature du Manuel des Monstres ; caractéristiques principales intégrées.",actions:["Contact corrupteur +4, 3d6+2 nécrotiques","Gémissement 1/jour : Con DD 13 ; 0 PV en cas d’échec, 3d6 psychiques en cas de réussite","Visage terrifiant : Sag DD 13 ou terrorisé"]},
+{id:"displacer_beast",name:"Bête éclipsante",type:"Créature monstrueuse",size:"Grande",alignment:"Loyal Mauvais",ac:13,hp:85,speed:"12 m",cr:"3",xp:700,abilities:{strength:18,dexterity:15,constitution:16,intelligence:6,wisdom:12,charisma:8},summary:"Profil de créature du Manuel des Monstres ; caractéristiques principales intégrées.",actions:["Attaques multiples : 2 tentacules","Tentacule +6, 1d6+4 contondants + 1d6 perforants"]},
+{id:"bullywug",name:"Brutacien",type:"Humanoïde (brutacien)",size:"Moyenne",alignment:"Neutre Mauvais",ac:15,hp:11,speed:"6 m, nage 12 m",cr:"1/4",xp:50,abilities:{strength:12,dexterity:12,constitution:13,intelligence:7,wisdom:10,charisma:7},summary:"Amphibie, camouflage des marais, communication avec grenouilles et crapauds, saut sans élan.",actions:["Attaques multiples : morsure et lance","Lance +3, 1d6+1 perforants (1d8+1 à deux mains), portée 6/18 m","Morsure +3, 1d4+1 contondants"]},
+{id:"cambion",name:"Cambion",type:"Fiélon",size:"Moyenne",alignment:"selon ascendance",ac:19,hp:82,speed:"9 m, vol 18 m",cr:"5",xp:1800,abilities:{strength:18,dexterity:18,constitution:16,intelligence:14,wisdom:12,charisma:16},summary:"Profil de créature du Manuel des Monstres ; caractéristiques principales intégrées.",actions:[]},
+{id:"cyclops",name:"Cyclope",type:"Géant",size:"Très Grande",alignment:"Chaotique Neutre",ac:14,hp:138,speed:"9 m",cr:"6",xp:2300,abilities:{strength:22,dexterity:11,constitution:20,intelligence:8,wisdom:6,charisma:10},summary:"Profil de créature du Manuel des Monstres ; caractéristiques principales intégrées.",actions:["Attaques multiples : 2 massues","Massue +9, 3d8+6 contondants","Rocher +9, portée 9/36 m, 4d10+6 contondants"]},
+{id:"nightmare",name:"Destrier noir",type:"Fiélon",size:"Grande",alignment:"Neutre Mauvais",ac:13,hp:68,speed:"18 m, vol 27 m",cr:"3",xp:700,abilities:{strength:18,dexterity:15,constitution:16,intelligence:10,wisdom:13,charisma:15},summary:"Profil de créature du Manuel des Monstres ; caractéristiques principales intégrées.",actions:["Sabots +6, 2d8+4 contondants + 2d6 feu","Chevauchée éthérée : lui-même et jusqu’à 3 créatures consentantes"]},
+{id:"doppelganger",name:"Doppelganger",type:"Créature monstrueuse",size:"Moyenne",alignment:"Neutre",ac:14,hp:52,speed:"9 m",cr:"3",xp:700,abilities:{strength:11,dexterity:18,constitution:14,intelligence:11,wisdom:12,charisma:14},summary:"Profil de créature du Manuel des Monstres ; caractéristiques principales intégrées.",actions:["Attaques multiples : 2 coups","Coup +6, 1d6+4 contondants","Lire les pensées : pensées superficielles à 18 m"]},
+{id:"dryad",name:"Dryade",type:"Fée",size:"Moyenne",alignment:"Neutre",ac:11,hp:22,speed:"9 m",cr:"1",xp:200,abilities:{strength:10,dexterity:12,constitution:11,intelligence:14,wisdom:15,charisma:18},summary:"Profil de créature du Manuel des Monstres ; caractéristiques principales intégrées.",actions:["Gourdin +2, 1d4 contondants ; avec gourdin magique +6, 1d8+4","Charme féerique : Sag DD 14"]},
+{id:"duergar",name:"Duergar",type:"Humanoïde",size:"Moyenne",alignment:"Loyal Mauvais",ac:16,hp:26,speed:"7,50 m",cr:"1",xp:200,abilities:{strength:14,dexterity:11,constitution:14,intelligence:11,wisdom:10,charisma:9},summary:"Profil de créature du Manuel des Monstres ; caractéristiques principales intégrées.",actions:["Agrandir après repos : Grande taille, dés de dégâts de Force doublés","Pic de guerre +4, 1d8+2 ; agrandi 2d8+2","Javeline +4, 1d6+2 ; agrandi 2d6+2","Invisibilité après repos"]},
+{id:"roper",name:"Enlaceur",type:"Créature monstrueuse",size:"Grande",alignment:"Neutre Mauvais",ac:20,hp:93,speed:"3 m, escalade 3 m",cr:"5",xp:1800,abilities:{strength:18,dexterity:8,constitution:17,intelligence:7,wisdom:16,charisma:6},summary:"Profil de créature du Manuel des Monstres ; caractéristiques principales intégrées.",actions:["Attaques multiples : 4 filaments, Enrouler et 1 morsure","Morsure +7, 4d8+4 perforants","Filament +7 : empoignade/entrave DD 15","Enrouler : attire les créatures empoignées de 7,50 m"]},
+{id:"flumph",name:"Flumph",type:"Aberration",size:"Petite",alignment:"Loyal Bon",ac:12,hp:7,speed:"1,50 m, vol 9 m",cr:"1/8",xp:25,abilities:{strength:6,dexterity:15,constitution:10,intelligence:14,wisdom:14,charisma:11},summary:"Profil de créature du Manuel des Monstres ; caractéristiques principales intégrées.",actions:["Appendices +4, 1d4+2 perforants + 1d4 acide","Aspersion nauséabonde 1/jour : cône 4,50 m, Dex DD 10"]},
+{id:"fomorian",name:"Fomorien",type:"Géant",size:"Très Grande",alignment:"Chaotique Mauvais",ac:14,hp:149,speed:"9 m",cr:"8",xp:3900,abilities:{strength:23,dexterity:10,constitution:20,intelligence:9,wisdom:14,charisma:6},summary:"Profil de créature du Manuel des Monstres ; caractéristiques principales intégrées.",actions:["Attaques multiples : 2 massues, ou massue + mauvais œil","Massue +9, 3d8+6 contondants","Mauvais œil : Cha DD 14, 6d8 psychiques ou moitié","Malédiction du mauvais œil après repos"]},
+{id:"galeb_duhr",name:"Galeb Duhr",type:"Élémentaire",size:"Moyenne",alignment:"Neutre",ac:16,hp:85,speed:"4,50 m",cr:"6",xp:2300,abilities:{strength:20,dexterity:14,constitution:20,intelligence:11,wisdom:12,charisma:11},summary:"Profil de créature du Manuel des Monstres ; caractéristiques principales intégrées.",actions:[]},
+{id:"jackalwere",name:"Garou-chacal",type:"Humanoïde",size:"Moyenne",alignment:"Chaotique Mauvais",ac:12,hp:18,speed:"12 m",cr:"1/2",xp:100,abilities:{strength:11,dexterity:15,constitution:11,intelligence:13,wisdom:11,charisma:10},summary:"Profil de créature du Manuel des Monstres ; caractéristiques principales intégrées.",actions:["Morsure +4, 1d4+2 perforants","Cimeterre +4, 1d6+2 tranchants","Regard soporifique : Sag DD 10 ou inconscient"]},
+{id:"lizardfolk",name:"Homme-lézard",type:"Humanoïde",size:"Moyenne",alignment:"Neutre",ac:15,hp:22,speed:"9 m, nage 9 m",cr:"1/2",xp:100,abilities:{strength:15,dexterity:10,constitution:13,intelligence:7,wisdom:12,charisma:7},summary:"Profil de créature du Manuel des Monstres ; caractéristiques principales intégrées.",actions:["Attaques multiples : 2 attaques au corps à corps","Griffes +5, 1d4+3 tranchants","Morsure +5, 1d6+3 perforants","Trident +5, 1d6+3 perforants ; 1d8+3 à deux mains"]},
+{id:"merfolk",name:"Homme-poisson",type:"Humanoïde",size:"Moyenne",alignment:"Neutre",ac:11,hp:11,speed:"3 m, nage 12 m",cr:"1/8",xp:25,abilities:{strength:10,dexterity:13,constitution:12,intelligence:11,wisdom:11,charisma:12},summary:"Profil de créature du Manuel des Monstres ; caractéristiques principales intégrées.",actions:[]},
+{id:"homunculus",name:"Homoncule",type:"Créature artificielle",size:"Très Petite",alignment:"Neutre",ac:13,hp:5,speed:"6 m, vol 12 m",cr:"0",xp:10,abilities:{strength:4,dexterity:15,constitution:11,intelligence:10,wisdom:10,charisma:7},summary:"Profil de créature du Manuel des Monstres ; caractéristiques principales intégrées.",actions:["Morsure +4, 1 dégât perforant ; Con DD 10 contre poison/inconscience"]},
+{id:"hook_horror",name:"Horreur crochue",type:"Créature monstrueuse",size:"Grande",alignment:"Neutre",ac:15,hp:75,speed:"9 m, escalade 9 m",cr:"3",xp:700,abilities:{strength:18,dexterity:10,constitution:15,intelligence:6,wisdom:12,charisma:7},summary:"Profil de créature du Manuel des Monstres ; caractéristiques principales intégrées.",actions:["Attaques multiples : 2 crochets","Crochet +6, allonge 3 m, 2d6+4 perforants"]},
+{id:"kenku",name:"Kenku",type:"Humanoïde",size:"Moyenne",alignment:"Chaotique Neutre",ac:13,hp:13,speed:"9 m",cr:"1/4",xp:50,abilities:{strength:10,dexterity:16,constitution:10,intelligence:11,wisdom:10,charisma:10},summary:"Profil de créature du Manuel des Monstres ; caractéristiques principales intégrées.",actions:["Épée courte +5, 1d6+3 perforants","Arc court +5, portée 24/96 m, 1d6+3 perforants"]},
+{id:"kraken",name:"Kraken",type:"Créature monstrueuse",size:"Gigantesque",alignment:"Chaotique Mauvais",ac:18,hp:472,speed:"6 m, nage 18 m",cr:"23",xp:50000,abilities:{strength:30,dexterity:11,constitution:25,intelligence:22,wisdom:18,charisma:20},summary:"Profil de créature du Manuel des Monstres ; caractéristiques principales intégrées.",actions:["Attaques multiples : 3 tentacules, dont une peut être remplacée par Projection","Morsure +17, 3d8+10 perforants ; peut avaler une cible empoignée","Tentacule +17, allonge 9 m, 3d6+10 contondants et empoignade DD 18","Projection : jusqu’à 18 m","Tempête foudroyante : 3 cibles à 36 m, Dex DD 23, 4d10 foudre ou moitié"]},
+{id:"kuo_toa",name:"Kuo-toa",type:"Humanoïde",size:"Moyenne",alignment:"Neutre Mauvais",ac:11,hp:65,speed:"9 m, nage 9 m",cr:"1",xp:200,abilities:{strength:14,dexterity:10,constitution:14,intelligence:12,wisdom:14,charisma:11},summary:"Profil de créature du Manuel des Monstres ; caractéristiques principales intégrées.",actions:["Morsure +3, 1d4+1 perforants","Lance +3, 1d6+1 perforants ; 1d8+1 à deux mains","Filet +3, portée 1,50/4,50 m, entrave ; Force DD 10 pour libérer"]},
+{id:"crawling_claw",name:"Main rampante",type:"Mort-vivant",size:"Très Petite",alignment:"Neutre Mauvais",ac:12,hp:2,speed:"6 m, escalade 6 m",cr:"0",xp:10,abilities:{strength:13,dexterity:14,constitution:11,intelligence:5,wisdom:10,charisma:4},summary:"Profil de créature du Manuel des Monstres ; caractéristiques principales intégrées.",actions:["Griffe +3, 1d4+1 contondants ou tranchants"]},
+{id:"magmin",name:"Magmatique",type:"Élémentaire",size:"Petite",alignment:"Chaotique Neutre",ac:14,hp:9,speed:"9 m",cr:"1/2",xp:100,abilities:{strength:7,dexterity:15,constitution:12,intelligence:8,wisdom:11,charisma:10},summary:"Profil de créature du Manuel des Monstres ; caractéristiques principales intégrées.",actions:["Contact +4, 2d6 feu ; enflamme la cible"]},
+{id:"darkmantle",name:"Mante obscure",type:"Créature monstrueuse",size:"Petite",alignment:"non-alignée",ac:11,hp:22,speed:"3 m, vol 9 m",cr:"1/2",xp:100,abilities:{strength:16,dexterity:12,constitution:13,intelligence:2,wisdom:10,charisma:5},summary:"Profil de créature du Manuel des Monstres ; caractéristiques principales intégrées.",actions:["Écrasement : 1d6+3 contondants et fixation sur la cible","Aura de ténèbres 1/jour : rayon 4,50 m, concentration jusqu’à 10 min"]},
+{id:"shadow_mastiff",name:"Mastodonte des ombres",type:"Créature monstrueuse",size:"Moyenne",alignment:"Neutre Mauvais",ac:12,hp:33,speed:"12 m",cr:"2",xp:450,abilities:{strength:16,dexterity:14,constitution:13,intelligence:5,wisdom:12,charisma:5},summary:"Profil de créature du Manuel des Monstres ; caractéristiques principales intégrées.",actions:["Attaques multiples : 2 griffes et 1 mandibules","Griffe +8, 1d8+5 tranchants","Mandibules +8, 2d8+5 tranchants"]},
+{id:"oni",name:"Oni",type:"Géant",size:"Grande",alignment:"Loyal Mauvais",ac:16,hp:110,speed:"9 m, vol 9 m",cr:"7",xp:2900,abilities:{strength:19,dexterity:11,constitution:16,intelligence:14,wisdom:12,charisma:15},summary:"Profil de créature du Manuel des Monstres ; caractéristiques principales intégrées.",actions:[]},
+{id:"rust_monster",name:"Oxydeur",type:"Créature monstrueuse",size:"Moyenne",alignment:"non-alignée",ac:14,hp:27,speed:"12 m",cr:"1/2",xp:100,abilities:{strength:13,dexterity:12,constitution:13,intelligence:2,wisdom:13,charisma:6},summary:"Profil de créature du Manuel des Monstres ; caractéristiques principales intégrées.",actions:["Morsure +3, 1d8+1 perforants","Antennes : corrode le métal ferreux non magique, Dex DD 11 si porté"]},
+{id:"pixie",name:"Pixie",type:"Fée",size:"Très Petite",alignment:"Neutre Bon",ac:15,hp:1,speed:"3 m, vol 9 m",cr:"1/4",xp:50,abilities:{strength:2,dexterity:20,constitution:8,intelligence:10,wisdom:14,charisma:15},summary:"Profil de créature du Manuel des Monstres ; caractéristiques principales intégrées.",actions:["Invisibilité supérieure : concentration ; son équipement devient également invisible"]},
+{id:"quaggoth",name:"Quaggoth",type:"Humanoïde",size:"Moyenne",alignment:"Chaotique Neutre",ac:13,hp:45,speed:"9 m, escalade 9 m",cr:"2",xp:450,abilities:{strength:17,dexterity:12,constitution:16,intelligence:6,wisdom:12,charisma:7},summary:"Profil de créature du Manuel des Monstres ; caractéristiques principales intégrées.",actions:["Attaques multiples : 2 griffes","Griffe +5, 1d6+3 tranchants"]},
+{id:"rakshasa",name:"Rakshasa",type:"Fiélon",size:"Moyenne",alignment:"Loyal Mauvais",ac:16,hp:110,speed:"12 m",cr:"13",xp:10000,abilities:{strength:14,dexterity:17,constitution:18,intelligence:13,wisdom:16,charisma:20},summary:"Profil de créature du Manuel des Monstres ; caractéristiques principales intégrées.",actions:["Attaques multiples : 2 griffes","Griffe +7, 2d6+2 tranchants et malédiction"]},
+{id:"remorhaz",name:"Remorhaz",type:"Créature monstrueuse",size:"Très Grande",alignment:"non-alignée",ac:17,hp:195,speed:"9 m, fouissement 6 m",cr:"11",xp:7200,abilities:{strength:24,dexterity:13,constitution:21,intelligence:4,wisdom:10,charisma:5},summary:"Corps surchauffé : 3d6 feu au contact rapproché.",actions:["Morsure +11, 6d10+7 perforants + 3d6 feu ; empoignade DD 17","Engloutir une cible Moyenne ou plus petite empoignée ; 6d6 acide au début des tours ; régurgitation possible"]},
+{id:"sahuagin",name:"Sahuagin",type:"Humanoïde",size:"Moyenne",alignment:"Loyal Mauvais",ac:12,hp:22,speed:"9 m, nage 12 m",cr:"1/2",xp:100,abilities:{strength:13,dexterity:11,constitution:12,intelligence:12,wisdom:13,charisma:9},summary:"Profil de créature du Manuel des Monstres ; caractéristiques principales intégrées.",actions:[]},
+{id:"salamander",name:"Salamandre",type:"Élémentaire",size:"Grande",alignment:"Neutre Mauvais",ac:15,hp:90,speed:"9 m",cr:"5",xp:1800,abilities:{strength:18,dexterity:14,constitution:15,intelligence:11,wisdom:10,charisma:12},summary:"Profil de créature du Manuel des Monstres ; caractéristiques principales intégrées.",actions:["Attaques multiples : lance et queue","Lance +7, 2d6+4 perforants + 1d6 feu ; 2d8+4 à deux mains","Queue +7, 2d6+4 contondants + 2d6 feu, empoignade DD 14"]},
+{id:"water_weird",name:"Sibylle de l’eau",type:"Élémentaire",size:"Grande",alignment:"Neutre",ac:13,hp:58,speed:"0 m, nage 18 m",cr:"3",xp:700,abilities:{strength:17,dexterity:16,constitution:13,intelligence:11,wisdom:10,charisma:10},summary:"Profil de créature du Manuel des Monstres ; caractéristiques principales intégrées.",actions:["Comprimer +5, 3d6+3 contondants ; empoignade DD 13 et attire de 1,50 m"]},
+{id:"stirge",name:"Stirge",type:"Bête",size:"Très Petite",alignment:"non-alignée",ac:14,hp:2,speed:"3 m, vol 12 m",cr:"1/8",xp:25,abilities:{strength:4,dexterity:16,constitution:11,intelligence:2,wisdom:8,charisma:6},summary:"Profil de créature du Manuel des Monstres ; caractéristiques principales intégrées.",actions:["Succion du sang +5, 1d4+3 perforants puis fixation et perte de 1d4+3 PV par tour"]},
+{id:"treant",name:"Sylvanien",type:"Plante",size:"Très Grande",alignment:"Chaotique Bon",ac:16,hp:138,speed:"9 m",cr:"9",xp:5000,abilities:{strength:23,dexterity:8,constitution:21,intelligence:12,wisdom:16,charisma:12},summary:"Profil de créature du Manuel des Monstres ; caractéristiques principales intégrées.",actions:["Attaques multiples : 2 coups","Coup +10, 3d6+6 contondants","Rocher +10, portée 18/54 m, 4d10+6 contondants","Animation des arbres 1/jour : anime 1 ou 2 arbres à 18 m"]},
+{id:"tarrasque",name:"Tarasque",type:"Créature monstrueuse",size:"Gigantesque",alignment:"non-alignée",ac:25,hp:676,speed:"12 m",cr:"30",xp:155000,abilities:{strength:30,dexterity:11,constitution:30,intelligence:3,wisdom:11,charisma:11},summary:"Présence terrifiante, attaques multiples et engloutissement ; actions légendaires.",actions:["Attaques multiples : présence terrifiante puis 5 attaques","Cornes +19, 4d10+10 perforants","Griffe +19, 4d8+10 tranchants","Morsure +19, 4d12+10 perforants et empoignade DD 20","Engloutir : cible empoignée, 16d6 acide au début des tours"]},
+{id:"shambling_mound",name:"Tertre errant",type:"Plante",size:"Grande",alignment:"non-alignée",ac:15,hp:136,speed:"6 m, nage 6 m",cr:"5",xp:1800,abilities:{strength:18,dexterity:8,constitution:16,intelligence:5,wisdom:10,charisma:5},summary:"Profil de créature du Manuel des Monstres ; caractéristiques principales intégrées.",actions:[]},
+{id:"thri_kreen",name:"Thri-kreen",type:"Humanoïde",size:"Moyenne",alignment:"Chaotique Neutre",ac:15,hp:33,speed:"12 m",cr:"1",xp:200,abilities:{strength:12,dexterity:15,constitution:13,intelligence:8,wisdom:12,charisma:7},summary:"Profil de créature du Manuel des Monstres ; caractéristiques principales intégrées.",actions:["Attaques multiples : morsure et griffes","Griffes +3, 2d4+1 tranchants","Morsure +3, 1d6+1 perforants ; Con DD 11 contre poison/paralysie"]},
+{id:"grimlock",name:"Torve",type:"Humanoïde",size:"Moyenne",alignment:"Neutre Mauvais",ac:11,hp:11,speed:"9 m",cr:"1/4",xp:50,abilities:{strength:16,dexterity:12,constitution:12,intelligence:9,wisdom:8,charisma:6},summary:"Profil de créature du Manuel des Monstres ; caractéristiques principales intégrées.",actions:["Gourdin à pointes en os +5, 1d4+3 contondants + 1d4 perforants"]},
+{id:"invisible_stalker",name:"Traqueur invisible",type:"Élémentaire",size:"Moyenne",alignment:"Neutre",ac:14,hp:104,speed:"15 m, vol 15 m",cr:"6",xp:2300,abilities:{strength:16,dexterity:19,constitution:14,intelligence:10,wisdom:15,charisma:11},summary:"Profil de créature du Manuel des Monstres ; caractéristiques principales intégrées.",actions:["Attaques multiples : 2 coups","Coup +6, 2d6+3 contondants"]},
+{id:"troglodyte",name:"Troglodyte",type:"Humanoïde",size:"Moyenne",alignment:"Chaotique Mauvais",ac:11,hp:13,speed:"9 m",cr:"1/4",xp:50,abilities:{strength:14,dexterity:10,constitution:14,intelligence:6,wisdom:10,charisma:6},summary:"Profil de créature du Manuel des Monstres ; caractéristiques principales intégrées.",actions:[]},
+{id:"purple_worm",name:"Ver pourpre",type:"Créature monstrueuse",size:"Gigantesque",alignment:"non-alignée",ac:18,hp:247,speed:"15 m, fouissement 9 m",cr:"15",xp:13000,abilities:{strength:28,dexterity:7,constitution:22,intelligence:1,wisdom:8,charisma:4},summary:"Profil de créature du Manuel des Monstres ; caractéristiques principales intégrées.",actions:["Attaques multiples : morsure et dard caudal","Dard caudal +9, 3d6+9 perforants ; Con DD 19, 12d6 poison ou moitié","Morsure +9, 3d8+9 perforants ; Dex DD 19 ou avalé si Grande ou plus petit"]},
+{id:"xorn",name:"Xorn",type:"Élémentaire",size:"Moyenne",alignment:"Neutre",ac:19,hp:73,speed:"6 m, fouissement 6 m",cr:"5",xp:1800,abilities:{strength:17,dexterity:10,constitution:22,intelligence:11,wisdom:10,charisma:11},summary:"Profil de créature du Manuel des Monstres ; caractéristiques principales intégrées.",actions:["Attaques multiples : 3 griffes et 1 morsure","Griffe +6, 1d6+3 tranchants","Morsure +6, 3d6+3 perforants"]},
+{id:"yeti",name:"Yeti",type:"Créature monstrueuse",size:"Grande",alignment:"Chaotique Mauvais",ac:12,hp:51,speed:"12 m, escalade 12 m",cr:"3",xp:700,abilities:{strength:18,dexterity:13,constitution:16,intelligence:8,wisdom:12,charisma:7},summary:"Profil de créature du Manuel des Monstres ; caractéristiques principales intégrées.",actions:["Attaques multiples : regard glaçant et 2 griffes","Griffe +6, 1d6+4 tranchants + 1d6 froid","Regard glaçant : Con DD 13, 3d6 froid et paralysie"]},
+{id:"abominable_yeti",name:"Yeti abominable",type:"Créature monstrueuse",size:"Très Grande",alignment:"Chaotique Mauvais",ac:15,hp:137,speed:"12 m, escalade 12 m",cr:"9",xp:5000,abilities:{strength:24,dexterity:10,constitution:22,intelligence:9,wisdom:13,charisma:9},summary:"Profil de créature du Manuel des Monstres ; caractéristiques principales intégrées.",actions:[]}
+];
+
+function dndCreatureOptions(){ return [["","— Créature du bestiaire —"],...DND_CREATURES_2014.map(c=>[c.id,`${c.name} · FP ${c.cr}`])]; }
+function dndCreatureById(id){ return DND_CREATURES_2014.find(c=>c.id===id) || null; }
+function dndCreatureEnvironment(c){
+  const sp=(c.speed||"").toLowerCase();
+  const tags=[];
+  if(sp.includes("nage")) tags.push("Aquatique");
+  if(sp.includes("vol")) tags.push("Aérien");
+  if(!sp.includes("nage") || !sp.startsWith("nage")) tags.push("Terrestre");
+  return [...new Set(tags)];
+}
+function dndCreatureFilterOptions(key){
+  const values=[...new Set(DND_CREATURES_2014.flatMap(c=>key==="environment"?dndCreatureEnvironment(c):[c[key]]).filter(Boolean))];
+  if(key==="cr") values.sort((a,b)=>{const n=x=>x.includes("/")?Number(x.split("/")[0])/Number(x.split("/")[1]):Number(x);return n(a)-n(b)}); else values.sort((a,b)=>String(a).localeCompare(String(b),"fr"));
+  return [["","Tous"],...values.map(v=>[v,v])];
+}
+function refreshDndCreatureCatalog(){
+  const sel=$("#systemSpecificEditor [data-system-key='creatureTemplate']"); if(!sel) return;
+  const current=sel.value;
+  const type=$("#dndCreatureType")?.value||"", size=$("#dndCreatureSize")?.value||"", cr=$("#dndCreatureCr")?.value||"", color=$("#dndDragonColor")?.value||"", age=$("#dndDragonAge")?.value||"", env=$("#dndCreatureEnvironment")?.value||"", q=($("#dndCreatureSearch")?.value||"").trim().toLowerCase();
+  const list=DND_CREATURES_2014.filter(c=>(!type||c.type===type)&&(!size||c.size===size)&&(!cr||c.cr===cr)&&(!color||c.dragonColor===color)&&(!age||c.dragonAge===age)&&(!env||dndCreatureEnvironment(c).includes(env))&&(!q||`${c.name} ${c.type} ${c.summary} ${c.dragonColor||""} ${c.dragonAge||""}`.toLowerCase().includes(q)));
+  sel.innerHTML=`<option value="">— Créature du bestiaire (${list.length}) —</option>`+list.map(c=>`<option value="${esc(c.id)}" ${c.id===current?"selected":""}>${esc(c.name)} · FP ${esc(c.cr)}</option>`).join("");
+}
+function applyDndCreatureTemplate(id){
+  const c=dndCreatureById(id); if(!c) return;
+  const map={strength:"strength",dexterity:"dexterity",constitution:"constitution",intelligence:"intelligence",wisdom:"wisdom",charisma:"charisma"};
+  $$("#characteristicsEditor .characteristic-input").forEach(input=>{ const k=map[input.dataset.key]; if(k && c.abilities[k]!==undefined) input.value=c.abilities[k]; });
+  const nameInput=$("#characterEditName"); if(nameInput && !nameInput.value.trim()) nameInput.value=c.name;
+  const hp=$("#systemSpecificEditor [data-system-key='hpCurrent']"), hpMax=$("#systemSpecificEditor [data-system-key='hpMax']");
+  if(hp) hp.value=c.hp; if(hpMax) hpMax.value=c.hp;
+  const note=$("#dndCreatureSummary"); if(note) note.innerHTML=`<strong>${esc(c.name)}</strong> — ${esc(c.size)} ${esc(c.type)}, ${esc(c.alignment)} · CA ${c.ac} · PV ${c.hp} · vitesse ${esc(c.speed)} · FP ${esc(c.cr)} (${c.xp} PX) · ${esc(c.summary)}`;
+  showToast(`Profil de créature appliqué : ${c.name}.`);
+}
+
+// Les Basic Rules du corpus confirment explicitement les potions/parchemins comme objets magiques ;
+// les objets détaillés du Guide du Maître restent extensibles sans recopier leur texte protégé.
+const DND_MAGIC_ITEMS_2014 = [
+  ["Potion de soins","magic_item","Potion magique de soin.",{edition:"2014",category:"Potion",price:"50 po",rarity:"courant",effect:"Récupère 2d4 + 2 PV",activation:"1 action"}],
+  ["Potion de soins supérieurs","magic_item","Potion de soins plus puissante.",{edition:"2014",category:"Potion",rarity:"peu commun",effect:"Récupère 4d4 + 4 PV",activation:"1 action"}],
+  ["Potion de soins excellents","magic_item","Potion de soins de grande puissance.",{edition:"2014",category:"Potion",rarity:"rare",effect:"Récupère 8d4 + 8 PV",activation:"1 action"}],
+  ["Potion de soins suprêmes","magic_item","Potion de soins exceptionnelle.",{edition:"2014",category:"Potion",rarity:"très rare",effect:"Récupère 10d4 + 20 PV",activation:"1 action"}],
+  ["Potion d’héroïsme","magic_item","Potion renforçant temporairement son buveur.",{edition:"2014",category:"Potion",rarity:"rare",effect:"10 PV temporaires et effet de bénédiction pendant 1 h, sans concentration",activation:"1 action"}],
+  ["Potion d’invisibilité","magic_item","Potion rendant invisible.",{edition:"2014",category:"Potion",rarity:"très rare",effect:"Invisibilité jusqu’à 1 h ; prend fin en attaquant ou en lançant un sort",activation:"1 action"}],
+  ["Potion de lecture des pensées","magic_item","Potion conférant un effet de détection des pensées.",{edition:"2014",category:"Potion",rarity:"rare",effect:"Effet de détection des pensées, DD 13",activation:"1 action"}],
+  ["Potion de poison","magic_item","Potion nocive masquée par magie.",{edition:"2014",category:"Potion",rarity:"peu commun",effect:"Poison magique ; JS Constitution DD 13 et dégâts de poison décroissants",activation:"1 action"}],
+  ["Potion de résistance","magic_item","Potion conférant une résistance temporaire.",{edition:"2014",category:"Potion",rarity:"peu commun",effect:"Résistance à un type de dégâts pendant 1 h",activation:"1 action"}],
+  ["Potion de vitesse","magic_item","Potion accélérant magiquement son buveur.",{edition:"2014",category:"Potion",rarity:"très rare",effect:"Effet de hâte pendant 1 min, sans concentration",activation:"1 action"}],
+  ["Potion de vitalité","magic_item","Potion restaurant profondément l’organisme.",{edition:"2014",category:"Potion",rarity:"très rare",effect:"Supprime épuisement, maladie et poison ; maximise les PV récupérés par dés de vie pendant 24 h",activation:"1 action"}],
+  ["Potion d’amitié avec les animaux","magic_item","Potion facilitant le lien avec les animaux.",{edition:"2014",category:"Potion",rarity:"peu commun",effect:"Permet d’utiliser amitié avec les animaux (DD 13) pendant 1 h",activation:"1 action"}],
+  ["Potion de clairvoyance","magic_item","Potion conférant une perception à distance.",{edition:"2014",category:"Potion",rarity:"rare",effect:"Confère l’effet du sort clairvoyance",activation:"1 action"}],
+  ["Sac sans fond","magic_item","Contenant extradimensionnel.",{edition:"2014",category:"Objet merveilleux",rarity:"peu commun",effect:"Contient jusqu’à 250 kg environ / 1,8 m³ ; récupérer un objet demande une action"}],
+  ["Bottes elfiques","magic_item","Bottes magiques favorisant la discrétion.",{edition:"2014",category:"Objet merveilleux",rarity:"peu commun",effect:"Pas silencieux et avantage aux tests de Discrétion fondés sur le déplacement silencieux"}],
+  ["Bottes de lévitation","magic_item","Bottes permettant de léviter.",{edition:"2014",category:"Objet merveilleux",rarity:"rare",attunement:true,effect:"Permet de lancer lévitation sur soi à volonté",activation:"1 action"}],
+  ["Bottes de rapidité","magic_item","Bottes augmentant fortement la mobilité.",{edition:"2014",category:"Objet merveilleux",rarity:"rare",attunement:true,effect:"Double la vitesse de marche et gêne les attaques d’opportunité ; 10 min d’usage avant recharge par repos long",activation:"1 action bonus"}],
+  ["Bottes ailées","magic_item","Bottes conférant le vol.",{edition:"2014",category:"Objet merveilleux",rarity:"peu commun",attunement:true,effect:"Vitesse de vol égale à la vitesse de marche ; réserve totale de 4 h, recharge progressive"}],
+  ["Cape de protection","magic_item","Cape magique protectrice.",{edition:"2014",category:"Objet merveilleux",rarity:"peu commun",attunement:true,effect:"+1 à la CA et aux jets de sauvegarde tant qu’elle est portée"}],
+  ["Cape de la raie manta","magic_item","Cape adaptée au milieu aquatique.",{edition:"2014",category:"Objet merveilleux",rarity:"peu commun",effect:"Respiration sous l’eau et vitesse de nage 18 m avec la capuche relevée"}],
+  ["Perle de puissance","magic_item","Perle restaurant une ressource magique.",{edition:"2014",category:"Objet merveilleux",rarity:"peu commun",attunement:true,effect:"Récupère un emplacement dépensé ; si celui-ci était de niveau 4+, l’emplacement récupéré est de niveau 3",activation:"1 action, 1/jour à l’aube"}],
+  ["Périapte de santé","magic_item","Pendentif protégeant des maladies.",{edition:"2014",category:"Objet merveilleux",rarity:"peu commun",effect:"Immunise contre la contraction des maladies ; supprime leurs effets tant qu’il est porté"}],
+  ["Périapte d’immunité contre le poison","magic_item","Pendentif protégeant du poison.",{edition:"2014",category:"Objet merveilleux",rarity:"rare",effect:"Immunité aux dégâts de poison et à l’état empoisonné"}],
+  ["Périapte de cicatrisation","magic_item","Pendentif facilitant la survie et la récupération.",{edition:"2014",category:"Objet merveilleux",rarity:"peu commun",attunement:true,effect:"Stabilisation automatique au début du tour lorsqu’on agonise"}],
+  ["Baguette de projectiles magiques","magic_item","Baguette lançant des projectiles magiques.",{edition:"2014",category:"Baguette",rarity:"peu commun",charges:7,effect:"Dépense 1+ charges pour lancer projectile magique ; niveau augmenté par charge supplémentaire",activation:"1 action"}],
+  ["Baguette des secrets","magic_item","Baguette détectant pièges et passages secrets proches.",{edition:"2014",category:"Baguette",rarity:"peu commun",charges:3,effect:"Indique le piège ou passage secret le plus proche dans un rayon de 9 m",activation:"1 action"}],
+  ["Baguette de boules de feu","magic_item","Baguette permettant de lancer boule de feu.",{edition:"2014",category:"Baguette",rarity:"rare",attunement:true,charges:7,effect:"Dépense 1+ charges pour lancer boule de feu (DD 15), niveau augmenté par charge supplémentaire",activation:"1 action"}],
+  ["Baguette d’éclairs","magic_item","Baguette permettant de lancer éclair.",{edition:"2014",category:"Baguette",rarity:"rare",attunement:true,charges:7,effect:"Dépense 1+ charges pour lancer éclair (DD 15), niveau augmenté par charge supplémentaire",activation:"1 action"}],
+  ["Lunettes nocturnes","magic_item","Lentilles améliorant la vision dans l’obscurité.",{edition:"2014",category:"Objet merveilleux",rarity:"peu commun",effect:"Vision dans le noir 18 m ; augmente de 18 m une vision dans le noir déjà possédée"}],
+  ["Anneau de protection","magic_item","Anneau magique protecteur.",{edition:"2014",category:"Anneau",rarity:"rare",attunement:true,effect:"+1 à la CA et aux jets de sauvegarde"}],
+  ["Anneau de nage","magic_item","Anneau facilitant la nage.",{edition:"2014",category:"Anneau",rarity:"peu commun",effect:"Vitesse de nage 12 m"}],
+  ["Anneau de marche sur l’eau","magic_item","Anneau permettant de se déplacer sur les liquides.",{edition:"2014",category:"Anneau",rarity:"peu commun",effect:"Permet de se tenir et de se déplacer sur une surface liquide comme sur un sol solide"}],
+  ["Parchemin de sort","magic_item","Parchemin magique contenant un sort ; niveau et sort à préciser par le MJ.",{edition:"2014",category:"Parchemin",rarity:"variable"}]
+  ,{id:"hobgoblin",name:"Hobgobelin",type:"Humanoïde (gobelinoïde)",size:"Moyenne",alignment:"Loyal Mauvais",ac:18,hp:11,speed:"9 m",cr:"1/2",xp:100,abilities:{strength:13,dexterity:12,constitution:12,intelligence:10,wisdom:10,charisma:9},summary:"Vision dans le noir ; Avantage martial.",actions:["Épée longue +3, 1d8+1 tranchants (1d10+1 à deux mains)","Arc long +3, 1d8+1 perforants"]}
+  ,{id:"bugbear",name:"Gobelours",type:"Humanoïde (gobelinoïde)",size:"Moyenne",alignment:"Chaotique Mauvais",ac:16,hp:27,speed:"9 m",cr:"1",xp:200,abilities:{strength:15,dexterity:14,constitution:13,intelligence:8,wisdom:11,charisma:9},summary:"Attaque surprise, Brutal ; Discrétion et Survie.",actions:["Morgenstern +4, 2d8+2 perforants","Javeline +4, 2d6+2 perforants au corps à corps ou 1d6+2 à distance"]}
+  ,{id:"bugbear_chief",name:"Chef gobelours",type:"Humanoïde (gobelinoïde)",size:"Moyenne",alignment:"Chaotique Mauvais",ac:17,hp:65,speed:"9 m",cr:"3",xp:700,abilities:{strength:17,dexterity:14,constitution:14,intelligence:11,wisdom:12,charisma:11},summary:"Attaque surprise, Brutal, Cœur de Hruggek ; attaques multiples.",actions:["2 attaques de mêlée","Morgenstern +5, 2d8+3 perforants","Javeline +5, 2d6+3 perforants au corps à corps ou 1d6+3 à distance"]}
+  ,{id:"gnoll",name:"Gnoll",type:"Humanoïde (gnoll)",size:"Moyenne",alignment:"Chaotique Mauvais",ac:15,hp:22,speed:"9 m",cr:"1/2",xp:100,abilities:{strength:14,dexterity:12,constitution:11,intelligence:6,wisdom:10,charisma:7},summary:"Vision dans le noir ; Déchaîné.",actions:["Morsure +4, 1d4+2 perforants","Lance +4, 1d6+2 perforants (1d8+2 à deux mains)","Arc long +3, 1d8+1 perforants"]}
+  ,{id:"gnoll_pack_lord",name:"Chef de meute gnoll",type:"Humanoïde (gnoll)",size:"Moyenne",alignment:"Chaotique Mauvais",ac:15,hp:49,speed:"9 m",cr:"2",xp:450,abilities:{strength:16,dexterity:14,constitution:13,intelligence:8,wisdom:11,charisma:9},summary:"Déchaîné ; attaques multiples et incitation au saccage.",actions:["2 attaques avec coutille ou arc long","Morsure +5, 1d4+3 perforants","Coutille +5, 1d10+3 tranchants","Arc long +4, 1d8+2 perforants","Incitation au saccage (Recharge 5–6)"]}
+  ,{id:"orog",name:"Orog",type:"Humanoïde (orc)",size:"Moyenne",alignment:"Chaotique Mauvais",ac:18,hp:42,speed:"9 m",cr:"2",xp:450,abilities:{strength:18,dexterity:12,constitution:18,intelligence:12,wisdom:11,charisma:12},summary:"Vision dans le noir ; Agressif ; combattant orc lourd.",actions:["2 attaques à la grande hache","Grande hache +6, 1d12+4 tranchants","Javeline +6, 1d6+4 perforants"]}
+  ,{id:"ghoul",name:"Goule",type:"Mort-vivant",size:"Moyenne",alignment:"Chaotique Mauvais",ac:12,hp:22,speed:"9 m",cr:"1",xp:200,abilities:{strength:13,dexterity:15,constitution:10,intelligence:7,wisdom:10,charisma:6},summary:"Immunités de mort-vivant ; griffes pouvant paralyser.",actions:["Morsure +2, 2d6+2 perforants","Griffes +4, 2d4+2 tranchants ; Con DD 10 contre paralysie"]}
+  ,{id:"ghast",name:"Blême",type:"Mort-vivant",size:"Moyenne",alignment:"Chaotique Mauvais",ac:13,hp:36,speed:"9 m",cr:"2",xp:450,abilities:{strength:16,dexterity:17,constitution:10,intelligence:11,wisdom:10,charisma:8},summary:"Puanteur, Mépris du renvoi ; résistance nécrotique et immunité au poison.",actions:["Morsure +3, 2d8+3 perforants","Griffes +5, 2d6+3 tranchants ; Con DD 10 contre paralysie"]}
+  ,{id:"shadow",name:"Ombre",type:"Mort-vivant",size:"Moyenne",alignment:"Chaotique Mauvais",ac:12,hp:16,speed:"12 m",cr:"1/2",xp:100,abilities:{strength:6,dexterity:14,constitution:13,intelligence:6,wisdom:10,charisma:8},summary:"Discrétion dans les ombres, Informe ; vulnérable au radiant et résistances de mort-vivant.",actions:["Ponction de force +4, 2d6+2 nécrotiques ; Force de la cible réduite de 1d4"]}
+  ,{id:"specter",name:"Spectre",type:"Mort-vivant",size:"Moyenne",alignment:"Chaotique Mauvais",ac:12,hp:22,speed:"0 m, vol 15 m (stationnaire)",cr:"1",xp:200,abilities:{strength:1,dexterity:14,constitution:11,intelligence:10,wisdom:10,charisma:11},summary:"Déplacement intangible, sensibilité à la lumière du soleil ; nombreuses résistances et immunités.",actions:["Absorption de vie +4, 3d6 nécrotiques ; Con DD 10 contre réduction des PV maximum"]}
+  ,{id:"ogre_zombie",name:"Zombi ogre",type:"Mort-vivant",size:"Grande",alignment:"Neutre Mauvais",ac:8,hp:85,speed:"9 m",cr:"2",xp:450,abilities:{strength:19,dexterity:6,constitution:18,intelligence:3,wisdom:6,charisma:5},summary:"Robustesse de la non-vie ; immunisé au poison.",actions:["Morgenstern +6, 2d8+4 contondants"]}
+  ,{id:"owlbear",name:"Hibours",type:"Créature monstrueuse",size:"Grande",alignment:"non-alignée",ac:13,hp:59,speed:"12 m",cr:"3",xp:700,abilities:{strength:20,dexterity:12,constitution:17,intelligence:3,wisdom:12,charisma:7},summary:"Odorat et vue aiguisés ; deux attaques par tour.",actions:["Attaques multiples : bec et griffes","Bec +7","Griffes +7"]}
+  ,{id:"phase_spider",name:"Araignée de phase",type:"Bête",size:"Grande",alignment:"non-alignée",ac:13,hp:32,speed:"9 m, escalade 9 m",cr:"3",xp:700,abilities:{strength:15,dexterity:15,constitution:12,intelligence:6,wisdom:10,charisma:6},summary:"Pattes d’araignée, marche dans les toiles, Saut éthéré.",actions:["Morsure +4, 1d10+2 perforants + poison (Con DD 11)"]}
+  ,{id:"giant_wolf_spider",name:"Araignée-loup géante",type:"Bête",size:"Moyenne",alignment:"non-alignée",ac:13,hp:11,speed:"12 m, escalade 12 m",cr:"1/4",xp:50,abilities:{strength:12,dexterity:16,constitution:13,intelligence:3,wisdom:12,charisma:4},summary:"Marche dans les toiles, Pattes d’araignée, Perception sur les toiles.",actions:["Morsure +3, 1d6+1 perforants + poison (Con DD 11)"]}
+
+];
+
+const DND_EQUIPMENT_2014 = [
+  // Armures et bouclier — Manuel des Joueurs 2014, chap. 5.
+  ["Armure matelassée","armor","Armure légère.",{edition:"2014",category:"Armure légère",price:"5 po",weightKg:4,ac:"11 + mod. DEX",stealthDisadvantage:true}],
+  ["Armure de cuir","armor","Armure légère.",{edition:"2014",category:"Armure légère",price:"10 po",weightKg:5,ac:"11 + mod. DEX"}],
+  ["Armure de cuir clouté","armor","Armure légère.",{edition:"2014",category:"Armure légère",price:"45 po",weightKg:6.5,ac:"12 + mod. DEX"}],
+  ["Armure de peau","armor","Armure intermédiaire.",{edition:"2014",category:"Armure intermédiaire",price:"10 po",weightKg:6,ac:"12 + mod. DEX (max +2)"}],
+  ["Chemise de mailles","armor","Armure intermédiaire.",{edition:"2014",category:"Armure intermédiaire",price:"50 po",weightKg:10,ac:"13 + mod. DEX (max +2)"}],
+  ["Armure d’écailles","armor","Armure intermédiaire.",{edition:"2014",category:"Armure intermédiaire",price:"50 po",weightKg:22.5,ac:"14 + mod. DEX (max +2)",stealthDisadvantage:true}],
+  ["Cuirasse","armor","Armure intermédiaire.",{edition:"2014",category:"Armure intermédiaire",price:"400 po",weightKg:10,ac:"14 + mod. DEX (max +2)"}],
+  ["Demi-plate","armor","Armure intermédiaire.",{edition:"2014",category:"Armure intermédiaire",price:"750 po",weightKg:20,ac:"15 + mod. DEX (max +2)",stealthDisadvantage:true}],
+  ["Broigne","armor","Armure lourde.",{edition:"2014",category:"Armure lourde",price:"30 po",weightKg:20,ac:"14",stealthDisadvantage:true}],
+  ["Cotte de mailles","armor","Armure lourde.",{edition:"2014",category:"Armure lourde",price:"75 po",weightKg:27.5,ac:"16",strengthReq:13,stealthDisadvantage:true}],
+  ["Clibanion","armor","Armure lourde.",{edition:"2014",category:"Armure lourde",price:"200 po",weightKg:30,ac:"17",strengthReq:15,stealthDisadvantage:true}],
+  ["Harnois","armor","Armure lourde.",{edition:"2014",category:"Armure lourde",price:"1 500 po",weightKg:32.5,ac:"18",strengthReq:15,stealthDisadvantage:true}],
+  ["Bouclier","armor","Bouclier.",{edition:"2014",category:"Bouclier",price:"10 po",weightKg:3,ac:"+2"}],
+
+  // Armes courantes de corps à corps.
+  ["Bâton","weapon","Arme courante de corps à corps.",{edition:"2014",category:"Courante — corps à corps",price:"2 pa",weightKg:2,damage:"1d6",damageType:"contondant",properties:["Polyvalente (1d8)"]}],
+  ["Dague","weapon","Arme courante de corps à corps.",{edition:"2014",category:"Courante — corps à corps",price:"2 po",weightKg:0.5,damage:"1d4",damageType:"perforant",properties:["Finesse","Légère","Lancer (6/18 m)"]}],
+  ["Gourdin","weapon","Arme courante de corps à corps.",{edition:"2014",category:"Courante — corps à corps",price:"1 pa",weightKg:1,damage:"1d4",damageType:"contondant",properties:["Légère"]}],
+  ["Hachette","weapon","Arme courante de corps à corps.",{edition:"2014",category:"Courante — corps à corps",price:"5 po",weightKg:1,damage:"1d6",damageType:"tranchant",properties:["Légère","Lancer (6/18 m)"]}],
+  ["Javeline","weapon","Arme courante de corps à corps.",{edition:"2014",category:"Courante — corps à corps",price:"5 pa",weightKg:1,damage:"1d6",damageType:"perforant",properties:["Lancer (9/36 m)"]}],
+  ["Lance","weapon","Arme courante de corps à corps.",{edition:"2014",category:"Courante — corps à corps",price:"1 po",weightKg:1.5,damage:"1d6",damageType:"perforant",properties:["Lancer (6/18 m)","Polyvalente (1d8)"]}],
+  ["Marteau léger","weapon","Arme courante de corps à corps.",{edition:"2014",category:"Courante — corps à corps",price:"2 po",weightKg:1,damage:"1d4",damageType:"contondant",properties:["Légère","Lancer (6/18 m)"]}],
+  ["Masse d’armes","weapon","Arme courante de corps à corps.",{edition:"2014",category:"Courante — corps à corps",price:"5 po",weightKg:2,damage:"1d6",damageType:"contondant",properties:[]}],
+  ["Massue","weapon","Arme courante de corps à corps.",{edition:"2014",category:"Courante — corps à corps",price:"2 pa",weightKg:5,damage:"1d8",damageType:"contondant",properties:["À deux mains"]}],
+  ["Serpe","weapon","Arme courante de corps à corps.",{edition:"2014",category:"Courante — corps à corps",price:"1 po",weightKg:1,damage:"1d4",damageType:"tranchant",properties:["Légère"]}],
+
+  // Armes courantes à distance.
+  ["Arbalète légère","weapon","Arme courante à distance.",{edition:"2014",category:"Courante — distance",price:"25 po",weightKg:2.5,damage:"1d8",damageType:"perforant",properties:["Munitions (24/96 m)","Chargement","À deux mains"]}],
+  ["Arc court","weapon","Arme courante à distance.",{edition:"2014",category:"Courante — distance",price:"25 po",weightKg:1,damage:"1d6",damageType:"perforant",properties:["Munitions (24/96 m)"]}],
+  ["Fléchette","weapon","Arme courante à distance.",{edition:"2014",category:"Courante — distance",price:"5 pc",weightKg:0.1,damage:"1d4",damageType:"perforant",properties:["Finesse","Lancer (6/18 m)"]}],
+  ["Fronde","weapon","Arme courante à distance.",{edition:"2014",category:"Courante — distance",price:"1 pa",damage:"1d4",damageType:"contondant",properties:["Munitions (9/36 m)"]}],
+
+  // Armes de guerre de corps à corps.
+  ["Cimeterre","weapon","Arme de guerre de corps à corps.",{edition:"2014",category:"Guerre — corps à corps",price:"25 po",weightKg:1.5,damage:"1d6",damageType:"tranchant",properties:["Finesse","Légère"]}],
+  ["Coutille","weapon","Arme de guerre de corps à corps.",{edition:"2014",category:"Guerre — corps à corps",price:"20 po",weightKg:3,damage:"1d10",damageType:"tranchant",properties:["Lourde","Allonge","À deux mains"]}],
+  ["Épée à deux mains","weapon","Arme de guerre de corps à corps.",{edition:"2014",category:"Guerre — corps à corps",price:"50 po",weightKg:3,damage:"2d6",damageType:"tranchant",properties:["Lourde","À deux mains"]}],
+  ["Épée courte","weapon","Arme de guerre de corps à corps.",{edition:"2014",category:"Guerre — corps à corps",price:"10 po",weightKg:0.5,damage:"1d6",damageType:"perforant",properties:["Finesse","Légère"]}],
+  ["Épée longue","weapon","Arme de guerre de corps à corps.",{edition:"2014",category:"Guerre — corps à corps",price:"15 po",weightKg:1.5,damage:"1d8",damageType:"tranchant",properties:["Polyvalente (1d10)"]}],
+  ["Fléau","weapon","Arme de guerre de corps à corps.",{edition:"2014",category:"Guerre — corps à corps",price:"10 po",weightKg:1,damage:"1d8",damageType:"contondant",properties:[]}],
+  ["Fouet","weapon","Arme de guerre de corps à corps.",{edition:"2014",category:"Guerre — corps à corps",price:"2 po",weightKg:1.5,damage:"1d4",damageType:"tranchant",properties:["Finesse","Allonge"]}],
+  ["Hache à deux mains","weapon","Arme de guerre de corps à corps.",{edition:"2014",category:"Guerre — corps à corps",price:"30 po",weightKg:3.5,damage:"1d12",damageType:"tranchant",properties:["Lourde","À deux mains"]}],
+  ["Hache d’armes","weapon","Arme de guerre de corps à corps.",{edition:"2014",category:"Guerre — corps à corps",price:"10 po",weightKg:2,damage:"1d8",damageType:"tranchant",properties:["Polyvalente (1d10)"]}],
+  ["Hallebarde","weapon","Arme de guerre de corps à corps.",{edition:"2014",category:"Guerre — corps à corps",price:"20 po",weightKg:3,damage:"1d10",damageType:"tranchant",properties:["Lourde","Allonge","À deux mains"]}],
+  ["Lance d’arçon","weapon","Arme de guerre de corps à corps.",{edition:"2014",category:"Guerre — corps à corps",price:"10 po",weightKg:3,damage:"1d12",damageType:"perforant",properties:["Allonge","Spéciale"]}],
+  ["Maillet d’armes","weapon","Arme de guerre de corps à corps.",{edition:"2014",category:"Guerre — corps à corps",price:"10 po",weightKg:5,damage:"2d6",damageType:"contondant",properties:["Lourde","À deux mains"]}],
+  ["Marteau de guerre","weapon","Arme de guerre de corps à corps.",{edition:"2014",category:"Guerre — corps à corps",price:"15 po",weightKg:0.5,damage:"1d8",damageType:"contondant",properties:["Polyvalente (1d10)"]}],
+  ["Morgenstern","weapon","Arme de guerre de corps à corps.",{edition:"2014",category:"Guerre — corps à corps",price:"15 po",weightKg:2,damage:"1d8",damageType:"perforant",properties:[]}],
+  ["Pic de guerre","weapon","Arme de guerre de corps à corps.",{edition:"2014",category:"Guerre — corps à corps",price:"5 po",weightKg:0.5,damage:"1d8",damageType:"perforant",properties:[]}],
+  ["Pique","weapon","Arme de guerre de corps à corps.",{edition:"2014",category:"Guerre — corps à corps",price:"5 po",weightKg:9,damage:"1d10",damageType:"perforant",properties:["Lourde","Allonge","À deux mains"]}],
+  ["Rapière","weapon","Arme de guerre de corps à corps.",{edition:"2014",category:"Guerre — corps à corps",price:"25 po",weightKg:0.5,damage:"1d8",damageType:"perforant",properties:["Finesse"]}],
+  ["Trident","weapon","Arme de guerre de corps à corps.",{edition:"2014",category:"Guerre — corps à corps",price:"5 po",weightKg:2,damage:"1d6",damageType:"perforant",properties:["Lancer (6/18 m)","Polyvalente (1d8)"]}],
+
+  // Armes de guerre à distance.
+  ["Arbalète de poing","weapon","Arme de guerre à distance.",{edition:"2014",category:"Guerre — distance",price:"75 po",weightKg:1.5,damage:"1d6",damageType:"perforant",properties:["Munitions (9/36 m)","Légère","Chargement"]}],
+  ["Arbalète lourde","weapon","Arme de guerre à distance.",{edition:"2014",category:"Guerre — distance",price:"50 po",weightKg:9,damage:"1d10",damageType:"perforant",properties:["Munitions (30/120 m)","Lourde","Chargement","À deux mains"]}],
+  ["Arc long","weapon","Arme de guerre à distance.",{edition:"2014",category:"Guerre — distance",price:"50 po",weightKg:1,damage:"1d8",damageType:"perforant",properties:["Munitions (45/180 m)","Lourde","À deux mains"]}],
+  ["Filet","weapon","Arme de guerre à distance.",{edition:"2014",category:"Guerre — distance",price:"1 po",weightKg:1.5,damage:"—",properties:["Spéciale","Lancer (1,5/4,5 m)"]}],
+  ["Sarbacane","weapon","Arme de guerre à distance.",{edition:"2014",category:"Guerre — distance",price:"10 po",weightKg:0.5,damage:"1",damageType:"perforant",properties:["Munitions (7,5/30 m)","Chargement"]}],
+
+  // Premiers objets conservés dans le catalogue historique ; la passe suivante complète l'équipement d'aventurier et les outils.
+  ["Focaliseur arcanique","tool","Focaliseur de magie arcanique.",{edition:"2014"}],
+  ["Symbole sacré","tool","Focaliseur religieux.",{edition:"2014"}],
+  ["Grimoire","document","Livre de sorts.",{edition:"2014",price:"50 po",weightKg:1.5}],
+  ["Outils de voleur","tool","Outils de crochetage et de désamorçage.",{edition:"2014",price:"25 po",weightKg:0.5}],
+  ["Sac d’explorateur","equipment","Paquetage d’explorateur.",{edition:"2014",price:"10 po"}],
+  ["Sac d’érudit","equipment","Paquetage d’érudit.",{edition:"2014",price:"40 po"}],
+  ["Instrument de musique","tool","Instrument de représentation.",{edition:"2014"}]
+
+];
+
+// D&D 5e 2014 — matériel complémentaire structuré depuis les tables des sources fournies.
+DND_EQUIPMENT_2014.push(
+  ["Bélier portable","tool","Matériel d’aventurier.",{edition:"2014",category:"Matériel d’aventurier"}],
+  ["Billes","consumable","Matériel d’aventurier.",{edition:"2014",category:"Matériel d’aventurier"}],
+  ["Chausse-trappes","consumable","Matériel d’aventurier.",{edition:"2014",category:"Matériel d’aventurier"}],
+  ["Corde de chanvre","equipment","Corde d’aventurier.",{edition:"2014",category:"Matériel d’aventurier"}],
+  ["Corde de soie","equipment","Corde d’aventurier.",{edition:"2014",category:"Matériel d’aventurier"}],
+  ["Eau bénite","consumable","Consommable religieux.",{edition:"2014",category:"Matériel d’aventurier"}],
+  ["Feu grégeois / feu d’alchimiste","consumable","Consommable alchimique.",{edition:"2014",category:"Matériel d’aventurier"}],
+  ["Huile","consumable","Huile pour lampe ou usage d’aventure.",{edition:"2014",category:"Matériel d’aventurier"}],
+  ["Lampe","equipment","Source d’éclairage.",{edition:"2014",category:"Matériel d’aventurier"}],
+  ["Lanterne à capote","equipment","Source d’éclairage.",{edition:"2014",category:"Matériel d’aventurier"}],
+  ["Lanterne sourde","equipment","Source d’éclairage directionnelle.",{edition:"2014",category:"Matériel d’aventurier"}],
+  ["Longue-vue","tool","Instrument optique.",{edition:"2014",category:"Matériel d’aventurier"}],
+  ["Loupe","tool","Instrument optique.",{edition:"2014",category:"Matériel d’aventurier"}],
+  ["Menottes","tool","Entraves métalliques.",{edition:"2014",category:"Matériel d’aventurier"}],
+  ["Miroir en acier","equipment","Petit miroir métallique.",{edition:"2014",category:"Matériel d’aventurier"}],
+  ["Pied-de-biche","tool","Outil de levier.",{edition:"2014",category:"Matériel d’aventurier"}],
+  ["Piège de chasse","tool","Piège mécanique.",{edition:"2014",category:"Matériel d’aventurier"}],
+  ["Potion de soins","consumable","Potion de soin standard.",{edition:"2014",category:"Matériel d’aventurier",magical:true}],
+  ["Trousse de soins","tool","Matériel de premiers secours.",{edition:"2014",category:"Matériel d’aventurier"}],
+  ["Torche","consumable","Source d’éclairage consommable.",{edition:"2014",category:"Matériel d’aventurier"}],
+  ["Sac de cambrioleur","equipment","Paquetage de cambrioleur.",{edition:"2014",category:"Paquetage",price:"16 po"}],
+  ["Sac de diplomate","equipment","Paquetage de diplomate.",{edition:"2014",category:"Paquetage",price:"39 po"}],
+  ["Sac d’ecclésiastique","equipment","Paquetage d’ecclésiastique.",{edition:"2014",category:"Paquetage",price:"19 po"}],
+  ["Sac d’artiste","equipment","Paquetage d’artiste.",{edition:"2014",category:"Paquetage",price:"40 po"}],
+  ["Sac d’exploration souterraine","equipment","Paquetage d’exploration souterraine.",{edition:"2014",category:"Paquetage",price:"12 po"}],
+  ["Matériel de déguisement","tool","Trousse spécialisée.",{edition:"2014",category:"Outils",price:"25 po",weightKg:1.5}],
+  ["Matériel d’herboriste","tool","Trousse spécialisée.",{edition:"2014",category:"Outils",price:"5 po",weightKg:1.5}],
+  ["Matériel d’empoisonneur","tool","Trousse spécialisée.",{edition:"2014",category:"Outils",price:"50 po",weightKg:1}],
+  ["Matériel de faussaire","tool","Trousse spécialisée.",{edition:"2014",category:"Outils",price:"15 po",weightKg:2.5}],
+  ["Outils de navigateur","tool","Instruments de navigation.",{edition:"2014",category:"Outils",price:"25 po",weightKg:1}],
+  ["Dromadaire","vehicle","Monture.",{edition:"2014",category:"Monture",price:"50 po",speedM:15,carryKg:240}],
+  ["Cheval de guerre","vehicle","Monture de guerre.",{edition:"2014",category:"Monture",price:"400 po",speedM:18,carryKg:270}],
+  ["Cheval de selle","vehicle","Monture.",{edition:"2014",category:"Monture",price:"75 po",speedM:18,carryKg:240}],
+  ["Cheval de trait","vehicle","Monture de travail.",{edition:"2014",category:"Monture",price:"50 po",speedM:12,carryKg:270}],
+  ["Éléphant","vehicle","Monture.",{edition:"2014",category:"Monture",price:"200 po",speedM:12,carryKg:660}],
+  ["Mastiff","vehicle","Monture animale.",{edition:"2014",category:"Monture",price:"25 po",speedM:12,carryKg:97.5}],
+  ["Mule","vehicle","Monture et animal de bât.",{edition:"2014",category:"Monture",price:"8 po",speedM:12,carryKg:210}],
+  ["Poney","vehicle","Monture.",{edition:"2014",category:"Monture",price:"30 po",speedM:12,carryKg:112.5}],
+  ["Chariot","vehicle","Véhicule terrestre.",{edition:"2014",category:"Véhicule terrestre"}],
+  ["Traîneau","vehicle","Véhicule terrestre.",{edition:"2014",category:"Véhicule terrestre",price:"20 po",weightKg:150}],
+  ["Barque","vehicle","Embarcation.",{edition:"2014",category:"Navire",price:"50 po",speedKmh:2.5}],
+  ["Barge","vehicle","Embarcation.",{edition:"2014",category:"Navire",price:"3000 po",speedKmh:1.5}],
+  ["Voilier","vehicle","Navire.",{edition:"2014",category:"Navire",price:"10000 po",speedKmh:3}],
+  ["Drakkar","vehicle","Navire.",{edition:"2014",category:"Navire",price:"10000 po",speedKmh:4.5}],
+  ["Galère","vehicle","Navire.",{edition:"2014",category:"Navire",price:"30000 po",speedKmh:6}],
+  ["Navire de guerre","vehicle","Navire.",{edition:"2014",category:"Navire",price:"25000 po",speedKmh:4}]
+);
+
+const DND_EQUIPMENT_2024 = [
+  ["Épée longue","weapon","Arme de mêlée — règles 2024.",{edition:"2024",mastery:"Sap"}],
+  ["Rapière","weapon","Arme de finesse — règles 2024.",{edition:"2024",mastery:"Vex"}],
+  ["Dague","weapon","Arme légère — règles 2024.",{edition:"2024",mastery:"Nick"}],
+  ["Arc long","weapon","Arme à distance — règles 2024.",{edition:"2024",mastery:"Slow"}],
+  ["Arc court","weapon","Arme à distance — règles 2024.",{edition:"2024",mastery:"Vex"}],
+  ["Arbalète légère","weapon","Arme à distance — règles 2024.",{edition:"2024",mastery:"Slow"}],
+  ["Bouclier","armor","Protection portée — règles 2024.",{edition:"2024"}],
+  ["Armure de cuir","armor","Armure légère — règles 2024.",{edition:"2024"}],
+  ["Cotte de mailles","armor","Armure lourde — règles 2024.",{edition:"2024"}],
+  ["Chemise de mailles","armor","Protection intermédiaire — règles 2024.",{edition:"2024"}],
+  ["Focaliseur arcanique","tool","Focaliseur de magie arcanique.",{edition:"2024"}],
+  ["Symbole sacré","tool","Focaliseur religieux.",{edition:"2024"}],
+  ["Grimoire","document","Livre de sorts.",{edition:"2024"}],
+  ["Outils de voleur","tool","Outils spécialisés.",{edition:"2024"}],
+  ["Sac d’explorateur","equipment","Équipement de voyage et d’aventure.",{edition:"2024"}],
+  ["Instrument de musique","tool","Instrument de représentation.",{edition:"2024"}]
+];
+
+const EQUIPMENT_CATALOGS = {
+  l5r1: [
+    ["Katana","weapon","Sabre long du daishō."],
+    ["Wakizashi","weapon","Sabre court du daishō."],
+    ["Tantō","weapon","Couteau / lame courte."],
+    ["Yumi","weapon","Arc japonais."],
+    ["Armure légère","armor","Protection légère adaptée aux déplacements."],
+    ["Armure lourde","armor","Protection de guerre plus complète."],
+    ["Kimono formel","equipment","Tenue adaptée aux événements officiels."],
+    ["Vêtements de voyage","equipment","Tenue pratique pour les déplacements."],
+    ["Nécessaire de calligraphie","tool","Pinceaux, encre et papier."],
+    ["Service à thé","tool","Matériel de cérémonie."],
+    ["Sacoche à parchemins","tool","Transport de rouleaux et documents."],
+    ["Nécessaire de voyage","equipment","Effets personnels et fournitures de route."],
+    ["Cheval","vehicle","Monture."],
+    ["Jade","artifact","Jade destiné à la protection ou au prestige."]
+  ],
+  dnd5: DND_EQUIPMENT_2014,
+  vampire2: [
+    ["Téléphone portable","equipment","Téléphone personnel."],
+    ["Portefeuille / identité","document","Documents, cartes et argent."],
+    ["Vêtements de ville","equipment","Tenue quotidienne."],
+    ["Tenue formelle","equipment","Vêtements adaptés à l’Élysium ou aux affaires."],
+    ["Ordinateur portable","tool","Ordinateur personnel."],
+    ["Appareil photo","tool","Documentation et surveillance."],
+    ["Kit de crochetage","tool","Outils d’ouverture."],
+    ["Pistolet","weapon","Arme de poing moderne."],
+    ["Couteau","weapon","Arme blanche."],
+    ["Trousse de premiers secours","consumable","Matériel médical de base."],
+    ["Véhicule personnel","vehicle","Automobile ou moto."],
+    ["Matériel d’enregistrement","tool","Audio / vidéo discret."]
+  ],
+  ward: [
+    ["Téléphone sécurisé","equipment","Terminal de communication sécurisé."],
+    ["Ordinateur portable chiffré","tool","Poste de travail sécurisé."],
+    ["Badge / accréditation","document","Identifiant professionnel ou de couverture."],
+    ["Pistolet de service","weapon","Arme de poing selon affectation et autorisation."],
+    ["Fusil d’assaut","weapon","Arme longue opérationnelle selon mission."],
+    ["Protection balistique","armor","Gilet ou protection adaptée au risque."],
+    ["Radio tactique","equipment","Communication opérationnelle."],
+    ["IFAK / trousse trauma","consumable","Matériel de premiers secours individuel."],
+    ["Kit de surveillance","tool","Matériel discret d’observation et de documentation."],
+    ["Kit d’effraction","tool","Outils d’accès physique."],
+    ["Kit de prélèvement","tool","Matériel scientifique de terrain."],
+    ["EPI scientifique / biologique","armor","Protection pour environnements contaminés."],
+    ["Mallette médicale","tool","Matériel médical professionnel."],
+    ["Jeton d’authentification","tool","Authentification forte pour systèmes classifiés."],
+    ["Casque / oreillette","equipment","Écoute et communication."],
+    ["Dossier de couverture","document","Documents liés à une identité ou mission de couverture."]
+  ],
+  generic: [
+    ["Arme principale","weapon","Arme principale du personnage."],
+    ["Protection","armor","Protection ou armure."],
+    ["Outil professionnel","tool","Outil lié au métier."],
+    ["Nécessaire de voyage","equipment","Effets de voyage."],
+    ["Documents","document","Papiers ou documents utiles."]
+  ]
+};
+
+const EQUIPMENT_PRESETS = {
+  l5r1: {
+    // Profils sourcés par école/clan. Les choix libres restent explicitement nommés.
+    mirumoto_bushi:["Katana","Wakizashi","Arc","20 flèches","Armure légère","Nécessaire de voyage","Arme au choix","Kimono","2 koku"],
+    kitsuki_investigator:["Katana","Wakizashi","Armure légère","Rations de voyage","Kimono","Petite boîte en fer","3 koku"],
+    agasha_shugenja:["Kimono","Nécessaire de voyage","Sacoche à parchemins","Wakizashi","Tantō","3 koku"],
+    togashi_monk:["Kimono","Rations de voyage","2 koku"],
+    hida_bushi:["Katana","Wakizashi","Armure","Nécessaire de voyage"],
+    kuni_shugenja:["Wakizashi","Sacoche à parchemins","Nécessaire de voyage"],
+    kakita_bushi:["Katana","Wakizashi","Armure légère","Nécessaire de voyage"],
+    asahina_shugenja:["Wakizashi","Sacoche à parchemins","Nécessaire de voyage"],
+    akodo_bushi:["Katana","Wakizashi","Armure","Nécessaire de voyage"],
+    kitsu_shugenja:["Wakizashi","Sacoche à parchemins","Nécessaire de voyage"],
+    shiba_bushi:["Katana","Wakizashi","Armure","Nécessaire de voyage"],
+    isawa_shugenja:["Wakizashi","Sacoche à parchemins","Nécessaire de voyage"],
+    isawa_ishiken:["Wakizashi","Sacoche à parchemins","Nécessaire de voyage"],
+    bayushi_bushi:["Katana","Wakizashi","Armure","Nécessaire de voyage"],
+    soshi_shugenja:["Wakizashi","Sacoche à parchemins","Nécessaire de voyage"],
+    shinjo_bushi:["Katana","Wakizashi","Arc","20 flèches","Armure légère","Nécessaire de voyage","Monture Licorne"],
+    utaku_bushi:["Katana","Wakizashi","Arc","20 flèches","Armure","Nécessaire de voyage","Cheval de guerre Otaku"],
+    iuchi_shugenja:["Wakizashi","Sacoche à parchemins","Nécessaire de voyage","Monture Licorne"],
+    // Repli générique uniquement pour profils encore non audités.
+    bushi:["Katana","Wakizashi","Nécessaire de voyage"],
+    courtier:["Wakizashi","Kimono formel","Nécessaire de voyage"],
+    shugenja:["Wakizashi","Sacoche à parchemins","Nécessaire de voyage"],
+    monk:["Kimono","Rations de voyage"],
+    scout:["Katana","Wakizashi","Arc","Nécessaire de voyage"]
+  },
+  dnd5: {
+    fighter:["Cotte de mailles","Épée longue","Bouclier","Arbalète légère","Sac d’explorateur"],
+    rogue:["Armure de cuir","Rapière","Arc court","Outils de voleur","Sac d’explorateur"],
+    wizard:["Dague","Focaliseur arcanique","Grimoire","Sac d’érudit"],
+    cleric:["Chemise de mailles","Bouclier","Symbole sacré","Sac d’explorateur"],
+    ranger:["Armure de cuir","Arc long","Sac d’explorateur"],
+    bard:["Armure de cuir","Rapière","Instrument de musique","Sac d’explorateur"],
+    barbarian:["Hache à deux mains","Javeline","Sac d’explorateur"],
+    druid:["Armure de cuir","Bouclier","Cimeterre","Matériel d’herboriste","Sac d’explorateur"],
+    monk:["Épée courte","Fléchette","Sac d’exploration souterraine"],
+    paladin:["Cotte de mailles","Bouclier","Épée longue","Javeline","Symbole sacré","Sac d’ecclésiastique"],
+    sorcerer:["Arbalète légère","Dague","Focaliseur arcanique","Sac d’exploration souterraine"],
+    warlock:["Armure de cuir","Arbalète légère","Dague","Focaliseur arcanique","Sac d’érudit"]
+  },
+  vampire2: {
+    executive:["Téléphone portable","Portefeuille / identité","Tenue formelle","Ordinateur portable","Véhicule personnel"],
+    artist:["Téléphone portable","Portefeuille / identité","Vêtements de ville","Appareil photo","Véhicule personnel"],
+    investigator:["Téléphone portable","Portefeuille / identité","Pistolet","Appareil photo","Trousse de premiers secours","Véhicule personnel"],
+    academic:["Téléphone portable","Portefeuille / identité","Ordinateur portable","Appareil photo"],
+    criminal:["Téléphone portable","Portefeuille / identité","Pistolet","Couteau","Kit de crochetage","Véhicule personnel"],
+    journalist:["Téléphone portable","Portefeuille / identité","Ordinateur portable","Appareil photo","Matériel d’enregistrement","Véhicule personnel"]
+  },
+  ward: {
+    paramilitary:["Téléphone sécurisé","Badge / accréditation","Pistolet de service","Fusil d’assaut","Protection balistique","Radio tactique","IFAK / trousse trauma"],
+    sigint:["Téléphone sécurisé","Ordinateur portable chiffré","Badge / accréditation","Jeton d’authentification","Casque / oreillette"],
+    black_operator:["Téléphone sécurisé","Dossier de couverture","Pistolet de service","Kit de surveillance","Kit d’effraction","IFAK / trousse trauma"],
+    investigator:["Téléphone sécurisé","Badge / accréditation","Pistolet de service","Kit de surveillance","IFAK / trousse trauma"],
+    scientist:["Téléphone sécurisé","Ordinateur portable chiffré","Badge / accréditation","Kit de prélèvement","EPI scientifique / biologique"],
+    doctor:["Téléphone sécurisé","Badge / accréditation","Mallette médicale","EPI scientifique / biologique","IFAK / trousse trauma"],
+    defense_attache:["Téléphone sécurisé","Ordinateur portable chiffré","Badge / accréditation","Dossier de couverture"]
+  }
+};
+
+const NAME_GENERATORS = {
+  l5r1: {
+    labels:{masculin:"Masculin",feminin:"Féminin",neutre:"Neutre / mixte"},
+    familiesByClan:{
+      dragon:["Mirumoto","Kitsuki","Agasha","Togashi"],
+      crane:["Doji","Kakita","Daidoji","Asahina"],
+      crab:["Hida","Hiruma","Kuni","Kaiu","Yasuki"],
+      lion:["Akodo","Matsu","Ikoma","Kitsu"],
+      phoenix:["Isawa","Shiba","Asako"],
+      scorpion:["Bayushi","Shosuro","Soshi","Yogo"],
+      unicorn:["Shinjo","Ide","Iuchi","Utaku","Moto"],
+      imperial:["Seppun","Otomo","Miya"],
+      ronin:["Akiyama","Hayashi","Kuroda","Mori","Sakai"]
+    },
+    preferredFamily:{
+      mirumoto_bushi:"Mirumoto",kitsuki_investigator:"Kitsuki",agasha_shugenja:"Agasha",togashi_monk:"Togashi",
+      kakita_bushi:"Kakita",doji_courtier:"Doji",asahina_shugenja:"Asahina",daidoji_bushi:"Daidoji",
+      hida_bushi:"Hida",hiruma_scout:"Hiruma",kuni_shugenja:"Kuni",yasuki_courtier:"Yasuki",
+      akodo_bushi:"Akodo",matsu_bushi:"Matsu",ikoma_courtier:"Ikoma",kitsu_shugenja:"Kitsu",
+      shiba_bushi:"Shiba",isawa_shugenja:"Isawa",isawa_ishiken:"Isawa",asako_courtier:"Asako",
+      bayushi_bushi:"Bayushi",bayushi_courtier:"Bayushi",shosuro_infiltrator:"Shosuro",soshi_shugenja:"Soshi",
+      shinjo_bushi:"Shinjo",utaku_bushi:"Utaku",ide_courtier:"Ide",iuchi_shugenja:"Iuchi",
+      seppun_guard:"Seppun",otomo_courtier:"Otomo",miya_herald:"Miya"
+    },
+    male:["Akihiro","Daichi","Haruto","Hiroshi","Isamu","Jiro","Katsuro","Kenji","Masaru","Noboru","Ren","Riku","Saburo","Tadashi","Takumi","Taro","Yori"],
+    female:["Aiko","Akemi","Emiko","Hana","Haruka","Kaede","Keiko","Mariko","Naoko","Reiko","Sakura","Sayuri","Tomoe","Yuki","Yumiko"],
+    unisex:["Haru","Hikaru","Kaoru","Makoto","Nao","Rei"]
+  },
+
+  dnd5: {
+    labels:{masculin:"Masculin",feminin:"Féminin",neutre:"Neutre / mixte"},
+    humanFirst:["Aldren","Branna","Cedric","Elira","Garrick","Helena","Lysa","Marek","Rowan","Seraphine","Tavian","Ysara"],
+    humanLast:["Ashford","Blackwood","Dunvale","Fairwind","Hawke","Ironwood","Ravencrest","Stormward","Valeborn"],
+    elfFirst:["Aelar","Caelynn","Erevan","Ilyana","Lethariel","Naivara","Quarion","Sylvar","Thalia","Vaelis"],
+    elfLast:["Amastacia","Galanodel","Holimion","Ilphelkiir","Liadon","Meliamne","Nailo","Siannodel"],
+    dwarfFirst:["Baern","Dagnal","Eberk","Gunnloda","Harbek","Kathra","Orsik","Rangrim","Torgga","Veit"],
+    dwarfLast:["Battlehammer","Dankil","Fireforge","Frostbeard","Ironfist","Loderr","Stonehand","Torunn"],
+    halflingFirst:["Alton","Bree","Cade","Callie","Eldon","Lidda","Milo","Nedda","Perrin","Seraphina"],
+    halflingLast:["Brushgather","Goodbarrel","Greenbottle","High-hill","Tealeaf","Thorngage","Tosscobble","Underbough"]
+  },
+
+  vampire2: {
+    labels:{masculin:"Masculin",feminin:"Féminin",neutre:"Neutre / mixte"},
+    countries:{
+      france:{first:["Adrien","Camille","Claire","Damien","Élodie","Gabriel","Isabelle","Julien","Léa","Lucien","Sophie"],last:["Beaumont","Delacroix","Duvall","Mercier","Moreau","Renaud","Roux","Valmont"]},
+      usa:{first:["Adrian","Alexandra","Brooke","Cameron","Elena","Gabriel","Jordan","Mara","Morgan","Victor"],last:["Bennett","Brooks","Carter","Hayes","Miller","Reed","Sullivan","Walker"]},
+      uk:{first:["Alistair","Beatrice","Cecilia","Edmund","Eleanor","Julian","Octavia","Sebastian"],last:["Ashcombe","Blackwood","Hargreaves","Sinclair","Wyndham","Voss"]},
+      germany:{first:["Anja","Felix","Greta","Johann","Klara","Lukas","Marta","Niklas"],last:["Bauer","Fischer","Keller","Schmidt","Vogel","Weiss"]},
+      italy:{first:["Alessandro","Bianca","Chiara","Luca","Matteo","Sofia","Valentina"],last:["Bianchi","Conti","Moretti","Rossi","Vitale"]},
+      spain:{first:["Alejandro","Carmen","Diego","Elena","Lucía","Mateo","Sofía"],last:["Álvarez","Castillo","Navarro","Serrano","Vega"]},
+      east_europe:{first:["Anya","Katarina","Marek","Nikolai","Petra","Sofia","Viktor"],last:["Kovacs","Novak","Petrov","Varga","Volkov"]}
+    }
+  },
+
+  ward: {
+    labels:{masculin:"Masculin",feminin:"Féminin",neutre:"Neutre / mixte"},
+    countries:{
+      usa:{first:["Alex","Brooke","Cameron","Daniel","Ethan","Grace","Jordan","Morgan","Rachel","Taylor"],last:["Brooks","Carter","Hayes","Miller","Morgan","Reed","Sullivan","Walker"]},
+      france:{first:["Adrien","Camille","Claire","Élodie","Julien","Laurent","Léa","Mathieu","Nicolas","Sophie"],last:["Bernard","Delmas","Lefèvre","Mercier","Morel","Renaud","Roux","Vidal"]},
+      uk:{first:["Alice","Charlotte","Edward","Eleanor","Henry","James","Oliver","Sophie"],last:["Bennett","Clarke","Foster","Hughes","Price","Reed","Walker"]},
+      japan:{first:["Aiko","Daichi","Haruto","Keiko","Naoko","Ren","Tadashi","Yuki"],last:["Amemiya","Hayashi","Mizuno","Moriyama","Sato","Shinohara","Tanaka","Yamamoto"]},
+      germany:{first:["Anja","Felix","Greta","Johann","Klara","Lukas","Niklas"],last:["Bauer","Fischer","Keller","Schmidt","Vogel","Weiss"]},
+      italy:{first:["Alessandro","Chiara","Luca","Matteo","Sofia","Valentina"],last:["Bianchi","Conti","Moretti","Rossi"]},
+      spain:{first:["Alejandro","Carmen","Diego","Lucía","Mateo","Sofía"],last:["Álvarez","Navarro","Serrano","Vega"]}
+    }
+  },
+
+  generic:{
+    labels:{masculin:"Masculin",feminin:"Féminin",neutre:"Neutre / mixte"},
+    first:["Aren","Elena","Kael","Lina","Mira","Nolan","Rian","Sara","Tarin","Vera"],
+    last:["Arden","Dale","Gray","North","Rivers","Stone","Vale","West"]
+  }
+};
+
+const LOCATION_GENERATORS = {
+  l5r1: {
+    labels:{castle:"Château",village:"Village",temple:"Temple",inn:"Auberge",road:"Route",district:"Quartier"},
+    clanNouns:{
+      dragon:["Pic","Brume","Cascade","Pin","Montagne","Dragon","Jade"],
+      crane:["Grue","Rivière","Jardin","Soie","Lac","Prunier","Aube"],
+      crab:["Mur","Fer","Pierre","Marais","Crabe","Veille","Rempart"],
+      lion:["Lion","Bannière","Plaine","Champ","Honneur","Soleil"],
+      phoenix:["Phénix","Source","Flamme","Sanctuaire","Cendre","Savoir"],
+      scorpion:["Scorpion","Masque","Ombre","Laque","Secret","Lanterne"],
+      unicorn:["Vent","Steppe","Cheval","Horizon","Herbe","Voyage"],
+      imperial:["Jade","Chrysanthème","Palais","Aube","Trône"],
+      ronin:["Route","Pont","Pin","Rivière","Carrefour","Lune"]
+    },
+    envNouns:{
+      mountain:["Pic","Col","Cascade"],forest:["Pin","Érable","Bois"],plain:["Plaine","Champ","Herbe"],
+      coast:["Rivière","Baie","Pont"],city:["Quartier","Porte","Marché"],border:["Passe","Frontière","Veille"],
+      shadowlands:["Jade","Veille","Rempart"]
+    },
+    adjectives:["Silencieux","Écarlate","Ancien","Paisible","Voilé","Sacré","Brumeux"],
+    patterns:{
+      castle:["Shiro du {n}","Forteresse du {n} {a}"],village:["Village du {n} {a}","Hameau du {n}"],
+      temple:["Temple du {n} {a}","Sanctuaire du {n}"],inn:["Auberge du {n} {a}","Maison du {n}"],
+      road:["Route du {n} {a}","Chemin du {n}"],district:["Quartier du {n}","District du {n} {a}"]
+    }
+  },
+
+  dnd5: {
+    labels:{city:"Ville",village:"Village",inn:"Auberge",castle:"Forteresse",ruins:"Ruines",forest:"Forêt",dungeon:"Donjon"},
+    cultureNouns:{
+      human:["Dragon","Corbeau","Griffon","Couronne","Tour","Épée"],
+      elven:["Lune","Étoile","Feuille","Sylve","Aube","Cristal"],
+      dwarven:["Marteau","Forge","Fer","Pierre","Enclume","Barbe"],
+      halfling:["Pomme","Ruisseau","Tertre","Chardon","Moulin","Prairie"],
+      cosmopolitan:["Marché","Pont","Sept-Tours","Couronne","Carrefour","Port"]
+    },
+    envNouns:{
+      plain:["Val","Prairie","Champ"],forest:["Bois","Chêne","Sylve"],mountain:["Pic","Roc","Forge"],
+      coast:["Port","Baie","Écume"],underground:["Profondeur","Crypte","Fosse"],swamp:["Marais","Brume","Roseau"],desert:["Sable","Soleil","Dune"]
+    },
+    adjectives:["Noir","Doré","Brisé","Ancien","Rouge","Argenté","Perdu","Hurlant"],
+    patterns:{
+      city:["{n}garde","Haute-{n}","Val-{n}"],village:["Bourg du {n} {a}","Petit-{n}"],
+      inn:["Auberge du {n} {a}","Le {n} {a}"],castle:["Fort {n}","Citadelle du {n} {a}"],
+      ruins:["Ruines de {n}","Ruines du {n} {a}"],forest:["Forêt du {n} {a}","Bois des {n}s"],
+      dungeon:["Cryptes du {n}","Souterrains du {n} {a}"]
+    }
+  },
+
+  vampire2: {
+    labels:{club:"Club",hotel:"Hôtel",street:"Rue",mansion:"Manoir",warehouse:"Entrepôt",church:"Église",underground:"Souterrain"},
+    nouns:["Eclipse","Nocturne","Velvet","Obsidian","Morrow","Saint-Jude","Vesper","Black Rose","Mercy","Crimson"],
+    patterns:{
+      club:["Club {n}","{n}"],hotel:["Hôtel {n}","The {n} Hotel"],street:["Rue {n}","{n} Avenue"],
+      mansion:["Manoir {n}","Maison {n}"],warehouse:["Entrepôt {n}","Dépôt {n}"],
+      church:["Église Saint-{n}","Chapelle {n}"],underground:["Station {n}","Tunnel {n}","Sous-sol {n}"]
+    }
+  },
+
+  ward: {
+    labels:{base:"Base",site:"Site",laboratory:"Laboratoire",safehouse:"Planque",office:"Bureau",field:"Terrain"},
+    codes:["ARGUS","ATLAS","CERBÈRE","DAEDALUS","ECHO","JANUS","ORION","TRIDENT","VIGIL","KAIROS"],
+    patterns:{
+      base:["Base {c}-{d}","Installation {c}-{d}"],site:["Site {c}-{d}","Site {r} {c}"],
+      laboratory:["Laboratoire {c}-{d}","Unité de recherche {c}-{d}"],safehouse:["Point sûr {c}-{d}","Maison {r}-{d}"],
+      office:["Bureau {c} — {r}","Cellule {r}-{d}"],field:["Zone {c}-{d} — {r}","Secteur {r}-{d}"]
+    }
+  },
+
+  generic:{
+    labels:{city:"Ville",village:"Village",building:"Bâtiment",wilderness:"Nature",neutral:"Générique"},
+    nouns:["Aube","Brume","Étoile","Rivière","Pierre","Val","Lune","Nord"],
+    patterns:{city:["Ville de {n}","{n}ville"],village:["Village de {n}","Hameau de {n}"],building:["Maison {n}","Tour {n}"],wilderness:["Bois de {n}","Val de {n}"],neutral:["Site {n}","Lieu de {n}"]}
+  }
+};
+
+function $(selector, root=document) { return root.querySelector(selector); }
+function $$(selector, root=document) { return [...root.querySelectorAll(selector)]; }
+
+function esc(value) {
+  return String(value ?? "")
+    .replaceAll("&","&amp;")
+    .replaceAll("<","&lt;")
+    .replaceAll(">","&gt;")
+    .replaceAll('"',"&quot;");
+}
+
+
+function rand(list) {
+  return list[Math.floor(Math.random() * list.length)];
+}
+
+function normalizedSystemKey(value){
+  const system=String(value||"").toLowerCase();
+  if(system.includes("l5r")||system.includes("l5a")||system.includes("legend")||system.includes("cinq anneaux")) return "l5r1";
+  if(system.includes("d&d")||system.includes("dnd")||system.includes("dungeons")) return "dnd5";
+  if(system.includes("vampire")) return "vampire2";
+  if(system.includes("ward")||system.includes("w.a.r.d")) return "ward";
+  return "l5r1";
+}
+function selectedSystemKey(){ return state.selectedSystem || normalizedSystemKey(state.campaign?.gameSystem); }
+function setSelectedSystem(key,{fromCampaign=false}={}){
+  state.selectedSystem=key||"l5r1";
+  localStorage.setItem("jdr-selected-system",state.selectedSystem);
+  const sel=document.getElementById("gameSystemSelect"); if(sel) sel.value=state.selectedSystem;
+  if(!fromCampaign){
+    const theme={l5r1:"l5r",dnd5:"dnd",vampire2:"vampire",ward:"ward"}[state.selectedSystem]||"neutral";
+    state.gameTheme=theme; localStorage.setItem("jdr-game-theme",theme);
+    const themeSel=document.getElementById("gameThemeSelect"); if(themeSel) themeSel.value=theme;
+    document.body.dataset.gameTheme=theme;
+  }
+}
+function campaignMatchesSelectedSystem(c){ return normalizedSystemKey(c?.gameSystem)===selectedSystemKey(); }
+
+function profileKeyForCampaign(campaign = state.campaign) {
+  if (!campaign) return selectedSystemKey();
+  const system = String(campaign?.gameSystem || "").toLowerCase();
+  if (system.includes("l5r") || system.includes("legend") || system.includes("cinq anneaux")) return "l5r1";
+  if (system.includes("d&d") || system.includes("dnd") || system.includes("dungeons")) return "dnd5";
+  if (system.includes("vampire")) return "vampire2";
+  if (system.includes("ward") || system.includes("w.a.r.d")) return "ward";
+  return selectedSystemKey();
+}
+
+function dndRulesEdition(campaign = state.campaign) {
+  const system = String(campaign?.gameSystem || "").toLowerCase();
+  const edition = String(campaign?.edition || "").toLowerCase();
+  return /5\.5|2024/.test(`${system} ${edition}`) ? "2024" : "2014";
+}
+
+function isDnd2024(campaign = state.campaign) {
+  return profileKeyForCampaign(campaign) === "dnd5" && dndRulesEdition(campaign) === "2024";
+}
+
+function activeSystemProfile() {
+  return SYSTEM_PROFILES[selectedSystemKey()] || SYSTEM_PROFILES.generic;
+}
+
+function contextConfig(kind) {
+  const key = profileKeyForCampaign();
+  return (kind === "character" ? CHARACTER_CONTEXT_CONFIG : LOCATION_CONTEXT_CONFIG)[key]
+    || (kind === "character" ? CHARACTER_CONTEXT_CONFIG.generic : LOCATION_CONTEXT_CONFIG.generic);
+}
+
+function labelForOption(options, value) {
+  return options?.find(([v]) => v === value)?.[1] || value || "";
+}
+
+function l5rProfessionHistoricalState(profession, clan, campaign = state.campaign) {
+  const ctx=l5rCampaignHistoricalContext(campaign);
+  if(!ctx.enabled) return {known:false,available:true,state:"unknown"};
+  const links={
+    akodo_bushi:"akodo_family",
+    agasha_shugenja:clan==="dragon"?"agasha_family_dragon":clan==="phoenix"?"agasha_family_phoenix":null
+  };
+  const clanLinks={scorpion:"scorpion_clan",mantis:"mantis_clan",fox:"fox_clan",badger:"badger_clan",centipede:"centipede_clan"};
+  const clanKey=clanLinks[clan];
+  if(clanKey){
+    const clanState=l5rInstitutionState(clanKey,ctx.year,ctx.continuity);
+    if(clanState.known && !clanState.available) return clanState;
+  }
+  const key=links[profession];
+  return key?l5rInstitutionState(key,ctx.year,ctx.continuity):{known:false,available:true,state:"unknown"};
+}
+
+function l5rFilterProfessionOptions(options, clan, campaign = state.campaign) {
+  return (Array.isArray(options)?options:[]).filter(([profession])=>l5rProfessionHistoricalState(profession,clan,campaign).available);
+}
+
+function l5rProfessionOptions(clan, socialStatus = "samurai") {
+  if (["heimin","hinin"].includes(socialStatus)) return L5R_PROFESSIONS_BY_CLAN.ronin.filter(([v]) => v === "no_school");
+  if (socialStatus === "ronin") return L5R_PROFESSIONS_BY_CLAN.ronin;
+  const base = L5R_PROFESSIONS_BY_CLAN[clan] || L5R_PROFESSIONS_BY_CLAN.ronin;
+  const social = socialStatus === "monk" ? [["no_school","Sans école / temple local"], ...base.filter(([v]) => v.includes("monk") || v.includes("shugenja"))] : base;
+  return l5rFilterProfessionOptions(social,clan,state.campaign);
+}
+
+function l5rClanHistoricalKey(clan){
+  return ({scorpion:"scorpion_clan",mantis:"mantis_clan",fox:"fox_clan",badger:"badger_clan",centipede:"centipede_clan"})[clan]||null;
+}
+function l5rFilterClanOptions(options,campaign=state.campaign){
+  const ctx=l5rCampaignHistoricalContext(campaign);
+  if(!ctx.enabled) return Array.isArray(options)?options:[];
+  return (Array.isArray(options)?options:[]).filter(([clan])=>{
+    const key=l5rClanHistoricalKey(clan);
+    if(!key) return true;
+    return l5rInstitutionState(key,ctx.year,ctx.continuity).available;
+  });
+}
+
+function renderContextFields(container, kind, values = {}, prefix = "") {
+  const cfg = contextConfig(kind);
+  if (!container) return;
+
+  container.innerHTML = cfg.fields.map(field => {
+    let options = field.options || [];
+    if (profileKeyForCampaign() === "l5r1" && field.key === "clan") options = l5rFilterClanOptions(options,state.campaign);
+    if (profileKeyForCampaign() === "l5r1" && field.key === "occupation") options = l5rOccupationOptions(values.socialStatus || "samurai", options);
+    if (profileKeyForCampaign() === "l5r1" && field.key === "l5rSpells") options = l5rSpellOptions(options, values.profession, values.schoolRank ?? 1, values.l5rSpells, values.l5rSpellAcquisitionMode || "creation");
+
+    if (field.type === "dependentProfession" && profileKeyForCampaign() === "l5r1") {
+      const clan = values.clan || "dragon";
+      options = l5rProfessionOptions(clan, values.socialStatus || "samurai");
+    }
+
+    if (profileKeyForCampaign() === "ward") {
+      if (field.type === "dependentWardAgency") {
+        options = wardAgencyOptions();
+      } else if (field.type === "dependentWardProfession") {
+        const agency = values.agency && WARD_AGENCIES[values.agency] ? values.agency : "cia";
+        options = wardProfessionOptions(agency);
+      } else if (field.type === "dependentWardOrientation") {
+        const agency = values.agency && WARD_AGENCIES[values.agency] ? values.agency : "cia";
+        const professions = wardProfessionOptions(agency);
+        const profession = professions.some(([v]) => v === values.profession)
+          ? values.profession
+          : professions[0]?.[0];
+        options = wardOrientationOptions(profession);
+      }
+    }
+
+    const id = `${prefix}${field.key}`;
+    if (field.type === "text") {
+      const specialHidden = profileKeyForCampaign()==="l5r1" && field.key==="l5rCustomSpells" && !l5rIsShugenjaSchool(values.profession);
+      return `
+        <div class="context-field${specialHidden?" hidden":""}" data-context-field="${esc(field.key)}">
+          <label>${esc(field.label)}</label>
+          <input id="${esc(id)}" data-context-key="${esc(field.key)}" type="text"
+                 value="${esc(values[field.key] || "")}" placeholder="${esc(field.placeholder || "")}" />
+        </div>`;
+    }
+
+    if (field.type === "multiselect") {
+      const selected = new Set(l5rOccupationValues(values[field.key]));
+      const tattooAllowed = l5rIsTogashiSchool(values.profession) || values.l5rTattooHistoricalAccess==="historical";
+      if(profileKeyForCampaign()==="l5r1" && field.key==="l5rTattoos" && !tattooAllowed) return "";
+      const hiddenSpecial = profileKeyForCampaign()==="l5r1" && (field.key==="l5rSpells" && !l5rIsShugenjaSchool(values.profession));
+      const fieldLabel = profileKeyForCampaign()==="l5r1" && field.key==="occupation" ? (["heimin","hinin"].includes(values.socialStatus||"samurai") ? "Métier(s) / activité(s)" : "Fonction(s) / responsabilité(s)") : field.label;
+      return `<div class="context-field context-multiselect${hiddenSpecial?" hidden":""}" data-context-field="${esc(field.key)}"><label>${esc(fieldLabel)}</label><div class="multi-options">${options.map(([value,label]) => `<label class="multi-option"><input type="checkbox" data-context-key="${esc(field.key)}" value="${esc(value)}" ${selected.has(value)?"checked":""}> <span>${esc(label)}</span></label>`).join("")}</div></div>`;
+    }
+
+    const hiddenClass = field.type === "dependentWardOrientation" && options.length === 0 ? " hidden" : "";
+    return `
+      <div class="context-field${hiddenClass}" data-context-field="${esc(field.key)}">
+        <label>${esc(field.label)}</label>
+        <select id="${esc(id)}" data-context-key="${esc(field.key)}">
+          ${options.map(([value,label]) => `<option value="${esc(value)}" ${values[field.key] === value ? "selected" : ""}>${esc(label)}</option>`).join("")}
+        </select>
+      </div>`;
+  }).join("");
+
+  if (profileKeyForCampaign() === "l5r1" && kind === "character") {
+    const guidance=document.createElement("div");
+    guidance.className="context-guidance";
+    guidance.dataset.l5rGuidance="occupation";
+    guidance.textContent=l5rOccupationGuidance(values.socialStatus || "samurai", values.occupation);
+    container.appendChild(guidance);
+    const special=document.createElement("div"); special.className="context-guidance"; special.dataset.l5rGuidance="school-special"; special.textContent=l5rSchoolSpecialRule(values.profession); if(special.textContent) container.appendChild(special);
+    if(l5rIsShugenjaSchool(values.profession)){ const st=l5rSpellSelectionStatus(values.profession,l5rOccupationValues(values.l5rSpells)); const sg=document.createElement("div"); sg.className="context-guidance"; sg.dataset.l5rGuidance="spell-status"; sg.textContent=[(values.l5rSpellAcquisitionMode||"creation")==="creation"?l5rStartingSpellGuidanceV02035(values.profession):l5rSpellAcquisitionGuidanceV02036(values),(values.l5rSpellAcquisitionMode||"creation")==="creation"?st.text:""].filter(Boolean).join(" — "); container.appendChild(sg); }
+  }
+
+  if (profileKeyForCampaign() === "ward" && kind === "character") {
+    const agencyEl = container.querySelector('[data-context-key="agency"]');
+    const professionEl = container.querySelector('[data-context-key="profession"]');
+    const orientationEl = container.querySelector('[data-context-key="orientation"]');
+    const countryEl = container.querySelector('[data-context-key="country"]');
+
+    const agency = WARD_AGENCIES[agencyEl?.value] || WARD_AGENCIES.cia;
+    if (countryEl && agency.country && !values.country) countryEl.value = agency.country;
+    if (professionEl && !professionEl.value && agency.professions.length) {
+      professionEl.value = agency.professions[0][0];
+    }
+    const orientations = wardOrientationOptions(professionEl?.value);
+    if (orientationEl && orientations.length && !orientationEl.value) {
+      orientationEl.value = orientations[0][0];
+    }
+  }
+
+  const clanSelect = container.querySelector('[data-context-key="clan"]');
+  const professionSelect = container.querySelector('[data-context-key="profession"]');
+  const socialStatusSelect = container.querySelector('[data-context-key="socialStatus"]');
+
+  if (clanSelect && professionSelect && profileKeyForCampaign() === "l5r1") {
+    const refreshL5rSchool = () => {
+      const current = professionSelect.value;
+      const status = socialStatusSelect?.value || "samurai";
+      if (status === "ronin" || status === "heimin" || status === "hinin") clanSelect.value = "ronin";
+      professionSelect.innerHTML = l5rProfessionOptions(clanSelect.value,status)
+        .map(([v,l]) => `<option value="${esc(v)}">${esc(l)}</option>`).join("");
+      if ([...professionSelect.options].some(o => o.value === current)) professionSelect.value = current;
+      contextChanged(kind, prefix);
+    };
+    clanSelect.addEventListener("change", refreshL5rSchool);
+    socialStatusSelect?.addEventListener("change", refreshL5rSchool);
+    professionSelect?.addEventListener("change", () => {
+      const v=readContextFields(container);
+      v.schoolRank = document.querySelector('[data-system-key="schoolRank"]')?.value ?? values.schoolRank ?? 1;
+      renderContextFields(container,kind,v,prefix);
+      contextChanged(kind,prefix);
+    });
+    container.querySelector('[data-context-key="l5rSpellAcquisitionMode"]')?.addEventListener("change",()=>{const v=readContextFields(container);renderContextFields(container,kind,v,prefix);contextChanged(kind,prefix);});
+    container.querySelectorAll('input[data-context-key="l5rSpells"]').forEach(cb=>cb.addEventListener("change",()=>{
+      const box=container.querySelector('[data-l5r-guidance="spell-status"]');
+      if(box){ const v=readContextFields(container); box.textContent=[(v.l5rSpellAcquisitionMode||"creation")==="creation"?l5rStartingSpellGuidanceV02035(v.profession):l5rSpellAcquisitionGuidanceV02036(v),(v.l5rSpellAcquisitionMode||"creation")==="creation"?l5rSpellSelectionStatus(v.profession,l5rOccupationValues(v.l5rSpells)).text:""].filter(Boolean).join(" — "); }
+    }));
+  }
+
+  if (profileKeyForCampaign() === "ward" && kind === "character") {
+    const agencySelect = container.querySelector('[data-context-key="agency"]');
+    const wardProfessionSelect = container.querySelector('[data-context-key="profession"]');
+    const orientationSelect = container.querySelector('[data-context-key="orientation"]');
+    const countrySelect = container.querySelector('[data-context-key="country"]');
+    const orientationField = container.querySelector('[data-context-field="orientation"]');
+    const natureSelect = container.querySelector('[data-context-key="nature"]');
+    const alienSpeciesField = container.querySelector('[data-context-field="alienSpecies"]');
+    const alienSpeciesSelect = container.querySelector('[data-context-key="alienSpecies"]');
+
+    const refreshNature = () => {
+      const alien = natureSelect?.value === "nonhuman" || natureSelect?.value === "alien";
+      alienSpeciesField?.classList.toggle("hidden", !alien);
+      if (alien && agencySelect && (!agencySelect.value || !agencySelect.value.startsWith("alien_"))) {
+        agencySelect.value = "alien_independent";
+        if (wardProfessionSelect) {
+          const agency = WARD_AGENCIES.alien_independent;
+          wardProfessionSelect.innerHTML = agency.professions.map(([v,l]) => `<option value="${esc(v)}">${esc(l)}</option>`).join("");
+          wardProfessionSelect.value = agency.professions[0]?.[0] || "";
+        }
+        refreshOrientation();
+      }
+      if (!alien && alienSpeciesSelect) alienSpeciesSelect.value = alienSpeciesSelect.value || "unknown";
+    };
+
+    const refreshOrientation = () => {
+      if (!wardProfessionSelect || !orientationSelect) return;
+      const orientations = wardOrientationOptions(wardProfessionSelect.value);
+      const previous = orientationSelect.value;
+      orientationSelect.innerHTML = orientations
+        .map(([v,l]) => `<option value="${esc(v)}">${esc(l)}</option>`).join("");
+      orientationField?.classList.toggle("hidden", orientations.length === 0);
+      if (orientations.some(([v]) => v === previous)) orientationSelect.value = previous;
+      else if (orientations.length) orientationSelect.value = orientations[0][0];
+    };
+
+    natureSelect?.addEventListener("change", () => { refreshNature(); contextChanged(kind, prefix); });
+    refreshNature();
+
+    agencySelect?.addEventListener("change", () => {
+      const agency = WARD_AGENCIES[agencySelect.value] || WARD_AGENCIES.cia;
+      if (countrySelect && agency.country) countrySelect.value = agency.country;
+
+      if (wardProfessionSelect) {
+        wardProfessionSelect.innerHTML = agency.professions
+          .map(([v,l]) => `<option value="${esc(v)}">${esc(l)}</option>`).join("");
+        wardProfessionSelect.value = agency.professions[0]?.[0] || "";
+      }
+
+      refreshOrientation();
+      contextChanged(kind, prefix);
+    });
+
+    wardProfessionSelect?.addEventListener("change", () => {
+      refreshOrientation();
+      contextChanged(kind, prefix);
+    });
+  }
+
+  container.querySelectorAll("select,input").forEach(el => {
+    if (el === clanSelect) return;
+    if (profileKeyForCampaign()==="l5r1" && el===professionSelect) return;
+    if (profileKeyForCampaign() === "ward" && kind === "character"
+        && ["agency","profession"].includes(el.dataset.contextKey)) return;
+    el.addEventListener("change", () => contextChanged(kind, prefix));
+    if (el.tagName === "INPUT") el.addEventListener("input", () => contextChanged(kind, prefix, false));
+  });
+}
+
+function readContextFields(container) {
+  const out = {};
+  if (!container) return out;
+  container.querySelectorAll("[data-context-key]").forEach(el => {
+    const key=el.dataset.contextKey;
+    if (el.type === "checkbox") {
+      if (!Array.isArray(out[key])) out[key]=[];
+      if (el.checked) out[key].push(el.value);
+    } else out[key] = el.value;
+  });
+  return out;
+}
+
+function currentCharacterContext(prefix = "") {
+  const container = prefix ? $(`#${prefix}Container`) : $("#characterContextEditor");
+  return readContextFields(container);
+}
+
+function currentLocationContext(prefix = "") {
+  const container = prefix ? $(`#${prefix}Container`) : $("#locationContextEditor");
+  return readContextFields(container);
+}
+
+function contextChanged(kind, prefix = "", applyPreset = true) {
+  if (kind === "character") {
+    const container = prefix ? $(`#${prefix}Container`) : $("#characterContextEditor");
+    const ctx = readContextFields(container);
+    if (profileKeyForCampaign() === "l5r1") {
+      const guidance=container?.querySelector('[data-l5r-guidance="occupation"]');
+      if (guidance) guidance.textContent=l5rOccupationGuidance(ctx.socialStatus || "samurai", ctx.occupation);
+    }
+
+    if (!prefix) {
+      if (ctx.profession) {
+        const cfg = contextConfig("character");
+        let label = ctx.profession;
+        const field = cfg.fields.find(f => f.key === "profession");
+
+        if (profileKeyForCampaign() === "l5r1") {
+          label = labelForOption(l5rProfessionOptions(ctx.clan), ctx.profession);
+        } else if (profileKeyForCampaign() === "ward") {
+          label = labelForOption(wardProfessionOptions(ctx.agency), ctx.profession);
+          const orientationLabel = labelForOption(wardOrientationOptions(ctx.profession), ctx.orientation);
+          if (orientationLabel) label += ` — ${orientationLabel}`;
+        } else {
+          label = labelForOption(field?.options, ctx.profession);
+        }
+
+        if (label) $("#characterEditProfession").value = label;
+      }
+
+      if (!$("#characterEditId").value && applyPreset) {
+        const professionChanged = Boolean(ctx.profession)
+          && state.lastCharacterProfession !== null
+          && ctx.profession !== state.lastCharacterProfession;
+
+        const isWardPC = profileKeyForCampaign() === "ward" && $("#characterEditType").value === "PC";
+        renderRulesEditors(null, true, ctx, !isWardPC);
+        renderSystemSpecificEditor(null);
+
+        if (professionChanged) {
+          replaceStartingEquipmentForCurrentContext(true);
+          showToast("Profession modifiée : équipement de départ mis à jour.");
+        }
+
+        state.lastCharacterProfession = ctx.profession || null;
+      }
+    }
+  }
+}
+
+
+function allocateVampireCategory(result, ordered, budget, maxValue, startsAtOne = false) {
+  let remaining = budget;
+  let guard = 0;
+
+  while (remaining > 0 && guard < 100) {
+    let moved = false;
+    for (const key of ordered) {
+      if (remaining <= 0) break;
+      if ((result[key] || 0) < maxValue) {
+        result[key] = (result[key] || 0) + 1;
+        remaining -= 1;
+        moved = true;
+      }
+    }
+    if (!moved) break;
+    guard += 1;
+  }
+}
+
+function vampireQuickBuild(ctx = {}) {
+  const templateId = VAMPIRE_PROFESSION_TEMPLATE[ctx.profession] || ctx.profession || "investigator";
+  const role = VAMPIRE_QUICK_ROLES[templateId] || VAMPIRE_QUICK_ROLES.investigator;
+
+  const characteristics = {
+    strength:1,dexterity:1,stamina:1,
+    charisma:1,manipulation:1,appearance:1,
+    perception:1,intelligence:1,wits:1
+  };
+
+  const attrBudgets = [7,5,3];
+  role.attributes.forEach((category,index) => {
+    const ordered = role.attrOrder[category] || VAMPIRE_ATTRIBUTE_CATEGORIES[category];
+    allocateVampireCategory(characteristics, ordered, attrBudgets[index], 4);
+  });
+
+  // Clan nudges are deliberately small: profession/concept remains the main driver.
+  const clanNudge = {
+    ventrue:["charisma","manipulation"],
+    toreador:["appearance","charisma"],
+    brujah:["strength","dexterity"],
+    gangrel:["stamina","perception"],
+    malkavian:["perception","wits"],
+    nosferatu:["dexterity","perception"],
+    tremere:["intelligence","perception"]
+  }[ctx.clan] || [];
+
+  for (const attr of clanNudge) {
+    if (characteristics[attr] < 4) {
+      const category = Object.entries(VAMPIRE_ATTRIBUTE_CATEGORIES)
+        .find(([,attrs]) => attrs.includes(attr))?.[0];
+      const donor = (role.attrOrder[category] || VAMPIRE_ATTRIBUTE_CATEGORIES[category])
+        .slice().reverse().find(a => a !== attr && characteristics[a] > 1);
+      if (donor) {
+        characteristics[donor] -= 1;
+        characteristics[attr] += 1;
+      }
+    }
+  }
+
+  const skills = Object.fromEntries(SYSTEM_PROFILES.vampire2.skills.map(name => [name,0]));
+  const abilityBudgets = [13,9,5];
+
+  role.abilities.forEach((category,index) => {
+    const categorySkills = VAMPIRE_ABILITY_CATEGORIES[category] || [];
+    const focus = (role.focus[category] || []).filter(s => categorySkills.includes(s));
+    const ordered = [...focus, ...categorySkills.filter(s => !focus.includes(s))];
+
+    let remaining = abilityBudgets[index];
+    // Fast character creation: specialize the concept while respecting the normal pre-freebie cap of 3.
+    for (const skill of ordered) {
+      if (remaining <= 0) break;
+      const target = Math.min(3, remaining);
+      skills[skill] += target;
+      remaining -= target;
+    }
+  });
+
+  for (const skill of (VAMPIRE_PROFESSION_FOCUS[ctx.profession] || [])) {
+    if (skill in skills) skills[skill] = Math.max(Number(skills[skill]||0),2);
+  }
+
+  return {characteristics,skills};
+}
+
+function presetForContext(ctx = {}) {
+  const key = profileKeyForCampaign();
+
+  if (key === "l5r1") {
+    const school = CHARACTER_PRESETS.l5r1[ctx.profession] || {characteristics:{},skills:{}};
+    const professional = l5rCombinedProfessionalPreset(ctx);
+    const merged = l5rMergeSkillPresets(school,professional);
+    return {characteristics:{...(school.characteristics||{})},skills:merged.skills,specialties:merged.specialties};
+  }
+  if (key === "dnd5") return CHARACTER_PRESETS.dnd5[ctx.profession] || null;
+
+  if (key === "vampire2") {
+    return vampireQuickBuild(ctx);
+  }
+
+  if (key === "ward") {
+    const species = wardNonhumanProfile(ctx);
+    if (species?.characteristics) return {characteristics:{...species.characteristics},skills:{},wardSpecies:species};
+    const rule = wardRuleForContext(ctx);
+    if (!rule) return null;
+    return {
+      characteristics: wardSuggestedAttributes(rule),
+      skills: wardSuggestedSkills(rule),
+      wardRule: rule
+    };
+  }
+  return null;
+}
+
+function generateCharacterName(style = null, ctx = {}) {
+  const key = profileKeyForCampaign();
+  const data = NAME_GENERATORS[key] || NAME_GENERATORS.generic;
+  style = style || activeSystemProfile().characterStyles[0];
+
+  if (key === "l5r1") {
+    const clan = ctx.clan || "dragon";
+    const socialStatus = ctx.socialStatus || "samurai";
+    const profession = ctx.profession || l5rProfessionOptions(clan,socialStatus)[0]?.[0];
+    const family = data.preferredFamily[profession] || rand(data.familiesByClan[clan] || data.familiesByClan.ronin);
+
+    let firstPool = data.unisex;
+    if (style === "masculin") firstPool = data.male;
+    if (style === "feminin") firstPool = data.female;
+    if (style === "neutre") firstPool = [...data.male,...data.female,...data.unisex];
+
+    const given = rand(firstPool);
+    return ["heimin","hinin"].includes(socialStatus) ? given : `${family} ${given}`;
+  }
+
+  if (key === "dnd5") {
+    const ancestry = ctx.ancestry || "human";
+    if (ancestry === "elf") return `${rand(data.elfFirst)} ${rand(data.elfLast)}`;
+    if (ancestry === "dwarf") return `${rand(data.dwarfFirst)} ${rand(data.dwarfLast)}`;
+    if (ancestry === "halfling") return `${rand(data.halflingFirst)} ${rand(data.halflingLast)}`;
+    return `${rand(data.humanFirst)} ${rand(data.humanLast)}`;
+  }
+
+  if (key === "vampire2") {
+    const country = data.countries[ctx.country] || data.countries.usa;
+    const clan = ctx.clan || "ventrue";
+    const profession = ctx.profession || "executive";
+    let name = `${rand(country.first)} ${rand(country.last)}`;
+
+    if (clan === "nosferatu" || profession === "criminal") {
+      if (Math.random() < .55) name = `${name} « ${rand(["Ghost","Rat","Shade","Crow","Zero","Moth"])} »`;
+    } else if (clan === "ventrue" && Math.random() < .35) {
+      name = `${rand(country.first)} ${rand(country.last)}`;
+    }
+
+    return name;
+  }
+
+  if (key === "ward") {
+    const country = data.countries[ctx.country] || data.countries.usa;
+    let name = `${rand(country.first)} ${rand(country.last)}`;
+    if ((ctx.agency === "military" || ctx.profession === "paramilitary") && Math.random() < .35) {
+      const parts = name.split(" ");
+      name = `${parts[0]} ${String.fromCharCode(65 + Math.floor(Math.random()*26))}. ${parts.slice(1).join(" ")}`;
+    }
+    return name;
+  }
+
+  return `${rand(data.first)} ${rand(data.last)}`;
+}
+
+function generateLocationName(style = null, ctx = {}) {
+  const key = profileKeyForCampaign();
+  const data = LOCATION_GENERATORS[key] || LOCATION_GENERATORS.generic;
+  style = style || activeSystemProfile().locationStyles[0];
+  const patterns = data.patterns[style] || Object.values(data.patterns)[0];
+  let result = rand(patterns);
+
+  if (key === "l5r1") {
+    const clan = ctx.clan || "dragon";
+    const env = ctx.environment || "mountain";
+    const pool = [...(data.clanNouns[clan] || []), ...(data.envNouns[env] || [])];
+    result = result.replaceAll("{n}", rand(pool.length ? pool : data.clanNouns.dragon));
+    result = result.replaceAll("{a}", rand(data.adjectives));
+    return result;
+  }
+
+  if (key === "dnd5") {
+    const culture = ctx.culture || "human";
+    const env = ctx.environment || "plain";
+    const pool = [...(data.cultureNouns[culture] || []), ...(data.envNouns[env] || [])];
+    result = result.replaceAll("{n}", rand(pool.length ? pool : data.cultureNouns.human));
+    result = result.replaceAll("{a}", rand(data.adjectives));
+    return result;
+  }
+
+  if (key === "vampire2") {
+    result = result.replaceAll("{n}", rand(data.nouns));
+    const region = (ctx.region || "").trim();
+    if (region && Math.random() < .75) result += ` — ${region}`;
+    return result;
+  }
+
+  if (key === "ward") {
+    result = result.replaceAll("{c}", rand(data.codes));
+    result = result.replaceAll("{d}", String(Math.floor(Math.random()*90)+10));
+    result = result.replaceAll("{r}", (ctx.region || labelForCountry(ctx.country) || "Secteur").trim());
+    return result;
+  }
+
+  result = result.replaceAll("{n}", rand(data.nouns));
+  return result;
+}
+
+function labelForCountry(code) {
+  const all = [
+    ["usa","États-Unis"],["france","France"],["uk","Royaume-Uni"],["japan","Japon"],
+    ["germany","Allemagne"],["italy","Italie"],["spain","Espagne"],["east_europe","Europe de l’Est"]
+  ];
+  return labelForOption(all, code);
+}
+
+function populateGeneratorStyles() {
+  const profile = activeSystemProfile();
+  const key = profile.id;
+  const charData = NAME_GENERATORS[key] || NAME_GENERATORS.generic;
+  const locData = LOCATION_GENERATORS[key] || LOCATION_GENERATORS.generic;
+
+  const charSelects = [$("#characterNameStyle"), $("#generatorCharacterStyle")].filter(Boolean);
+  const locSelects = [$("#locationNameStyle"), $("#generatorLocationStyle")].filter(Boolean);
+
+  for (const select of charSelects) {
+    const previous = select.value;
+    select.innerHTML = profile.characterStyles.map(style =>
+      `<option value="${esc(style)}">${esc(charData.labels?.[style] || style)}</option>`
+    ).join("");
+    if ([...select.options].some(o => o.value === previous)) select.value = previous;
+  }
+
+  for (const select of locSelects) {
+    const previous = select.value;
+    select.innerHTML = profile.locationStyles.map(style =>
+      `<option value="${esc(style)}">${esc(locData.labels?.[style] || style)}</option>`
+    ).join("");
+    if ([...select.options].some(o => o.value === previous)) select.value = previous;
+  }
+}
+
+function defaultCharacteristics(profile = activeSystemProfile()) {
+  return Object.fromEntries(profile.characteristics.map(([key,_label,defaultValue]) => [key, defaultValue]));
+}
+
+function defaultSkills(profile = activeSystemProfile()) {
+  return Object.fromEntries(profile.skills.map(name => [name, 0]));
+}
+
+function canonicalSkillSet(profile = activeSystemProfile()) {
+  return new Set((profile?.skills || []).map(String));
+}
+
+function validatePresetSkills(profile, preset, source = "profil") {
+  const allowed = canonicalSkillSet(profile);
+  const valid = {};
+  const invalid = [];
+  for (const [name,value] of Object.entries(preset?.skills || {})) {
+    if (allowed.has(name)) valid[name] = value;
+    else invalid.push({skill:name,source});
+  }
+  return {valid,invalid};
+}
+
+function sanitizePresetForSystem(profile, preset, source = "profil") {
+  if (!preset) return null;
+  const audit = validatePresetSkills(profile,preset,source);
+  if (audit.invalid.length) console.warn(`[Assistant JDR] Références de compétences invalides (${profile?.id || "système"})`, audit.invalid);
+  return {...preset,skills:audit.valid,invalidSkills:audit.invalid};
+}
+
+function applyPresetToValues(profile, ctx, baseCharacteristics, baseSkills) {
+  const rawPreset = presetForContext(ctx);
+  const preset = sanitizePresetForSystem(profile, rawPreset, "métier / fonction / profession");
+  const characteristics = {...baseCharacteristics};
+  const skills = {...baseSkills};
+
+  if (preset?.characteristics) Object.assign(characteristics, preset.characteristics);
+  if (preset?.skills) {
+    for (const [name,value] of Object.entries(preset.skills)) {
+      skills[name] = Math.max(Number(skills[name] || 0), Number(value || 0));
+    }
+  }
+
+  // W.A.R.D. universal creation baselines in the current book.
+  if (profile.id === "ward") {
+    skills["Conduite"] = Math.max(skills["Conduite"] || 0, 2);
+    skills["Bureaucratie"] = Math.max(skills["Bureaucratie"] || 0, 1);
+    skills["Observation"] = Math.max(skills["Observation"] || 0, 1);
+  }
+
+  return {characteristics,skills};
+}
+
+
+function professionLinkedSkillsForContext(profile, ctx = {}) {
+  const ordered = [];
+  const seen = new Set();
+  const add = (name) => {
+    if (!name || seen.has(name)) return;
+    if (!profile.skills.includes(name)) return;
+    seen.add(name);
+    ordered.push(name);
+  };
+  const addMany = (arr = []) => arr.forEach(add);
+
+  const preset = sanitizePresetForSystem(profile, presetForContext(ctx), "métier / fonction / profession");
+  if (preset?.skills) {
+    Object.entries(preset.skills)
+      .filter(([,value]) => Number(value || 0) > 0)
+      .sort((a,b) => Number(b[1] || 0) - Number(a[1] || 0) || a[0].localeCompare(b[0], "fr"))
+      .forEach(([name]) => add(name));
+  }
+
+  if (profile.id === "l5r1") {
+    const role = (readSystemSpecificEditor()?.npcRole) || "generic";
+    addMany(L5R_NPC_ROLE_SKILLS[role] || []);
+  }
+
+  if (profile.id === "dnd5") {
+    const role = (readSystemSpecificEditor()?.npcRole) || "generic";
+    addMany(DND_NPC_ROLE_SKILLS[role] || []);
+  }
+
+  if (profile.id === "vampire2") {
+    const role = (readSystemSpecificEditor()?.npcRole) || "generic";
+    addMany(VAMPIRE_NPC_ROLE_SKILLS[role] || []);
+  }
+
+  if (profile.id === "ward") {
+    const rule = wardRuleForContext(ctx);
+    addMany(rule?.essential || []);
+    addMany(WARD_NPC_ROLE_SKILLS[wardNpcRole(ctx)] || []);
+    const role = (readSystemSpecificEditor()?.npcRole) || "generic";
+    addMany(WARD_NPC_GENERIC_ROLE_SKILLS[role] || []);
+  }
+
+  return ordered;
+}
+
+function renderRulesEditors(character = null, forceDefaults = false, ctx = null, applyProfession = false) {
+  const profile = activeSystemProfile();
+  $("#characterRulesProfileLabel").textContent = profile.label;
+  ctx = ctx || character?.generationContext || readContextFields($("#characterContextEditor"));
+
+  let characteristics = forceDefaults
+    ? defaultCharacteristics(profile)
+    : {...defaultCharacteristics(profile),...(character?.characteristics || {})};
+
+  let skills = forceDefaults
+    ? defaultSkills(profile)
+    : {...defaultSkills(profile),...(character?.skills || {})};
+
+  if (profile.id === "ward" && forceDefaults) characteristics = wardApplyNonhumanProfile(ctx, characteristics);
+
+  const shouldApplyProfession =
+    applyProfession || (!character && forceDefaults && profile.id !== "ward");
+
+  if (shouldApplyProfession) {
+    ({characteristics,skills} = applyPresetToValues(profile, ctx, characteristics, skills));
+
+    if (profile.id === "ward" && $("#characterEditType").value === "NPC") {
+      const currentSystem = readSystemSpecificEditor();
+      const generated = wardNpcBuildByExpertise(ctx,currentSystem);
+      characteristics = generated.characteristics;
+      skills = generated.skills;
+    }
+  }
+
+  $("#characteristicsEditor").innerHTML = profile.characteristics.map(([key,label,defaultValue,group]) => `
+    <div class="stat-field">
+      <label>${esc(label)} <span class="row-sub">${esc(group || "")}</span></label>
+      <input class="characteristic-input" data-key="${esc(key)}" type="number"
+             value="${esc(characteristics[key] ?? defaultValue)}" step="1" />
+    </div>
+  `).join("");
+
+  $$("#characteristicsEditor .characteristic-input").forEach(input => {
+    input.addEventListener("change", () => {
+      if (profileKeyForCampaign() === "dnd5") refreshDndSystemEditor();
+    });
+  });
+
+  const linkedSkills = professionLinkedSkillsForContext(profile, ctx);
+  const linkedSkillSet = new Set(linkedSkills);
+  const linkedSkillIndex = new Map(linkedSkills.map((name,index) => [name,index]));
+  const skillEntries = Object.entries(skills).sort((a,b) => {
+    const aPriority = linkedSkillSet.has(a[0]) ? 0 : 1;
+    const bPriority = linkedSkillSet.has(b[0]) ? 0 : 1;
+    if (aPriority !== bPriority) return aPriority - bPriority;
+
+    if (aPriority === 0 && bPriority === 0) {
+      const aIndex = linkedSkillIndex.get(a[0]) ?? 999;
+      const bIndex = linkedSkillIndex.get(b[0]) ?? 999;
+      if (aIndex !== bIndex) return aIndex - bIndex;
+    }
+
+    const valueDiff = Number(b[1] || 0) - Number(a[1] || 0);
+    if (valueDiff !== 0) return valueDiff;
+    return a[0].localeCompare(b[0], "fr");
+  });
+
+
+  if (profile.skillMode === "proficiency") {
+    $("#skillsEditor").innerHTML = skillEntries.map(([name,value]) => `
+      <div class="skill-field ${profile.skills.includes(name) ? "" : "custom-skill"} ${linkedSkillSet.has(name) ? "linked-skill" : ""}">
+        <label>${esc(name)} ${linkedSkillSet.has(name) ? '<span class="linked-skill-badge">Profil</span>' : ""}</label>
+        <select class="skill-input skill-select" data-skill="${esc(name)}">
+          <option value="0" ${Number(value)===0?"selected":""}>—</option>
+          <option value="1" ${Number(value)===1?"selected":""}>Maîtrise</option>
+          <option value="2" ${Number(value)>=2?"selected":""}>Expertise</option>
+        </select>
+      </div>
+    `).join("");
+  } else {
+    $("#skillsEditor").innerHTML = skillEntries.length
+      ? skillEntries.map(([name,value]) => `
+        <div class="skill-field ${profile.skills.includes(name) ? "" : "custom-skill"} ${linkedSkillSet.has(name) ? "linked-skill" : ""}">
+          <label>${esc(name)} ${linkedSkillSet.has(name) ? '<span class="linked-skill-badge">Profil</span>' : ""}</label>
+          <input class="skill-input" data-skill="${esc(name)}" type="number"
+                 value="${esc(value)}" min="${profile.skillMin ?? 0}"
+                 max="${profile.skillMax ?? 5}" step="1" />
+        </div>
+      `).join("")
+      : `<div class="row-sub">Aucune compétence prédéfinie. Utilise « + Compétence personnalisée ».</div>`;
+  }
+
+  const preset = presetForContext(ctx);
+  const hint = document.createElement("div");
+  hint.className = "preset-hint";
+
+  if (profile.id === "ward") {
+    const rule = wardRuleForContext(ctx);
+    if (rule && $("#characterEditType").value === "NPC") {
+      const importance = Number($("#characterEditImportance").value || 2);
+      const intValue = Number(characteristics.intelligence || 1);
+      const witsValue = Number(characteristics.wits || 1);
+      const budget = 10 + (intValue * 2) + witsValue;
+      const expertise = Number(readSystemSpecificEditor().expertiseLevel ?? 1);
+      hint.textContent = `W.A.R.D. — PNJ rapide : profil de métier rempli selon les Compétences essentielles, l’archétype, et le niveau d’expertise ${expertise}/5. Budget professionnel de référence à la création : ${budget} points. Les niveaux élevés représentent une progression de carrière PNJ, pas des points gratuits de création PJ.`;
+    } else {
+      hint.textContent = rule
+        ? "W.A.R.D. : les Attributs proposés respectent le socle 1 + répartition 7/5/3. Pour un PJ, les Compétences essentielles sont seulement proposées au minimum requis ; le remplissage PNJ rapide n’est pas imposé."
+        : "W.A.R.D. : aucun profil mécanique détaillé n’est chargé pour cette Profession. Civils, indépendants et extraterrestres restent valides : le programme conserve le socle disponible et n’invente pas de capacités d’espèce.";
+    }
+  } else {
+    hint.textContent = preset
+      ? "Le profil affiché intègre un préréglage de métier/école. Il reste entièrement modifiable par le MJ."
+      : "Aucun préréglage métier spécifique n’est appliqué ; seules les valeurs de base du système sont affichées.";
+  }
+  if (linkedSkills.length) {
+    const note = document.createElement("div");
+    note.className = "linked-skill-note";
+    note.textContent = "Les compétences liées au métier, à l’école ou au profil sont affichées en tête de liste.";
+    $("#skillsEditor").prepend(note);
+  }
+
+  $("#skillsEditor").prepend(hint);
+}
+
+function readCharacteristicsEditor() {
+  const result = {};
+  $$(".characteristic-input").forEach(input => result[input.dataset.key] = Number(input.value || 0));
+  return result;
+}
+
+function readSkillsEditor() {
+  const result = {};
+  $$(".skill-input").forEach(input => result[input.dataset.skill] = Number(input.value || 0));
+  return result;
+}
+
+function renderGeneratorProfileSummary() {
+  const profile = activeSystemProfile();
+  $("#generatorSystemBadge").textContent = profile.label;
+  $("#generatorProfileTitle").textContent = profile.label;
+
+  $("#generatorProfileSummary").innerHTML = `
+    <div class="profile-summary-section">
+      <strong>Caractéristiques</strong>
+      <div class="profile-chip-list">
+        ${profile.characteristics.map(([_key,label]) => `<span class="profile-chip">${esc(label)}</span>`).join("")}
+      </div>
+    </div>
+    <div class="profile-summary-section">
+      <strong>Compétences</strong>
+      <div class="profile-chip-list">
+        ${profile.skills.slice(0,40).map(name => `<span class="profile-chip">${esc(name)}</span>`).join("")}
+        ${profile.skills.length > 40 ? `<span class="profile-chip">+ ${profile.skills.length-40} autres</span>` : ""}
+      </div>
+    </div>
+  `;
+}
+
+function traitCatalog() {
+  return TRAIT_CATALOGS[profileKeyForCampaign()] || TRAIT_CATALOGS.generic;
+}
+
+function equipmentCatalog() {
+  const key = profileKeyForCampaign();
+  if (key === "dnd5") return isDnd2024() ? DND_EQUIPMENT_2024 : [...DND_EQUIPMENT_2014, ...DND_MAGIC_ITEMS_2014];
+  return EQUIPMENT_CATALOGS[key] || EQUIPMENT_CATALOGS.generic;
+}
+
+function equipmentRulesSummary(item) {
+  const m = item?.rules || {};
+  const parts = [];
+  if (m.edition) parts.push(`D&D ${m.edition}`);
+  if (m.category) parts.push(m.category);
+  if (m.price) parts.push(m.price);
+  if (m.ac) parts.push(`CA ${m.ac}`);
+  if (m.damage) parts.push(`${m.damage}${m.damageType ? ` ${m.damageType}` : ""}`);
+  if (Array.isArray(m.properties) && m.properties.length) parts.push(m.properties.join(", "));
+  if (m.mastery) parts.push(`Maîtrise : ${m.mastery}`);
+  if (m.rarity) parts.push(`Rareté : ${m.rarity}`);
+  if (m.attunement) parts.push("Harmonisation requise");
+  if (m.activation) parts.push(m.activation);
+  if (m.effect) parts.push(m.effect);
+  if (m.strengthReq) parts.push(`FOR ${m.strengthReq}`);
+  if (m.stealthDisadvantage) parts.push("Discrétion : désavantage");
+  if (Number.isFinite(m.weightKg)) parts.push(`${m.weightKg} kg`);
+  return parts.join(" · ");
+}
+
+function populateTraitAndEquipmentCatalogs() {
+  const traits = traitCatalog();
+
+  $("#positiveTraitsTitle").textContent = traits.positiveLabel || "Avantages";
+  $("#negativeTraitsTitle").textContent = traits.negativeLabel || "Désavantages";
+
+  $("#positiveTraitCatalog").innerHTML = traits.positive.map((item, index) =>
+    `<option value="${index}">${esc(item[0])}${item[1] ? ` — ${esc(item[1])}` : ""}</option>`
+  ).join("");
+
+  $("#negativeTraitCatalog").innerHTML = traits.negative.map((item, index) =>
+    `<option value="${index}">${esc(item[0])}${item[1] ? ` — ${esc(item[1])}` : ""}</option>`
+  ).join("");
+
+  $("#equipmentCatalog").innerHTML = equipmentCatalog().map((item, index) =>
+    `<option value="${index}">${esc(item[0])} · ${esc(equipmentTypeLabel(item[1]))}</option>`
+  ).join("");
+}
+
+function equipmentTypeLabel(type) {
+  const labels = {
+    equipment:"Équipement", weapon:"Arme", armor:"Protection",
+    tool:"Outil", document:"Document", consumable:"Consommable",
+    vehicle:"Véhicule / monture", artifact:"Artefact", magic_item:"Objet magique"
+  };
+  return labels[type] || type || "Équipement";
+}
+
+function normalizeTrait(entry, kind, source = "Système") {
+  if (Array.isArray(entry)) {
+    return {
+      id: JDRDB.uuid("trait"),
+      kind,
+      name: entry[0],
+      cost: entry[1] || "",
+      note: entry[2] || "",
+      source
+    };
+  }
+
+  return {
+    id: entry?.id || JDRDB.uuid("trait"),
+    kind,
+    name: entry?.name || "",
+    cost: entry?.cost || "",
+    note: entry?.note || "",
+    source: entry?.source || source
+  };
+}
+
+
+function randomUniqueEntries(entries, count) {
+  const pool = [...entries];
+  const chosen = [];
+  while (pool.length && chosen.length < count) {
+    const index = Math.floor(Math.random() * pool.length);
+    chosen.push(pool.splice(index, 1)[0]);
+  }
+  return chosen;
+}
+
+function generateRandomCharacterTraits() {
+  const catalog = traitCatalog();
+  if (!catalog?.positive?.length || !catalog?.negative?.length) {
+    showToast("Aucun catalogue de traits disponible pour ce système.");
+    return;
+  }
+
+  // Preserve anything manually chosen; only reroll previous generated traits.
+  state.editingAdvantages = state.editingAdvantages
+    .filter(t => t.source !== "Génération aléatoire");
+  state.editingDisadvantages = state.editingDisadvantages
+    .filter(t => t.source !== "Génération aléatoire");
+
+  const isNpc = $("#characterEditType").value === "NPC";
+  const importance = Number($("#characterEditImportance").value || 2);
+
+  let positiveCount = 1;
+  let negativeCount = 1;
+
+  if (isNpc && importance >= 3) positiveCount = 2;
+  if (isNpc && importance >= 4 && Math.random() < 0.45) negativeCount = 2;
+  if (!isNpc && Math.random() < 0.25) positiveCount = 2;
+
+  const existingPositiveNames = new Set(state.editingAdvantages.map(t => t.name));
+  const existingNegativeNames = new Set(state.editingDisadvantages.map(t => t.name));
+
+  const positives = catalog.positive.filter(e => !existingPositiveNames.has(e[0]));
+  const negatives = catalog.negative.filter(e => !existingNegativeNames.has(e[0]));
+
+  for (const entry of randomUniqueEntries(positives, positiveCount)) {
+    state.editingAdvantages.push(normalizeTrait(
+      {...normalizeTrait(entry, "positive"), source:"Génération aléatoire"},
+      "positive",
+      "Génération aléatoire"
+    ));
+  }
+
+  for (const entry of randomUniqueEntries(negatives, negativeCount)) {
+    state.editingDisadvantages.push(normalizeTrait(
+      {...normalizeTrait(entry, "negative"), source:"Génération aléatoire"},
+      "negative",
+      "Génération aléatoire"
+    ));
+  }
+
+  renderSelectedTraits();
+  showToast("Traits aléatoires proposés. Ils restent entièrement modifiables.");
+}
+
+function renderSelectedTraits() {
+  const render = (rows, target) => {
+    $(target).innerHTML = rows.length ? rows.map(t => `
+      <div class="selected-trait">
+        <div class="selected-trait-main">
+          <div class="selected-trait-name">${esc(t.name)}</div>
+          <div class="selected-trait-meta">${esc(t.cost || "—")} · ${esc(t.source || "Système")}</div>
+          ${t.note ? `<div class="selected-trait-note">${esc(t.note)}</div>` : ""}
+        </div>
+        <button class="icon-btn small remove-trait-btn" data-trait-id="${esc(t.id)}" title="Retirer">×</button>
+      </div>
+    `).join("") : `<div class="empty-inline">Aucun élément sélectionné.</div>`;
+  };
+
+  render(state.editingAdvantages, "#positiveTraitsList");
+  render(state.editingDisadvantages, "#negativeTraitsList");
+
+  $$(".remove-trait-btn").forEach(btn => btn.addEventListener("click", () => {
+    const id = btn.dataset.traitId;
+    state.editingAdvantages = state.editingAdvantages.filter(t => t.id !== id);
+    state.editingDisadvantages = state.editingDisadvantages.filter(t => t.id !== id);
+    renderSelectedTraits();
+  }));
+}
+
+function addCatalogTrait(kind) {
+  const traits = traitCatalog();
+  const positive = kind === "positive";
+  const select = positive ? $("#positiveTraitCatalog") : $("#negativeTraitCatalog");
+  const source = positive ? traits.positive : traits.negative;
+  const entry = source[Number(select.value || 0)];
+  if (!entry) return;
+
+  const target = positive ? state.editingAdvantages : state.editingDisadvantages;
+  if (target.some(t => t.name === entry[0])) {
+    showToast("Ce trait est déjà sélectionné.");
+    return;
+  }
+
+  target.push(normalizeTrait(entry, kind));
+  renderSelectedTraits();
+}
+
+function openCustomTraitModal(kind) {
+  $("#customTraitKind").value = kind;
+  $("#customTraitModalTitle").textContent = kind === "positive"
+    ? "Ajouter un avantage / trait positif"
+    : "Ajouter un désavantage / trait négatif";
+  $("#customTraitName").value = "";
+  $("#customTraitCost").value = "";
+  $("#customTraitSource").value = "MJ";
+  $("#customTraitNote").value = "";
+  openModal("customTraitModal");
+}
+
+function renderEquipmentEditor() {
+  $("#equipmentList").innerHTML = state.editingEquipment.length ? state.editingEquipment.map(item => `
+    <div class="equipment-row">
+      <div class="equipment-main">
+        <div class="equipment-name">${esc(item.name)}</div>
+        <div class="equipment-meta">${esc(equipmentTypeLabel(item.type))}${item.description ? ` · ${esc(item.description)}` : ""}${equipmentRulesSummary(item) ? ` · ${esc(equipmentRulesSummary(item))}` : ""}</div>
+      </div>
+      <input class="equipment-qty" type="number" min="1" value="${Number(item.quantity || 1)}" data-equipment-id="${esc(item.id)}" />
+      <button class="icon-btn small remove-equipment-btn" data-equipment-id="${esc(item.id)}" title="Retirer">×</button>
+    </div>
+  `).join("") : `<div class="empty-inline">Aucun équipement enregistré.</div>`;
+
+  $$(".equipment-qty").forEach(input => input.addEventListener("change", () => {
+    const item = state.editingEquipment.find(x => x.id === input.dataset.equipmentId);
+    if (item) item.quantity = Math.max(1, Number(input.value || 1));
+  }));
+
+  $$(".remove-equipment-btn").forEach(btn => btn.addEventListener("click", () => {
+    state.editingEquipment = state.editingEquipment.filter(x => x.id !== btn.dataset.equipmentId);
+    renderEquipmentEditor();
+  }));
+}
+
+function addEquipmentEntry(name, type="equipment", description="", quantity=1, sourcePreset=null, rules=null) {
+  const existing = state.editingEquipment.find(x =>
+    x.name.toLowerCase() === String(name).toLowerCase()
+    && x.type === type
+  );
+
+  if (existing) {
+    existing.quantity = Number(existing.quantity || 1) + Number(quantity || 1);
+  } else {
+    state.editingEquipment.push({
+      id: JDRDB.uuid("item"),
+      name,
+      type,
+      description,
+      quantity: Math.max(1, Number(quantity || 1)),
+      status: "carried",
+      sourcePreset,
+      rules: rules ? {...rules} : null
+    });
+  }
+  renderEquipmentEditor();
+}
+
+function addCatalogEquipment() {
+  const entry = equipmentCatalog()[Number($("#equipmentCatalog").value || 0)];
+  if (!entry) return;
+  addEquipmentEntry(
+    entry[0],
+    entry[1],
+    entry[2] || "",
+    Number($("#equipmentQuantity").value || 1),
+    "catalog",
+    entry[3] || null
+  );
+}
+
+function equipmentPresetKey(ctx = {}) {
+  const system = profileKeyForCampaign();
+
+  if (system === "l5r1") {
+    const prof = String(ctx.profession || "");
+    if (EQUIPMENT_PRESETS.l5r1?.[prof]) return prof;
+    if (prof.includes("courtier") || prof.includes("herald")) return "courtier";
+    if (prof.includes("shugenja")) return "shugenja";
+    if (prof.includes("monk")) return "monk";
+    if (prof.includes("scout")) return "scout";
+    return "bushi";
+  }
+
+  if (system === "vampire2") {
+    const map = {
+      doctor:"academic",
+      lawyer:"executive",
+      police:"investigator",
+      military:"criminal",
+      politician:"executive",
+      clergy:"academic",
+      tech:"academic",
+      socialite:"artist",
+      club_owner:"executive",
+      security:"investigator",
+      occultist:"academic",
+      student:"academic",
+      street:"criminal"
+    };
+    return map[ctx.profession] || ctx.profession || null;
+  }
+
+  if (system === "ward") {
+    const map = {
+      cia_paramilitary:"paramilitary",
+      nsa_sigint:"sigint",
+      nsa_black:"black_operator",
+      dia_attache:"defense_attache",
+      cdc_epi:"doctor",
+      cdc_lab:"scientist",
+      fbi_special:"investigator",
+      atf_special:"investigator",
+      ice_hsi:"investigator",
+      usms_deputy:"investigator",
+      dea_special:"investigator",
+      dgse_action:"paramilitary",
+      sis_action:"paramilitary",
+      army_delta:"paramilitary",
+      navy_seal:"paramilitary",
+      usmc_raider:"paramilitary"
+    };
+    return map[ctx.profession] || null;
+  }
+
+  return ctx.profession || null;
+}
+
+function replaceStartingEquipmentForCurrentContext(silent = false) {
+  const system = profileKeyForCampaign();
+  const ctx = readContextFields($("#characterContextEditor"));
+  const key = equipmentPresetKey(ctx);
+  const preset = EQUIPMENT_PRESETS[system]?.[key];
+
+  // Preserve equipment explicitly added by the user. Remove only items that
+  // came from a previous starting-equipment preset.
+  state.editingEquipment = state.editingEquipment.filter(item => {
+    return !item.sourcePreset || item.sourcePreset === "custom" || item.sourcePreset === "catalog";
+  });
+
+  if (!preset?.length) {
+    renderEquipmentEditor();
+    if (!silent) showToast("Aucun équipement de départ prédéfini pour ce profil.");
+    return;
+  }
+
+  const catalog = equipmentCatalog();
+  for (const name of preset) {
+    const found = catalog.find(x => x[0] === name);
+    if (found) addEquipmentEntry(found[0], found[1], found[2] || "", 1, key, found[3] || null);
+    else addEquipmentEntry(name, "equipment", "", 1, key);
+  }
+
+  renderEquipmentEditor();
+  if (!silent) showToast("Équipement de départ réinitialisé selon la profession / classe.");
+}
+
+function applyStartingEquipment() {
+  replaceStartingEquipmentForCurrentContext(false);
+}
+
+async function loadCharacterEquipment(characterId) {
+  if (!characterId) {
+    state.editingEquipment = [];
+    state.originalEquipmentIds = [];
+    return;
+  }
+
+  const rows = await JDRDB.getAllByIndex("items", "ownerCharacterId", characterId);
+  const active = rows.filter(x => !x.deleted);
+  state.editingEquipment = active.map(x => ({...x}));
+  state.originalEquipmentIds = active.map(x => x.id);
+}
+
+async function persistCharacterEquipment(characterId) {
+  const activeIds = new Set(state.editingEquipment.map(x => x.id));
+
+  for (const oldId of state.originalEquipmentIds) {
+    if (activeIds.has(oldId)) continue;
+    const old = await JDRDB.get("items", oldId);
+    if (!old) continue;
+    old.deleted = true;
+    old.updatedAt = JDRDB.nowIso();
+    await JDRDB.put("items", old);
+  }
+
+  for (const item of state.editingEquipment) {
+    const row = {
+      ...item,
+      id: item.id || JDRDB.uuid("item"),
+      campaignId: state.campaign.id,
+      ownerCharacterId: characterId,
+      locationId: null,
+      containerItemId: item.containerItemId || null,
+      quantity: Math.max(1, Number(item.quantity || 1)),
+      status: item.status || "carried",
+      canonicalStatus: item.canonicalStatus || "CANON",
+      deleted: false,
+      createdAt: item.createdAt || JDRDB.nowIso(),
+      updatedAt: JDRDB.nowIso()
+    };
+    await JDRDB.put("items", row);
+  }
+
+  state.originalEquipmentIds = state.editingEquipment.map(x => x.id);
+}
+
+
+function numericSystemValue(data, key, fallback = 0) {
+  const value = Number(data?.[key]);
+  return Number.isFinite(value) ? value : fallback;
+}
+
+function dndModifier(score) {
+  return Math.floor((Number(score || 10) - 10) / 2);
+}
+
+function dndProficiencyBonus(level) {
+  return 2 + Math.floor((Math.max(1, Number(level || 1)) - 1) / 4);
+}
+
+function dndFeaturesUpTo(classId, level) {
+  const data = dndClassData(classId);
+  const rows = [];
+  for (let l = 1; l <= Number(level || 1); l++) {
+    for (const feature of (data.features[l] || [])) {
+      rows.push({level:l,feature});
+    }
+  }
+  return rows;
+}
+
+function dndRollHitDie(sides) {
+  return Math.floor(Math.random() * Number(sides || 1)) + 1;
+}
+
+function dndNormalizeHpHistory(classId, level, constitutionScore, existingHistory = [], previousClassId = null) {
+  const cls = dndClassData(classId);
+  const lvl = Math.max(1,Math.min(20,Number(level||1)));
+  const conMod = dndModifier(constitutionScore);
+
+  const source = previousClassId && previousClassId !== classId
+    ? []
+    : (Array.isArray(existingHistory) ? existingHistory : []);
+
+  const byLevel = new Map(
+    source
+      .filter(row => Number(row?.level) >= 1 && Number(row?.level) <= 20)
+      .map(row => [Number(row.level),{...row}])
+  );
+
+  if (!byLevel.has(1)) {
+    byLevel.set(1,{
+      level:1,
+      die:`d${cls.hitDie}`,
+      rawRoll:cls.hitDie,
+      fixed:true
+    });
+  }
+
+  for (let l=2; l<=lvl; l++) {
+    if (!byLevel.has(l)) {
+      byLevel.set(l,{
+        level:l,
+        die:`d${cls.hitDie}`,
+        rawRoll:dndRollHitDie(cls.hitDie),
+        fixed:false
+      });
+    }
+  }
+
+  const history = [...byLevel.values()].sort((a,b)=>a.level-b.level);
+  let total = 0;
+
+  for (const row of history) {
+    const active = row.level <= lvl;
+    const raw = row.level === 1 ? cls.hitDie : Math.max(1,Math.min(cls.hitDie,Number(row.rawRoll||1)));
+    const gained = Math.max(1,raw + conMod);
+
+    row.die = `d${cls.hitDie}`;
+    row.rawRoll = raw;
+    row.conMod = conMod;
+    row.gained = gained;
+    row.active = active;
+
+    if (active) {
+      total += gained;
+      row.totalAtLevel = total;
+    } else {
+      row.totalAtLevel = null;
+    }
+  }
+
+  return {
+    history,
+    hpMax:total,
+    conMod,
+    hitDie:cls.hitDie,
+    classId
+  };
+}
+
+function dndHpHistoryHtml(history = [], currentLevel = 1) {
+  const active = (history || []).filter(row => Number(row.level) <= Number(currentLevel||1));
+  return `
+    <div id="dndHpHistory" class="dnd-hp-history"
+         data-history='${esc(JSON.stringify(history || []))}'>
+      <div class="hp-history-head">
+        <span>Niv.</span><span>Dé</span><span>Jet</span><span>CON</span><span>Gain</span><span>Total</span>
+      </div>
+      ${active.map(row => `
+        <div class="hp-history-row">
+          <span>${row.level}</span>
+          <span>${esc(row.die)}</span>
+          <strong>${row.rawRoll}${row.fixed ? " (max)" : ""}</strong>
+          <span>${Number(row.conMod)>=0?"+":""}${row.conMod}</span>
+          <span>+${row.gained}</span>
+          <strong>${row.totalAtLevel}</strong>
+        </div>
+      `).join("")}
+    </div>`;
+}
+
+function l5rEarthRing(characteristics) {
+  return Math.max(1, Math.min(
+    Number(characteristics.stamina || 1),
+    Number(characteristics.willpower || 1)
+  ));
+}
+
+function l5rWoundState(damage, woundsPerLevel) {
+  damage = Math.max(0, Number(damage || 0));
+  const per = Math.max(1, Number(woundsPerLevel || 1));
+  if (damage === 0) return "Sain";
+  const band = Math.min(7, Math.ceil(damage / per) - 1);
+  return ["0","-1","-2","-3","-4","À terre","Hors de combat","Mort"][band] || "Mort";
+}
+
+function vampireBloodData(generation) {
+  const map = {
+    13:{max:10,perTurn:1,traitMax:5},
+    12:{max:11,perTurn:1,traitMax:5},
+    11:{max:12,perTurn:1,traitMax:5},
+    10:{max:13,perTurn:1,traitMax:5},
+    9:{max:14,perTurn:2,traitMax:5},
+    8:{max:15,perTurn:3,traitMax:5},
+    7:{max:20,perTurn:5,traitMax:6},
+    6:{max:30,perTurn:6,traitMax:7},
+    5:{max:40,perTurn:8,traitMax:8},
+    4:{max:50,perTurn:10,traitMax:9}
+  };
+  return map[Number(generation)] || map[13];
+}
+
+function vampireHealthState(current) {
+  const remaining = Math.max(0, Math.min(7, Number(current ?? 7)));
+  const lost = 7 - remaining;
+  return VAMPIRE_HEALTH_LEVELS[Math.min(lost, VAMPIRE_HEALTH_LEVELS.length - 1)];
+}
+
+function wardMentalCoefficient(mythKnowledge) {
+  const cm = Math.max(0, Math.min(10, Number(mythKnowledge || 0)));
+  if (cm <= 1) return 1;
+  return {2:.95,3:.90,4:.85,5:.80,6:.75,7:.70,8:.65,9:.60,10:.50}[cm] || 1;
+}
+
+function wardSmReference(willpower, humanity) {
+  return Math.floor(((Number(willpower || 0) + Number(humanity || 0)) / 2) * 10);
+}
+
+function readCurrentCharacteristics() {
+  return readCharacteristicsEditor();
+}
+
+function defaultSystemDataForCharacter(character = null) {
+  const key = profileKeyForCampaign();
+  const saved = {...(character?.systemData || {})};
+  const characteristics = readCurrentCharacteristics();
+  const ctx = readContextFields($("#characterContextEditor"));
+
+  if (key === "dnd5") {
+    const level = Math.max(1, Math.min(20, numericSystemValue(saved,"level",1)));
+    const classId = ctx.profession || "fighter";
+    const hpData = dndNormalizeHpHistory(
+      classId,
+      level,
+      characteristics.constitution,
+      saved.hpHistory,
+      saved.hpClassId
+    );
+    const hpMax = hpData.hpMax;
+    const hpCurrent = Math.min(numericSystemValue(saved,"hpCurrent",hpMax),hpMax);
+
+    return {
+      level,
+      subclass:saved.subclass || "",
+      spells:Array.isArray(saved.spells) ? saved.spells : [],
+      customSpells:saved.customSpells || "",
+      npcRole:saved.npcRole || "generic",
+      hpHistory:hpData.history,
+      hpClassId:classId,
+      hpMax,
+      hpCurrent,
+      proficiencyBonus:dndProficiencyBonus(level),
+      classes:isDnd2024() ? dnd2024ClassesFromData(saved,classId) : undefined,
+      species:saved.species || (isDnd2024()?"human":""), heritage:saved.heritage || "", background:saved.background || "",
+      originFeat:saved.originFeat || "", featsText:saved.featsText || "", weaponMasteries:Array.isArray(saved.weaponMasteries)?saved.weaponMasteries:[]
+    };
+  }
+
+  if (key === "l5r1") {
+    const earth = l5rEarthRing(characteristics);
+    const woundsPerLevel = earth * 2;
+    const woundsMax = woundsPerLevel * 8;
+    const socialStatus = ctx.socialStatus || "samurai";
+    const defaultSchoolRank = ["heimin","hinin"].includes(socialStatus) || ctx.profession === "no_school" ? 0 : 1;
+    const schoolRank = Math.max(0,Math.min(5,numericSystemValue(saved,"schoolRank",defaultSchoolRank)));
+    const insight = numericSystemValue(saved,"insight",l5rInsight(characteristics,character?.skills || readSkillsEditor()));
+    return {
+      npcRole:saved.npcRole || "generic",
+      schoolRank,
+      insight,
+      honor:numericSystemValue(saved,"honor",L5R_STARTING_HONOR[ctx.profession] ?? 0),
+      glory:numericSystemValue(saved,"glory",l5rDefaultGlory(ctx,schoolRank)),
+      taint:numericSystemValue(saved,"taint",0),
+      techniquesText:saved.techniquesText || "",
+      socialStatus,
+      occupation:ctx.occupation || "",
+      status:numericSystemValue(saved,"status",l5rDefaultStatus(socialStatus)),
+      woundsCurrent:numericSystemValue(saved,"woundsCurrent",0),
+      woundsPerLevel,
+      woundsMax
+    };
+  }
+
+  if (key === "vampire2") {
+    const generation = Math.max(4, Math.min(13, numericSystemValue(saved,"generation",13)));
+    const blood = vampireBloodData(generation);
+    const virtue1 = numericSystemValue(saved,"virtue1",3);
+    const virtue2 = numericSystemValue(saved,"virtue2",3);
+    const courage = numericSystemValue(saved,"courage",4);
+    const moralityPath = saved.moralityPath || "humanity";
+    const morality = numericSystemValue(saved,"morality",Math.min(10, virtue1 + virtue2));
+    const willpowerPermanent = numericSystemValue(saved,"willpowerPermanent",courage);
+    const npcTier = Math.max(0,Math.min(5,numericSystemValue(saved,"npcTier",1)));
+    const disciplines = saved.disciplines && typeof saved.disciplines === "object"
+      ? saved.disciplines
+      : vampireBaseDisciplines(ctx.clan, isNpcEditor() ? npcTier : null, blood.traitMax);
+
+    return {
+      npcRole:saved.npcRole || "generic",
+      npcTier,
+      generation,
+      traitMax:numericSystemValue(saved,"traitMax",blood.traitMax),
+      disciplines,
+      moralityPath,
+      morality,
+      virtue1,
+      virtue2,
+      courage,
+      willpowerPermanent,
+      willpowerCurrent:numericSystemValue(saved,"willpowerCurrent",willpowerPermanent),
+      healthMax:7,
+      healthCurrent:numericSystemValue(saved,"healthCurrent",7),
+      bloodMax:blood.max,
+      bloodCurrent:numericSystemValue(saved,"bloodCurrent",blood.max),
+      bloodPerTurn:blood.perTurn,
+      backgroundsSpent:numericSystemValue(saved,"backgroundsSpent",5),
+      freebieSpent:numericSystemValue(saved,"freebieSpent",0)
+    };
+  }
+
+  if (key === "ward") {
+    const species = wardNonhumanProfile(ctx);
+    const hpMax = species?.hpMax ?? (10 + (Number(characteristics.stamina || 1) * 2));
+    const willpowerPermanent = numericSystemValue(saved,"willpowerPermanent",species?.willpower ?? 6);
+    const humanityApplicable = !species?.humanityNA;
+    const humanity = humanityApplicable ? numericSystemValue(saved,"humanity",7) : 0;
+    const rmDefault = species?.mentalResilience ?? (willpowerPermanent >= 8 ? 1 : 0);
+    const mentalReferenceDefault = humanityApplicable ? wardSmReference(willpowerPermanent,humanity) : Math.min(100,willpowerPermanent * 10);
+    const mythKnowledge = numericSystemValue(saved,"mythKnowledge",0);
+    const mentalReference = numericSystemValue(saved,"mentalReference",mentalReferenceDefault);
+    const stabilityCap = Math.floor(mentalReference * wardMentalCoefficient(mythKnowledge));
+
+    return {
+      npcRole:saved.npcRole || "generic",
+      expertiseLevel:Math.max(0,Math.min(5,numericSystemValue(saved,"expertiseLevel",1))),
+      formations:Array.isArray(saved.formations) ? saved.formations : [],
+      hpMax:numericSystemValue(saved,"hpMax",hpMax),
+      hpCurrent:numericSystemValue(saved,"hpCurrent",numericSystemValue(saved,"hpMax",hpMax)),
+      willpowerPermanent,
+      willpowerCurrent:numericSystemValue(saved,"willpowerCurrent",willpowerPermanent),
+      humanity,
+      humanityApplicable,
+      speciesId:ctx.alienSpecies || "",
+      speciesLabel:species?.label || "",
+      armor:numericSystemValue(saved,"armor",species?.armor ?? 0),
+      psychicResistance:numericSystemValue(saved,"psychicResistance",species?.psychicResistance ?? 0),
+      mentalResilience:numericSystemValue(saved,"mentalResilience",rmDefault),
+      mentalReference,
+      mentalCurrent:Math.min(
+        numericSystemValue(saved,"mentalCurrent",mentalReference),
+        stabilityCap
+      ),
+      mythKnowledge,
+      stabilityCap,
+      cumulativeStress:numericSystemValue(saved,"cumulativeStress",0)
+    };
+  }
+
+  return {
+    npcRole:saved.npcRole || "generic",
+    hpMax:numericSystemValue(saved,"hpMax",10),
+    hpCurrent:numericSystemValue(saved,"hpCurrent",numericSystemValue(saved,"hpMax",10))
+  };
+}
+
+function systemInputField(label,key,value,{min=null,max=null,type="number",step="1"}={}) {
+  const attrs = [
+    `data-system-key="${esc(key)}"`,
+    `type="${esc(type)}"`,
+    `value="${esc(value ?? "")}"`,
+    min !== null ? `min="${min}"` : "",
+    max !== null ? `max="${max}"` : "",
+    step ? `step="${step}"` : ""
+  ].filter(Boolean).join(" ");
+
+  return `<div class="system-value-field"><label>${esc(label)}</label><input ${attrs} /></div>`;
+}
+
+function systemSelectField(label,key,value,options) {
+  return `<div class="system-value-field">
+    <label>${esc(label)}</label>
+    <select data-system-key="${esc(key)}">
+      ${options.map(([v,l]) => `<option value="${esc(v)}" ${String(value)===String(v)?"selected":""}>${esc(l)}</option>`).join("")}
+    </select>
+  </div>`;
+}
+
+function renderSystemSpecificEditor(character = null) {
+  const key = profileKeyForCampaign();
+  const data = defaultSystemDataForCharacter(character);
+  const characteristics = readCurrentCharacteristics();
+  const ctx = readContextFields($("#characterContextEditor"));
+  const box = $("#systemSpecificEditor");
+
+  if (key === "dnd5") {
+    const classId = ctx.profession || "fighter";
+    const cls = dndClassData(classId);
+    const features = dndFeaturesUpTo(classId,data.level);
+
+    $("#systemValuesTitle").textContent = `D&D ${dndRulesEdition() === "2024" ? "5.5e / 2024" : "5e / 2014"} — ${cls.label}`;
+    box.innerHTML = `
+      <div class="system-values-grid">
+        ${isNpcEditor() ? systemSelectField("Archétype PNJ","npcRole",data.npcRole,NPC_ARCHETYPES) : ""}
+        ${isNpcEditor() && !isDnd2024() ? systemSelectField("Créature 2014","creatureTemplate",data.creatureTemplate||"",dndCreatureOptions()) : ""}
+        ${systemInputField("Niveau","level",data.level,{min:1,max:20})}
+        ${systemInputField("PV actuels","hpCurrent",data.hpCurrent,{min:0,max:data.hpMax})}
+        ${systemInputField("PV maximum calculés","hpMax",data.hpMax,{min:1})}
+        ${systemInputField("Bonus de maîtrise","proficiencyBonus",data.proficiencyBonus,{min:2,max:6})}
+        ${Number(data.level||1) >= dndSubclassLevel(classId) ? systemSelectField(dndSubclassLabel(classId),"subclass",data.subclass,dndSubclassOptions(classId)) : `<div class="system-value-field"><label>${esc(dndSubclassLabel(classId))}</label><div class="system-note">Accessible au niveau ${dndSubclassLevel(classId)}</div></div>`}
+      </div>
+      ${isNpcEditor() && !isDnd2024() ? `<div class="system-derived"><strong>Bestiaire D&D 5e 2014 — ${DND_CREATURES_2014.length} profils</strong><div class="system-values-grid">${systemSelectField("Type","dndCreatureType","",dndCreatureFilterOptions("type")).replace('data-system-key="dndCreatureType"','id="dndCreatureType"')}${systemSelectField("Taille","dndCreatureSize","",dndCreatureFilterOptions("size")).replace('data-system-key="dndCreatureSize"','id="dndCreatureSize"')}${systemSelectField("FP","dndCreatureCr","",dndCreatureFilterOptions("cr")).replace('data-system-key="dndCreatureCr"','id="dndCreatureCr"')}${systemSelectField("Couleur de dragon","dndDragonColor","",dndCreatureFilterOptions("dragonColor")).replace('data-system-key="dndDragonColor"','id="dndDragonColor"')}${systemSelectField("Âge de dragon","dndDragonAge","",dndCreatureFilterOptions("dragonAge")).replace('data-system-key="dndDragonAge"','id="dndDragonAge"')}${systemSelectField("Environnement pratique","dndCreatureEnvironment","",dndCreatureFilterOptions("environment")).replace('data-system-key="dndCreatureEnvironment"','id="dndCreatureEnvironment"')}<div class="system-value-field"><label>Recherche</label><input id="dndCreatureSearch" placeholder="nom, type, capacité…"></div></div><div class="system-note">Type, taille et FP proviennent du profil 2014. « Environnement pratique » est un filtre de navigation déduit des modes de déplacement, pas une statistique officielle.</div><div id="dndCreatureSummary" class="system-note">Choisissez une créature ci-dessus pour appliquer ses caractéristiques de base au PNJ. Le profil reste ensuite modifiable par le MJ.</div></div>` : ""}
+      ${dndClassAccessHtml(classId,data.level)}
+      <div class="system-derived">
+        <strong>Progression des PV par niveau — d${cls.hitDie}</strong>
+        ${dndHpHistoryHtml(data.hpHistory,data.level)}
+        <div class="system-note">Niveau 1 : maximum du dé de vie. À chaque nouveau niveau, le dé de vie de la classe est lancé une seule fois et le résultat brut est conservé dans la fiche. Un changement de Constitution recalcule le bonus de chaque niveau sans relancer les dés.</div>
+      </div>
+      ${isDnd2024() ? dnd2024OriginHtml(data) + dnd2024MulticlassHtml(dnd2024ClassesFromData(data,classId)) + dnd2024MasteryHtml(data,dnd2024ClassesFromData(data,classId)) : ""}
+      ${classId === "wizard" ? `<div class="system-derived magic-tradition-note">
+        <strong>Tradition magique</strong>
+        Le Magicien choisit sa Tradition arcanique au niveau ${dndSubclassLevel("wizard")}. Le choix reste visible dès la création pour préparer la progression.
+      </div>` : ""}
+      ${dndSpellChoicesHtml(classId,data.subclass,data.level,data.spells,data.customSpells,characteristics)}
+      <div class="system-derived">
+        <strong>Aptitudes de classe débloquées jusqu’au niveau ${data.level}</strong>
+        <div class="system-feature-list" id="dndClassFeatures">
+          ${features.map(f => `<span class="system-feature ${f.level===data.level?"new-level":""}">N${f.level} · ${esc(f.feature)}</span>`).join("")}
+        </div>
+      </div>
+      <div class="system-note"><strong>Édition active : ${dndRulesEdition()}.</strong> Les données de progression, sous-classes et magie sont isolées par édition ; les règles 2014 ne sont pas mélangées silencieusement avec 2024.</div>
+      <div class="system-note">Les PV maximum sont maintenant issus des jets de dés enregistrés niveau par niveau. Les emplacements et limites de sorts suivent la classe, la sous-classe et le niveau.</div>
+    `;
+  } else if (key === "l5r1") {
+    const stateLabel = l5rWoundState(data.woundsCurrent,data.woundsPerLevel);
+    const computedInsight = l5rInsight(characteristics,readSkillsEditor());
+    const computedRank = l5rRankForInsight(computedInsight);
+    const rings = l5rRings(characteristics);
+    $("#systemValuesTitle").textContent = "L5R 1E — Rang d’École, réputation et Blessures";
+    box.innerHTML = `
+      <div class="system-values-grid">
+        ${isNpcEditor() ? systemSelectField("Archétype PNJ","npcRole",data.npcRole,NPC_ARCHETYPES) : ""}
+        ${systemSelectField("Rang d’École / Insight","schoolRank",data.schoolRank,[[0,"0 — Sans école / PNJ mineur"],[1,"1"],[2,"2"],[3,"3"],[4,"4"],[5,"5"]])}
+        ${systemInputField("Réputation / Insight","insight",computedInsight,{min:0})}
+        ${systemInputField("Honneur","honor",data.honor,{min:0,max:10,step:"0.1"})}
+        ${systemInputField("Gloire","glory",data.glory,{min:0,max:10,step:"0.1"})}
+        ${systemInputField("Souillure","taint",data.taint,{min:0,step:"0.1"})}
+        ${systemInputField("Techniques d’école acquises","techniquesText",data.techniquesText,{type:"text"})}
+        ${systemInputField("Blessures subies","woundsCurrent",data.woundsCurrent,{min:0,max:data.woundsMax})}
+        ${systemInputField("Blessures / niveau","woundsPerLevel",data.woundsPerLevel,{min:1})}
+        ${systemInputField("Seuil mortel total","woundsMax",data.woundsMax,{min:1})}
+      </div>
+      <div class="system-derived npc-generator-summary">
+        <strong>Lecture automatique</strong>
+        Origine : ${esc(labelForOption(CHARACTER_CONTEXT_CONFIG.l5r1.fields[0].options,data.socialStatus || "samurai"))} · Profession : ${esc(ctx.occupation || "non précisée")}.<br>
+        Réputation / Insight calculée : ${computedInsight} · Rang correspondant : ${computedRank}.
+        Une profession est indépendante de l’École : un heimin, hinin/eta ou autre personnage sans dojo peut avoir Rang d’École 0 tout en possédant de vraies compétences professionnelles.
+      </div>
+      <div class="system-derived"><strong>Anneaux</strong>Terre ${rings.earth} · Eau ${rings.water} · Feu ${rings.fire} · Air ${rings.air} · Vide ${rings.void}</div>
+      <div class="system-derived"><strong>État actuel</strong>${esc(stateLabel)} · Souillure ${Number(data.taint||0).toFixed(1)}</div>
+      <div class="system-note">L’Insight est calculé par 10 × somme des Anneaux + somme des rangs de Compétence. Les Anneaux suivent la présentation Terre (Endurance/Volonté), Eau (Force/Perception), Feu (Agilité/Intelligence), Air (Réflexes/Intuition) et Vide. Les valeurs supérieures à 5 restent saisissables pour les personnages exceptionnels ; les limites normales de création restent une règle distincte.</div>
+      <div class="system-note">La Gloire proposée pour les métiers/fonctions sans école est une convention du générateur, toujours modifiable par le MJ ; elle ne prétend pas être une table canonique L5R.</div>
+    `;
+  } else if (key === "vampire2") {
+    const healthState = vampireHealthState(data.healthCurrent);
+    $("#systemValuesTitle").textContent = "Vampire V2 — Génération, moralité et Santé";
+    box.innerHTML = `
+      <div class="system-values-grid">
+        ${isNpcEditor() ? systemSelectField("Archétype PNJ","npcRole",data.npcRole,NPC_ARCHETYPES) : ""}
+        ${isNpcEditor() ? systemSelectField("Importance / puissance PNJ","npcTier",data.npcTier,VAMPIRE_NPC_TIERS) : ""}
+        ${systemSelectField("Génération","generation",data.generation,[[13,"13e"],[12,"12e"],[11,"11e"],[10,"10e"],[9,"9e"],[8,"8e"],[7,"7e"],[6,"6e"],[5,"5e"],[4,"4e"]])}
+        ${systemSelectField("Humanité / Voie","moralityPath",data.moralityPath,VAMPIRE_PATHS)}
+        ${systemInputField("Score Humanité / Voie","morality",data.morality,{min:0,max:10})}
+        ${systemInputField("Conscience / Conviction","virtue1",data.virtue1,{min:0,max:5})}
+        ${systemInputField("Maîtrise de soi / Instinct","virtue2",data.virtue2,{min:0,max:5})}
+        ${systemInputField("Courage","courage",data.courage,{min:1,max:5})}
+        ${systemInputField("Volonté permanente","willpowerPermanent",data.willpowerPermanent,{min:1,max:10})}
+        ${systemInputField("Volonté actuelle","willpowerCurrent",data.willpowerCurrent,{min:0,max:10})}
+        ${systemInputField("Santé actuelle","healthCurrent",data.healthCurrent,{min:0,max:7})}
+        ${systemInputField("Niveaux de Santé max","healthMax",7,{min:7,max:7})}
+        ${systemInputField("Sang actuel","bloodCurrent",data.bloodCurrent,{min:0,max:data.bloodMax})}
+        ${systemInputField("Réserve de Sang max","bloodMax",data.bloodMax,{min:1})}
+        ${systemInputField("Sang / tour","bloodPerTurn",data.bloodPerTurn,{min:1})}
+        ${!isNpcEditor() ? systemInputField("Points d’Historiques initiaux","backgroundsSpent",data.backgroundsSpent,{min:0,max:5}) : ""}
+        ${!isNpcEditor() ? systemInputField("Points gratuits dépensés","freebieSpent",data.freebieSpent,{min:0,max:15}) : ""}
+      </div>
+      ${vampireDisciplineGridHtml(ctx.clan,data.disciplines,data.traitMax)}
+      ${!isNpcEditor() ? vampireCreationAuditHtml(characteristics, character?.skills || readSkillsEditor(), data, ctx.clan) : ""}
+      <div class="system-derived">
+        <strong>État de Santé</strong>${esc(healthState)}
+        <div class="health-track">
+          ${["Contusionné","Blessé","Blessé sérieusement","Meurtri","Estropié","Invalide","Incapacité"]
+            .map((name,i) => `<span class="health-box ${7-data.healthCurrent===i+1?"active":""}">${esc(name)}</span>`).join("")}
+        </div>
+      </div>
+      <div class="system-note">Par défaut, Humanité = Conscience + Maîtrise de soi et Volonté = Courage avant dépenses de points supplémentaires. Une Voie peut remplacer les vertus correspondantes.</div>
+    `;
+  } else if (key === "ward") {
+    $("#systemValuesTitle").textContent = "W.A.R.D. — Santé physique et mentale";
+    box.innerHTML = `
+      <div class="system-values-grid">
+        ${isNpcEditor() ? systemSelectField("Archétype PNJ","npcRole",data.npcRole,NPC_ARCHETYPES) : ""}
+        ${isNpcEditor() ? systemSelectField("Niveau d’expertise PNJ","expertiseLevel",data.expertiseLevel,WARD_EXPERTISE_LEVELS) : ""}
+        ${systemInputField("PV actuels","hpCurrent",data.hpCurrent,{min:0,max:data.hpMax})}
+        ${systemInputField("PV maximum","hpMax",data.hpMax,{min:1})}
+        ${systemInputField("Volonté permanente","willpowerPermanent",data.willpowerPermanent,{min:3,max:10})}
+        ${systemInputField("Volonté actuelle","willpowerCurrent",data.willpowerCurrent,{min:0,max:10})}
+        ${data.humanityApplicable ? systemInputField("Humanité","humanity",data.humanity,{min:0,max:10}) : `<div class="system-readonly"><strong>Humanité</strong><span>N/A</span></div>`}
+        ${systemInputField("Résilience Mentale (RM)","mentalResilience",data.mentalResilience,{min:0,max:10})}
+        ${systemInputField("Résistance d’armure naturelle (RA)","armor",data.armor,{min:0,max:10})}
+        ${systemInputField("SR psychique racial","psychicResistance",data.psychicResistance,{min:0,max:10})}
+        ${systemInputField("SM Référence","mentalReference",data.mentalReference,{min:0,max:100})}
+        ${systemInputField("SM actuelle","mentalCurrent",data.mentalCurrent,{min:0,max:data.stabilityCap})}
+        ${systemInputField("Connaissance du Mythe","mythKnowledge",data.mythKnowledge,{min:0,max:10})}
+        ${systemInputField("Plafond de stabilité","stabilityCap",data.stabilityCap,{min:0,max:100})}
+        ${systemInputField("Stress cumulatif (SC)","cumulativeStress",data.cumulativeStress,{min:0})}
+      </div>
+      ${isNpcEditor() ? `<div class="system-derived npc-generator-summary">
+        <strong>Formations proposées pour ce niveau d’expertise</strong>
+        <div id="wardFormationList">
+          ${(data.formations || []).length
+            ? data.formations.map(f=>`<span class="formation-chip">${esc(f)}</span>`).join("")
+            : `<span class="row-sub">Aucune formation automatique à ce niveau.</span>`}
+        </div>
+      </div>` : ""}
+      <div class="system-derived">
+        <strong>Références automatiques</strong>
+        ${data.speciesLabel ? `<b>${esc(data.speciesLabel)}</b> — ` : ""}PV selon profil biologique ; ${data.humanityApplicable ? "SM Référence = ((Volonté permanente + Humanité) ÷ 2) × 10." : "Humanité N/A ; SM Référence = Volonté × 10."}
+      </div>
+      ${wardNonhumanProfile(ctx) ? `<div class="system-note"><b>Profil non humain :</b> ${esc(wardNonhumanProfile(ctx).status)} — ${esc(wardNonhumanProfile(ctx).note)}</div>` : ""}
+      <div class="system-note">La SM Référence est normalement figée après la création. Le bouton « Recalculer » sert donc surtout lors de la création ou après une correction volontaire du MJ. Le niveau d’expertise PNJ 0–5 qualifie le profil du générateur ; il ne devient jamais un rang de Compétence : le générateur respecte le plafond mécanique de 4.</div>
+    `;
+  } else {
+    $("#systemValuesTitle").textContent = "Santé";
+    box.innerHTML = `<div class="system-values-grid">
+      ${isNpcEditor() ? systemSelectField("Archétype PNJ","npcRole",data.npcRole || "generic",NPC_ARCHETYPES) : ""}
+      ${systemInputField("Santé / PV actuels","hpCurrent",data.hpCurrent,{min:0})}
+      ${systemInputField("Santé / PV maximum","hpMax",data.hpMax,{min:1})}
+    </div>`;
+  }
+
+  bindSystemSpecificEditorEvents(character);
+}
+
+function readSystemSpecificEditor() {
+  const data = {};
+  $$("#systemSpecificEditor [data-system-key]").forEach(el => {
+    const key = el.dataset.systemKey;
+    if (el.type === "number") data[key] = Number(el.value || 0);
+    else data[key] = el.value;
+  });
+
+  if (profileKeyForCampaign() === "dnd5") {
+    data.spells = $$("#systemSpecificEditor .dnd-spell-check:checked").map(x => x.value);
+    const historyBox = $("#dndHpHistory");
+    try {
+      data.hpHistory = JSON.parse(historyBox?.dataset.history || "[]");
+    } catch {
+      data.hpHistory = [];
+    }
+    data.hpClassId = readContextFields($("#characterContextEditor")).profession || "fighter";
+    if (isDnd2024()) {
+      const rows=$$("#dnd2024Classes .dnd-multiclass-row");
+      data.classes=rows.map((row,i)=>({classId:row.querySelector(`[data-system-key="class_${i}"]`)?.value || (i===0?data.hpClassId:"fighter"),level:Number(row.querySelector(`[data-system-key="classLevel_${i}"]`)?.value||1),subclass:i===0?(data.subclass||""):""}));
+      data.level=dnd2024TotalLevel(data.classes);
+      data.weaponMasteries=$$("#systemSpecificEditor .dnd-mastery-check:checked").map(x=>x.value);
+    }
+  }
+
+  if (profileKeyForCampaign() === "vampire2") {
+    data.disciplines = {};
+    $$("#systemSpecificEditor .vampire-discipline-input").forEach(input => {
+      data.disciplines[input.dataset.discipline] = Number(input.value || 0);
+    });
+  }
+
+  if (profileKeyForCampaign() === "ward") {
+    const current = state.characters.find(c => c.id === $("#characterEditId").value);
+    const prior = current?.systemData?.formations;
+    if (!Array.isArray(data.formations)) {
+      const visible = $$("#wardFormationList .formation-chip").map(x => x.textContent.trim());
+      data.formations = visible.length ? visible : (Array.isArray(prior) ? prior : []);
+    }
+  }
+
+  return data;
+}
+
+function refreshDndSystemEditor() {
+  if (profileKeyForCampaign() !== "dnd5") return;
+
+  const current = readSystemSpecificEditor();
+  let level = Math.max(1, Math.min(20, Number(current.level || 1)));
+  const ctx = readContextFields($("#characterContextEditor"));
+  if (isDnd2024() && Array.isArray(current.classes)) level=Math.max(1,Math.min(20,dnd2024TotalLevel(current.classes)));
+  const characteristics = readCurrentCharacteristics();
+  const classId = ctx.profession || "fighter";
+
+  const hpData = dndNormalizeHpHistory(
+    classId,
+    level,
+    characteristics.constitution,
+    current.hpHistory,
+    current.hpClassId
+  );
+
+  current.level = level;
+  current.hpHistory = hpData.history;
+  current.hpClassId = classId;
+  current.hpMax = hpData.hpMax;
+  current.hpCurrent = Math.min(Number(current.hpCurrent || current.hpMax),current.hpMax);
+  current.proficiencyBonus = dndProficiencyBonus(level);
+
+  // Remove selections that are no longer accessible after a level/subclass change.
+  const maxSpell = dndMaxSpellLevel(classId,current.subclass,level);
+  current.spells = (current.spells || []).filter(name => {
+    const spellLevel = dndSpellLevelForName(classId,current.subclass,name);
+    return spellLevel === 0 || (Number.isFinite(spellLevel) && spellLevel <= maxSpell);
+  });
+
+  const temp = {
+    systemData:current,
+    characteristics,
+    skills:readSkillsEditor(),
+    generationContext:ctx
+  };
+  renderSystemSpecificEditor(temp);
+}
+
+
+function applyGeneratedNpcProfile() {
+  if (!isNpcEditor()) return showToast("Le générateur de puissance PNJ s’applique aux PNJ.");
+
+  const key = profileKeyForCampaign();
+  const ctx = readContextFields($("#characterContextEditor"));
+  const systemData = readSystemSpecificEditor();
+  let generated = null;
+
+  if (key === "dnd5") {
+    generated = dndNpcBuild(ctx,systemData);
+  } else if (key === "l5r1") {
+    generated = l5rNpcBuild(ctx,systemData);
+  } else if (key === "vampire2") {
+    const blood = vampireBloodData(systemData.generation || 13);
+    systemData.traitMax = blood.traitMax;
+    systemData.bloodMax = blood.max;
+    systemData.bloodPerTurn = blood.perTurn;
+    systemData.bloodCurrent = Math.min(Number(systemData.bloodCurrent || blood.max),blood.max);
+    systemData.disciplines = vampireBaseDisciplines(
+      ctx.clan,
+      Number(systemData.npcTier || 1),
+      blood.traitMax
+    );
+    generated = vampireNpcBuild(ctx,systemData);
+  } else if (key === "ward") {
+    generated = wardNpcBuildByExpertise(ctx,systemData);
+    systemData.formations = generated.formations || [];
+  } else {
+    showToast("Ce système n’a pas encore de générateur PNJ spécialisé.");
+    return;
+  }
+
+  if (generated?.characteristics) {
+    $$("#characteristicsEditor .characteristic-input").forEach(input => {
+      if (generated.characteristics[input.dataset.key] !== undefined) {
+        input.value = generated.characteristics[input.dataset.key];
+      }
+    });
+  }
+
+  if (generated?.skills) {
+    $$("#skillsEditor .skill-input").forEach(input => {
+      const value = generated.skills[input.dataset.skill];
+      if (value === undefined) return;
+      input.value = value;
+    });
+  }
+
+  // Rebuild derived values while preserving the user's selected tier/role.
+  const temp = {
+    systemData,
+    characteristics:generated?.characteristics || readCurrentCharacteristics(),
+    skills:generated?.skills || readSkillsEditor(),
+    generationContext:ctx
+  };
+
+  if (key === "l5r1" && generated) {
+    systemData.insight = l5rInsight(generated.characteristics,generated.skills);
+    systemData.schoolRank = Number(systemData.schoolRank || l5rRankForInsight(systemData.insight));
+    if (!Number.isFinite(Number(systemData.glory))) systemData.glory = 1;
+  }
+
+  renderSystemSpecificEditor(temp);
+
+  // Re-apply generated characteristics/skills because renderSystemSpecificEditor only rebuilds derived panel.
+  showToast(`PNJ généré : ${npcRoleLabel(systemData.npcRole || "generic")}.`);
+}
+
+function recalculateSystemValues() {
+  const key = profileKeyForCampaign();
+  const existing = readSystemSpecificEditor();
+  const characteristics = readCurrentCharacteristics();
+
+  if (key === "dnd5") {
+    const ctx = readContextFields($("#characterContextEditor"));
+    const level = Math.max(1,Math.min(20,Number(existing.level || 1)));
+    const classId = ctx.profession || "fighter";
+    const hpData = dndNormalizeHpHistory(
+      classId,
+      level,
+      characteristics.constitution,
+      existing.hpHistory,
+      existing.hpClassId
+    );
+    existing.hpHistory = hpData.history;
+    existing.hpClassId = classId;
+    existing.hpMax = hpData.hpMax;
+    existing.hpCurrent = Math.min(Number(existing.hpCurrent || existing.hpMax),existing.hpMax);
+    existing.proficiencyBonus = dndProficiencyBonus(level);
+  } else if (key === "l5r1") {
+    const earth = l5rEarthRing(characteristics);
+    existing.woundsPerLevel = earth * 2;
+    existing.woundsMax = existing.woundsPerLevel * 8;
+    existing.woundsCurrent = Math.min(Number(existing.woundsCurrent || 0),existing.woundsMax);
+    existing.insight = l5rInsight(characteristics,readSkillsEditor());
+    if (Number(existing.schoolRank || 0) > 0) {
+      existing.schoolRank = l5rRankForInsight(existing.insight);
+    }
+  } else if (key === "vampire2") {
+    const blood = vampireBloodData(existing.generation || 13);
+    existing.bloodMax = blood.max;
+    existing.bloodPerTurn = blood.perTurn;
+    existing.traitMax = blood.traitMax;
+    existing.bloodCurrent = Math.min(Number(existing.bloodCurrent || blood.max),blood.max);
+    existing.disciplines = existing.disciplines || vampireBaseDisciplines(
+      readContextFields($("#characterContextEditor")).clan,
+      isNpcEditor() ? Number(existing.npcTier || 1) : null,
+      blood.traitMax
+    );
+    if ((existing.moralityPath || "humanity") === "humanity") {
+      existing.morality = Math.min(10,Number(existing.virtue1 || 0) + Number(existing.virtue2 || 0));
+    }
+    existing.willpowerPermanent = Number(existing.courage || existing.willpowerPermanent || 1);
+    existing.willpowerCurrent = Math.min(Number(existing.willpowerCurrent || existing.willpowerPermanent),existing.willpowerPermanent);
+    existing.healthMax = 7;
+    existing.healthCurrent = Math.min(7,Number(existing.healthCurrent ?? 7));
+  } else if (key === "ward") {
+    const wardCtx = readContextFields($("#characterContextEditor"));
+    const species = wardNonhumanProfile(wardCtx);
+    existing.hpMax = species?.hpMax ?? (10 + (Number(characteristics.stamina || 1) * 2));
+    existing.hpCurrent = Math.min(Number(existing.hpCurrent || existing.hpMax),existing.hpMax);
+
+    const will = Number(existing.willpowerPermanent || species?.willpower || 6);
+    const humanityApplicable = !species?.humanityNA;
+    const humanity = humanityApplicable ? Number(existing.humanity || 7) : 0;
+    existing.humanityApplicable = humanityApplicable;
+    existing.humanity = humanity;
+    existing.armor = Number(existing.armor ?? species?.armor ?? 0);
+    existing.psychicResistance = Number(existing.psychicResistance ?? species?.psychicResistance ?? 0);
+    existing.willpowerCurrent = Math.min(Number(existing.willpowerCurrent || will),will);
+    if (will >= 8 && Number(existing.mentalResilience || 0) < 1) existing.mentalResilience = 1;
+    existing.mentalReference = humanityApplicable ? wardSmReference(will,humanity) : Math.min(100,will * 10);
+    existing.stabilityCap = Math.floor(existing.mentalReference * wardMentalCoefficient(existing.mythKnowledge || 0));
+    existing.mentalCurrent = Math.min(Number(existing.mentalCurrent || existing.mentalReference),existing.stabilityCap);
+  }
+
+  // Re-render by passing a temporary character carrying the recalculated values.
+  const temp = {
+    systemData:existing,
+    characteristics:readCurrentCharacteristics(),
+    generationContext:readContextFields($("#characterContextEditor"))
+  };
+  renderSystemSpecificEditor(temp);
+  showToast("Valeurs du système recalculées.");
+}
+
+function bindSystemSpecificEditorEvents(character = null) {
+  if (profileKeyForCampaign() === "dnd5") {
+    $("#systemSpecificEditor [data-system-key='level']")?.addEventListener("change", refreshDndSystemEditor);
+    $("#systemSpecificEditor [data-system-key='subclass']")?.addEventListener("change", refreshDndSystemEditor);
+    $("#systemSpecificEditor [data-system-key='creatureTemplate']")?.addEventListener("change", e => applyDndCreatureTemplate(e.target.value));
+    ["#dndCreatureType","#dndCreatureSize","#dndCreatureCr","#dndCreatureEnvironment"].forEach(id=>$(id)?.addEventListener("change",refreshDndCreatureCatalog));
+    $("#dndCreatureSearch")?.addEventListener("input",refreshDndCreatureCatalog);
+    if (isDnd2024()) {
+      $("#dndAddClass")?.addEventListener("click",()=>{ const d=readSystemSpecificEditor(); d.classes=d.classes||[]; if(dnd2024TotalLevel(d.classes)>=20) return showToast("Le niveau total ne peut pas dépasser 20."); d.classes.push({classId:"fighter",level:1,subclass:""}); const temp={systemData:d,characteristics:readCurrentCharacteristics(),skills:readSkillsEditor(),generationContext:readContextFields($("#characterContextEditor"))}; renderSystemSpecificEditor(temp); });
+      $$(".dnd-remove-class").forEach(b=>b.addEventListener("click",()=>{ const d=readSystemSpecificEditor(); d.classes.splice(Number(b.dataset.index),1); const temp={systemData:d,characteristics:readCurrentCharacteristics(),skills:readSkillsEditor(),generationContext:readContextFields($("#characterContextEditor"))}; renderSystemSpecificEditor(temp); }));
+      $$("#dnd2024Classes select,#dnd2024Classes input").forEach(x=>x.addEventListener("change",refreshDndSystemEditor));
+      $$(".dnd-mastery-check").forEach(x=>x.addEventListener("change",()=>{ const d=readSystemSpecificEditor(), max=(d.classes||[]).reduce((m,c)=>Math.max(m,dnd2024MasteryCount(c.classId,c.level)),0); if(d.weaponMasteries.length>max){x.checked=false;showToast(`Maximum ${max} maîtrises d’armes pour ce profil.`);}}));
+    }
+
+    $$("#systemSpecificEditor .dnd-spell-check").forEach(input => {
+      input.addEventListener("change", () => {
+        const ctx = readContextFields($("#characterContextEditor"));
+        const systemData = readSystemSpecificEditor();
+        const characteristics = readCurrentCharacteristics();
+        const summary = dndSpellLimitSummary(
+          ctx.profession || "fighter",
+          systemData.subclass || "",
+          systemData.level || 1,
+          characteristics,
+          systemData.spells || []
+        );
+
+        const spellLevel = dndSpellLevelForName(ctx.profession || "fighter",systemData.subclass || "",input.value);
+        const isCantrip = spellLevel === 0;
+        let overLimit = false;
+
+        if (isCantrip && summary.selectedCantrips > summary.cantrips) {
+          overLimit = true;
+        } else if (!isCantrip && summary.mode === "known" && summary.selectedLeveled > summary.known) {
+          overLimit = true;
+        } else if (!isCantrip && summary.mode === "prepared" && summary.selectedLeveled > summary.prepared) {
+          overLimit = true;
+        }
+
+        if (overLimit && input.checked) {
+          input.checked = false;
+          showToast("Limite de sorts atteinte pour cette classe et ce niveau.");
+        }
+
+        const finalData = readSystemSpecificEditor();
+        const finalSummary = dndSpellLimitSummary(
+          ctx.profession || "fighter",
+          finalData.subclass || "",
+          finalData.level || 1,
+          characteristics,
+          finalData.spells || []
+        );
+        const cantripCounter = $("#dndSpellLimits [data-spell-count='cantrips']");
+        const leveledCounter = $("#dndSpellLimits [data-spell-count='leveled']");
+        if (cantripCounter) cantripCounter.textContent = finalSummary.selectedCantrips;
+        if (leveledCounter) leveledCounter.textContent = finalSummary.selectedLeveled;
+      });
+    });
+  }
+
+  if (profileKeyForCampaign() === "vampire2") {
+    $("#systemSpecificEditor [data-system-key='generation']")?.addEventListener("change", recalculateSystemValues);
+  }
+
+  $("#generateNpcProfileButton")?.classList.toggle("hidden", !isNpcEditor());
+}
+
+async function copyText(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+    showToast("Copié dans le presse-papiers.");
+  } catch {
+    showToast("Copie automatique indisponible dans ce contexte.");
+  }
+}
+
+
+function isSafePortraitSrc(value) {
+  return typeof value === "string"
+    && /^data:image\/(?:png|jpeg|webp);base64,/i.test(value);
+}
+
+function characterInitials(characterOrName) {
+  const name = typeof characterOrName === "string"
+    ? characterOrName
+    : (characterOrName?.name || "");
+  return name.split(/\s+/).filter(Boolean).map(x => x[0]).slice(0,2).join("").toUpperCase() || "?";
+}
+
+function characterPortraitMarkup(c, className = "character-card-portrait") {
+  if (isSafePortraitSrc(c?.portrait)) {
+    return `<div class="${className}"><img src="${c.portrait}" alt="Portrait de ${esc(c.name || "personnage")}" /></div>`;
+  }
+  return `<div class="${className}">${esc(c?.initials || characterInitials(c))}</div>`;
+}
+
+function updateCharacterPortraitPreview() {
+  const box = $("#characterPortraitPreview");
+  const fallback = $("#characterPortraitFallback");
+  const remove = $("#removeCharacterPortraitButton");
+  if (!box || !fallback || !remove) return;
+
+  box.querySelectorAll("img").forEach(img => img.remove());
+
+  if (isSafePortraitSrc(state.editingPortrait)) {
+    const img = document.createElement("img");
+    img.src = state.editingPortrait;
+    img.alt = "Aperçu du portrait";
+    box.prepend(img);
+    fallback.classList.add("hidden");
+    remove.classList.remove("hidden");
+  } else {
+    fallback.textContent = characterInitials($("#characterEditName")?.value || "?");
+    fallback.classList.remove("hidden");
+    remove.classList.add("hidden");
+  }
+}
+
+function resizePortraitFile(file, maxSize = 640, quality = 0.86) {
+  return new Promise((resolve, reject) => {
+    if (!file || !file.type.startsWith("image/")) {
+      reject(new Error("Fichier image invalide"));
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("Lecture impossible"));
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error("Image illisible"));
+      img.onload = () => {
+        const ratio = Math.min(1, maxSize / Math.max(img.width, img.height));
+        const width = Math.max(1, Math.round(img.width * ratio));
+        const height = Math.max(1, Math.round(img.height * ratio));
+
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, width, height);
+
+        const mime = file.type === "image/png" ? "image/png" : "image/jpeg";
+        resolve(canvas.toDataURL(mime, mime === "image/png" ? undefined : quality));
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function syncCharacterTypeUI() {
+  const isPC = $("#characterEditType")?.value === "PC";
+  $("#playerNameField")?.classList.toggle("hidden", !isPC);
+
+  if (isPC) {
+    $("#characterModalTitle").textContent = $("#characterEditId").value ? "Modifier le PJ" : "Nouveau PJ";
+  } else {
+    $("#characterModalTitle").textContent = $("#characterEditId").value ? "Modifier le PNJ" : "Nouveau PNJ";
+  }
+
+  if ($("#applyProfessionRulesButton")) {
+    $("#applyProfessionRulesButton").textContent =
+      profileKeyForCampaign() === "ward" && !isPC ? "Profil PNJ rapide" : "Profil métier";
+  }
+
+  $("#generateNpcProfileButton")?.classList.toggle("hidden", isPC);
+}
+
+function locationName(id) {
+  return state.locationMap.get(id)?.name || "Lieu inconnu";
+}
+
+
+function currentTime() {
+  return state.campaign?.currentGameTime || "00:00";
+}
+
+function timeToMinutes(value) {
+  if (!value || !/^\d{2}:\d{2}$/.test(value)) return null;
+  const [h,m] = value.split(":").map(Number);
+  return h * 60 + m;
+}
+
+function incrementGameDate(dateText, days) {
+  const text = String(dateText || "").trim();
+  const match = text.match(/(\d+)/);
+  if (!match) return text;
+  const next = Number(match[1]) + Number(days || 0);
+  return text.replace(match[1], String(next));
+}
+
+function formatRealDate(iso) {
+  if (!iso) return "";
+  try {
+    return new Date(iso).toLocaleString("fr-FR", {
+      day: "2-digit", month: "2-digit", year: "numeric",
+      hour: "2-digit", minute: "2-digit"
+    });
+  } catch {
+    return iso;
+  }
+}
+
+
+function statusLabel(value) {
+  const labels = {
+    active: "Actif",
+    absent: "Absent",
+    missing: "Disparu",
+    prisoner: "Prisonnier",
+    injured: "Blessé",
+    dead: "Mort",
+    planned: "Prévue",
+    available: "Disponible",
+    completed: "Terminée",
+    abandoned: "Abandonnée"
+  };
+  return labels[value] || value || "—";
+}
+
+function locationTypeLabel(value) {
+  const labels = {
+    world: "Monde", region: "Région", city: "Ville", village: "Village",
+    castle: "Château", building: "Bâtiment", floor: "Étage",
+    room: "Pièce", area: "Zone", road: "Route", other: "Autre"
+  };
+  return labels[value] || value || "Autre";
+}
+
+function locationPath(locationId) {
+  const parts = [];
+  const seen = new Set();
+  let current = state.locationMap.get(locationId);
+  while (current && !seen.has(current.id)) {
+    seen.add(current.id);
+    parts.unshift(current.name);
+    current = current.parentLocationId ? state.locationMap.get(current.parentLocationId) : null;
+  }
+  return parts.join(" › ");
+}
+
+function characterById(id) {
+  return state.characters.find(c => c.id === id);
+}
+
+function sceneCompatibility(scene) {
+  if (!scene || !state.campaign) return { type: "info", text: "" };
+
+  const sameDate = !scene.gameDate || scene.gameDate === state.campaign.currentGameDate;
+  const currentMins = timeToMinutes(state.campaign.currentGameTime);
+  const sceneMins = timeToMinutes(scene.startTime);
+
+  if (!sameDate) {
+    return {
+      type: "info",
+      text: `Cette scène est prévue le ${scene.gameDate || "—"} à ${scene.startTime || "—"}. La synchronisation modifiera la date et l’heure de campagne.`
+    };
+  }
+
+  if (sceneMins != null && currentMins != null && sceneMins < currentMins) {
+    return {
+      type: "warning",
+      text: `La scène commence à ${scene.startTime}, avant l’heure actuelle (${state.campaign.currentGameTime}). La synchronisation ferait revenir l’horloge en arrière.`
+    };
+  }
+
+  return {
+    type: "info",
+    text: `Scène compatible avec la date actuelle. Le lieu${scene.startTime ? " et l’heure" : ""} peuvent être synchronisés automatiquement.`
+  };
+}
+
+function renderCharacters() {
+  const sceneIds = state.scene?.characterIds || [];
+  const rows = sceneIds.length
+    ? sceneIds.map(characterById).filter(Boolean).filter(c => !c.deleted)
+    : state.characters.filter(c => !c.deleted && c.status === "active");
+
+  $("#characterList").innerHTML = rows.map(c => `
+    <button class="character-row" data-character="${esc(c.id)}">
+      ${isSafePortraitSrc(c.portrait)
+        ? `<div class="avatar has-photo"><img src="${c.portrait}" alt="" /></div>`
+        : `<div class="avatar">${esc(c.initials || characterInitials(c))}</div>`}
+      <div class="row-main">
+        <div class="row-title">${esc(c.name)}</div>
+        <div class="row-sub">${esc(c.profession || c.rank || "")}</div>
+        ${c.type === "PC" && c.playerName ? `<div class="player-line">Joueur : ${esc(c.playerName)}</div>` : ""}
+      </div>
+      <span class="mini-badge">${c.type === "PC" ? "PJ" : "PNJ"}</span>
+    </button>
+  `).join("");
+
+  $$("#characterList [data-character]").forEach(btn => {
+    btn.addEventListener("click", () => openCharacterSheet(btn.dataset.character));
+  });
+}
+
+function renderCharactersManager() {
+  const query = state.characterSearch.trim().toLowerCase();
+  let rows = [...state.characters];
+
+  if (state.characterFilter === "active") rows = rows.filter(c => !c.deleted);
+  else if (state.characterFilter === "archived") rows = rows.filter(c => c.deleted);
+  else if (state.characterFilter === "PC" || state.characterFilter === "NPC") {
+    rows = rows.filter(c => !c.deleted && c.type === state.characterFilter);
+  }
+
+  if (query) {
+    rows = rows.filter(c =>
+      `${c.name || ""} ${c.profession || ""} ${c.description || ""}`.toLowerCase().includes(query)
+    );
+  }
+
+  rows.sort((a,b) => (a.name || "").localeCompare(b.name || "", "fr"));
+
+  $("#charactersManagerList").innerHTML = rows.length ? rows.map(c => `
+    <article class="entity-card ${c.deleted ? "archived" : ""}">
+      <div class="character-card-main">
+        ${characterPortraitMarkup(c)}
+        <div>
+          <div class="entity-head">
+            <div>
+              <div class="card-kicker">${c.type === "PC" ? "PJ" : "PNJ"} · IMPORTANCE ${c.importance ?? 0}</div>
+              <h3 class="entity-title">${esc(c.name)}</h3>
+              ${c.type === "PC" && c.playerName ? `<div class="player-line">Joueur : ${esc(c.playerName)}</div>` : ""}
+            </div>
+            <span class="mini-badge">${esc(statusLabel(c.status))}</span>
+          </div>
+          <div class="entity-meta">
+            <span>${esc(c.profession || "Rôle non défini")}</span>
+            <span>•</span>
+            <span>${esc(locationName(c.currentLocationId))}</span>
+          </div>
+        </div>
+      </div>
+      <div class="entity-description">${esc(c.description || "Aucune description.")}</div>
+      <div class="entity-meta">
+        <span>${(c.advantages || []).length} avantage(s)</span>
+        <span>•</span>
+        <span>${(c.disadvantages || []).length} désavantage(s)</span>
+      </div>
+      <div class="entity-actions">
+        <button class="btn secondary character-view-btn" data-id="${esc(c.id)}">Fiche</button>
+        <button class="btn secondary character-edit-btn" data-id="${esc(c.id)}">Modifier</button>
+        ${c.deleted
+          ? `<button class="btn secondary character-restore-btn" data-id="${esc(c.id)}">Restaurer</button>`
+          : `<button class="btn danger-soft character-archive-btn" data-id="${esc(c.id)}">Archiver</button>`}
+      </div>
+    </article>
+  `).join("") : `<div class="empty-state"><div class="empty-icon">♟</div><h1>Aucun personnage</h1><p>Crée un PJ ou un PNJ pour commencer.</p></div>`;
+
+  $$(".character-view-btn").forEach(b => b.addEventListener("click", () => openCharacterSheet(b.dataset.id)));
+  $$(".character-edit-btn").forEach(b => b.addEventListener("click", () => openCharacterEditor(b.dataset.id)));
+  $$(".character-archive-btn").forEach(b => b.addEventListener("click", () => archiveCharacter(b.dataset.id, true)));
+  $$(".character-restore-btn").forEach(b => b.addEventListener("click", () => archiveCharacter(b.dataset.id, false)));
+}
+
+
+function characterSheetSkillRows(c) {
+  return Object.entries(c.skills || {}).filter(([,v]) => Number(v) > 0).sort((a,b) => a[0].localeCompare(b[0], "fr"));
+}
+
+function characterSheetCharacteristicRows(c) {
+  const profile = SYSTEM_PROFILES[profileKeyForCampaign()] || SYSTEM_PROFILES.generic;
+  const values = c.characteristics || {};
+  return (profile.characteristics || []).map(([key,label]) => [label, Number(values[key] ?? 0)]).filter(([,v]) => Number.isFinite(v));
+}
+
+function characterRelationsHtml(c) {
+  const rels=(state.relations||[]).filter(r=>!r.deleted&&(r.sourceId===c.id||r.targetId===c.id));
+  if (!rels.length) return '<div class="sheet-empty">Aucune relation enregistrée.</div>';
+  return rels.map(r=>{
+    const otherId=r.sourceId===c.id?r.targetId:r.sourceId;
+    const arrow=r.direction==='reciprocal'?'⇄':(r.sourceId===c.id?'→':'←');
+    return `<div class="sheet-relation"><strong>${arrow} ${esc(v191EntityName(otherId))}</strong><span>${esc(r.relationType||'lié à')} · ${esc(r.status||'actif')}</span>${r.secrecy==='secret_mj'?'<em>Secret MJ</em>':''}</div>`;
+  }).join('');
+}
+
+function genericCharacterSheetHtml(c) {
+  const stats=characterSheetCharacteristicRows(c);
+  const skills=characterSheetSkillRows(c);
+  return `<section class="sheet-section"><h3>Caractéristiques</h3><div class="sheet-stat-grid">${stats.map(([k,v])=>`<div><span>${esc(k)}</span><strong>${v}</strong></div>`).join('')}</div></section>
+  <section class="sheet-section"><h3>Compétences possédées</h3><div class="sheet-skill-grid">${skills.length?skills.map(([k,v])=>`<div><span>${esc(k)}</span><strong>${v}</strong></div>`).join(''):'<div class="sheet-empty">Aucune compétence possédée.</div>'}</div></section>`;
+}
+
+function l5rCharacterSheetHtml(c) {
+ const ch=c.characteristics||{},sd=c.systemData||{},ctx=c.generationContext||{},rings=l5rRings(ch),skills=characterSheetSkillRows(c);
+ const insight=Number(sd.insight??l5rInsight(ch,c.skills||{})),rank=l5rRankForInsight(insight),schoolRank=Number(sd.schoolRank||1);
+ const schoolLabel=(l5rProfessionOptions(ctx.clan,ctx.socialStatus)||[]).find(x=>x[0]===ctx.profession)?.[1]||c.profession||"Sans école";
+ const techniques=Array.isArray(sd.techniques)?sd.techniques.filter(Boolean):String(sd.techniquesText||"").split(";").map(x=>x.trim()).filter(Boolean);
+ const wpl=Number(sd.woundsPerLevel||Math.max(1,rings.earth*2)),damage=Number(sd.woundsCurrent||0),max=Number(sd.woundsMax||wpl*8),woundState=l5rWoundState(damage,wpl);
+ const status=labelForOption(CHARACTER_CONTEXT_CONFIG.l5r1.fields[0].options,ctx.socialStatus||"samurai"),clan=labelForOption(CHARACTER_CONTEXT_CONFIG.l5r1.fields[1].options,ctx.clan||"ronin");
+ const dotRow=(v,n=10)=>`<span class="l5r-dots">${Array.from({length:n},(_,i)=>`<i class="${i<Math.round(Number(v)||0)?"on":""}"></i>`).join("")}</span>`;
+ const trait=(l,v)=>`<span>${esc(l)}</span><b>${Number(v??0)}</b>`;
+ const ring=(n,k,v,cl,t)=>`<div class="l5r-paper-ring ${cl}"><div class="l5r-paper-ring-name">${n}</div><div class="l5r-paper-ring-disc"><strong>${v}</strong><em>${k}</em></div><div class="l5r-paper-ring-traits">${t}</div></div>`;
+ const rels=(state.relations||[]).filter(r=>!r.deleted&&(r.sourceId===c.id||r.targetId===c.id));
+ const relRows=rels.length?rels.map(r=>{const o=r.sourceId===c.id?r.targetId:r.sourceId;return `<tr><td>${esc(v191EntityName(o))}</td><td>${esc(r.relationType||"Lié")}</td><td>${esc(r.status||"Actif")}</td></tr>`}).join(""):`<tr><td colspan="3">Aucune relation enregistrée</td></tr>`;
+ const advantages=Array.isArray(sd.advantages)?sd.advantages:[],disadvantages=Array.isArray(sd.disadvantages)?sd.disadvantages:[],equipment=Array.isArray(c.equipment)?c.equipment:(Array.isArray(sd.equipment)?sd.equipment:[]);
+ const skillMid=Math.ceil(skills.length/2),skillTable=col=>`<div class="l5r-skill-col">${col.map(([k,v])=>`<div><span>${esc(k)}</span><b>${v}</b></div>`).join("")}</div>`;
+ const tattoos=l5rOccupationValues(ctx.l5rTattoos||sd.l5rTattoos),spells=l5rOccupationValues(ctx.l5rSpells||sd.l5rSpells);
+ return `<div class="l5r-paper-sheet">
+ <section class="l5r-paper-identity"><div class="l5r-paper-portrait">${characterPortraitMarkup(c,"l5r-paper-portrait-img")}</div><div class="l5r-paper-name"><h1>${esc(c.name)}</h1><p>${esc(c.profession||schoolLabel)} · ${esc(locationName(c.currentLocationId))}</p>${(()=>{const hs=l5rHistoricalLabel(c,state.campaign);return `<div class="l5r-history-block ${esc(hs.kind)}"><span class="l5r-history-badge">${esc(hs.label)}</span><div class="l5r-history-detail">${esc(hs.detail)}</div></div>`;})()}<div class="l5r-identity-grid"><span>Clan :</span><b>${esc(clan)}</b><span>Province natale :</span><b>${esc(sd.homeProvince||"—")}</b><span>Statut :</span><b>${esc(status)}</b><span>Profession :</span><b>${esc(c.profession||"—")}</b><span>École :</span><b>${esc(schoolLabel)}</b><span>Rang d’école :</span><b>${schoolRank}</b><span>Initiative :</span><b>${sd.initiative??ch.reflexes??0}</b><span>Points d’expérience :</span><b>${sd.experience??sd.xp??0}</b></div></div><div class="l5r-paper-concept"><h3>Concept / rôle</h3><p>${esc(c.description||"Aucun concept renseigné.")}</p></div></section>
+ <section class="l5r-paper-main"><div class="l5r-paper-box l5r-paper-rings"><h3>Anneaux et Traits</h3><div class="l5r-five-rings">${ring("TERRE","地",rings.earth,"earth",trait("Endurance",ch.stamina)+trait("Volonté",ch.willpower))}${ring("EAU","水",rings.water,"water",trait("Force",ch.strength)+trait("Perception",ch.perception))}${ring("AIR","風",rings.air,"air",trait("Réflexes",ch.reflexes)+trait("Intuition",ch.awareness))}${ring("FEU","火",rings.fire,"fire",trait("Agilité",ch.agility)+trait("Intelligence",ch.intelligence))}${ring("VIDE","空",rings.void,"void",trait("Points de Vide",sd.voidPoints??ch.void))}</div></div>
+ <div class="l5r-paper-box l5r-paper-reputation"><h3>Réputation, Gloire, Honneur</h3><div class="l5r-rep-row"><span>Réputation / Insight</span><strong>${insight}</strong><small>Rang ${rank}</small></div><div class="l5r-rep-row"><span>Gloire</span><strong>${Number(sd.glory||0).toFixed(1)}</strong>${dotRow(sd.glory)}</div><div class="l5r-rep-row"><span>Honneur</span><strong>${Number(sd.honor||0).toFixed(1)}</strong>${dotRow(sd.honor)}</div><div class="l5r-rep-row"><span>Souillure</span><strong>${Number(sd.taint||0).toFixed(1)}</strong>${dotRow(sd.taint)}</div></div>
+ <div class="l5r-paper-box l5r-paper-wounds"><h3>Blessures (PV)</h3><strong class="l5r-wound-total">${damage} / ${max}</strong><p>✓ ${esc(woundState)}</p><ol><li>-1 Légère</li><li>-2 Modérée</li><li>-3 Grave</li><li>-4 Critique</li><li>Épuisé</li><li>Inconscient</li><li>Mort</li></ol></div></section>
+ <section class="l5r-paper-lower"><div class="l5r-paper-box l5r-paper-skills"><h3>Compétences possédées</h3><div class="l5r-skill-columns">${skillTable(skills.slice(0,skillMid))}${skillTable(skills.slice(skillMid))}</div></div>
+ ${l5rIsShugenjaSchool(ctx.profession)
+   ? `<div class="l5r-paper-box l5r-paper-techniques"><h3>Sorts / parchemins <small>Rang ${schoolRank}</small></h3>${spells.length?spells.map(x=>`<div class="l5r-technique"><b>${esc(x)}</b></div>`).join(""):"<p>Aucun sort/parchemin enregistré.</p>"}</div>`
+   : `<div class="l5r-paper-box l5r-paper-techniques"><h3>Techniques d’école <small>Rang ${schoolRank}</small></h3>${techniques.length?techniques.map(x=>`<div class="l5r-technique"><b>${esc(typeof x==="string"?x:(x.name||x.label||"Technique"))}</b>${typeof x==="object"&&x.description?`<span>${esc(x.description)}</span>`:""}</div>`).join(""):"<p>Aucune technique explicitement enregistrée.</p>"}</div>`}
+ <div class="l5r-paper-box l5r-paper-equipment"><h3>Armes et armure</h3><ul>${equipment.length?equipment.map(x=>`<li><strong>${esc(typeof x==="string"?x:(x.name||x.label||"Équipement"))}</strong></li>`).join(""):"<li>Aucun équipement enregistré.</li>"}</ul></div>
+ <div class="l5r-paper-box l5r-paper-relations"><h3>Alliés et relations</h3><table><thead><tr><th>Nom</th><th>Lien</th><th>Nature</th></tr></thead><tbody>${relRows}</tbody></table></div>
+ <div class="l5r-paper-box l5r-paper-notes"><h3>Notes</h3><p>${esc(c.notes||sd.notes||"Aucune note.")}</p></div>
+ <div class="l5r-paper-box l5r-paper-advantages"><h3>Avantages / Désavantages</h3><b>Avantages</b><ul>${advantages.length?advantages.map(x=>`<li>${esc(typeof x==="string"?x:(x.name||x.label||""))}</li>`).join(""):"<li>—</li>"}</ul><b>Désavantages</b><ul>${disadvantages.length?disadvantages.map(x=>`<li>${esc(typeof x==="string"?x:(x.name||x.label||""))}</li>`).join(""):"<li>—</li>"}</ul></div>
+ ${(tattoos.length||spells.length)?`<div class="l5r-paper-box l5r-paper-special"><h3>${tattoos.length?"Tatouages Ise Zumi":"Sorts / parchemins"}</h3>${tattoos.map(x=>`<span class="sheet-chip">${esc(x)}</span>`).join("")}${spells.map(x=>`<span class="sheet-chip">${esc(x)}</span>`).join("")}</div>`:""}</section></div>`;
+}
+function characterSystemSheetHtml(c) {
+  const key=profileKeyForCampaign();
+  if (key==='l5r1') return l5rCharacterSheetHtml(c);
+  const base=genericCharacterSheetHtml(c), sd=c.systemData||{};
+  if(key==='dnd5') return base+`<section class="sheet-section"><h3>État de jeu</h3><div class="sheet-stat-grid"><div><span>Niveau</span><strong>${sd.level||1}</strong></div><div><span>PV</span><strong>${sd.hpCurrent??'—'} / ${sd.hpMax??'—'}</strong></div><div><span>Bonus de maîtrise</span><strong>+${sd.proficiencyBonus??'—'}</strong></div></div></section>`;
+  if(key==='vampire2') return base+`<section class="sheet-section"><h3>État de jeu</h3><div class="sheet-stat-grid"><div><span>Humanité / Voie</span><strong>${sd.morality??'—'}</strong></div><div><span>Volonté</span><strong>${sd.willpowerCurrent??'—'} / ${sd.willpowerPermanent??'—'}</strong></div><div><span>Santé</span><strong>${sd.healthCurrent??'—'} / ${sd.healthMax??7}</strong></div><div><span>Sang</span><strong>${sd.bloodCurrent??'—'} / ${sd.bloodMax??'—'}</strong></div></div></section>`;
+  if(key==='ward') return base+`<section class="sheet-section"><h3>État de jeu</h3><div class="sheet-stat-grid"><div><span>Volonté</span><strong>${sd.willpowerCurrent??sd.willpowerPermanent??'—'}</strong></div><div><span>Humanité</span><strong>${sd.humanity??'—'}</strong></div><div><span>PV</span><strong>${sd.hpCurrent??'—'} / ${sd.hpMax??'—'}</strong></div></div></section>`;
+  return base;
+}
+
+
+function l5rSessionSpellDetailHtml(c,spellName){
+ const sp=L5R_SPELL_BY_NAME[spellName]||L5R_SPELL_CATALOG.find(x=>x.name===spellName);
+ if(!sp) return `<div class="session-spell-detail"><h2>${esc(spellName)}</h2><p>Données mécaniques non documentées dans le catalogue structuré.</p></div>`;
+ const mech=typeof l5rSpellMechanicsCompleteV02025==="function"?l5rSpellMechanicsCompleteV02025(sp):(typeof l5rSpellMechanicsUnifiedV02024==="function"?l5rSpellMechanicsUnifiedV02024(sp):{});
+ const row=(a,b)=>b?`<div><span>${esc(a)}</span><strong>${esc(b)}</strong></div>`:"";
+ return `<div class="session-spell-detail">
+   <button class="btn secondary" type="button" onclick="window.l5rOpenSessionCharacter('${esc(c.id)}')">← Retour au personnage</button>
+   <h2>${esc(sp.name)}</h2><div class="session-spell-grid">
+   ${row("Élément",sp.element)}${row("Maîtrise",sp.mastery?`M${sp.mastery}`:"—")}${row("ND",sp.tn||mech.tnFormula||"Non précisé")}
+   ${row("Incantation",sp.casting||"Non précisée")}${row("Durée",sp.duration||"Non précisée")}${row("Concentration",mech.concentration||sp.concentration||"Non documentée")}
+   ${row("Cible",mech.target||"Non documentée")}${row("Portée",mech.range||"Non documentée")}${row("Zone",mech.area||"Non applicable / non documentée")}${row("Résistance",mech.resistance||"Aucune indiquée")}
+   ${row("Dégâts",mech.damage||"Aucun / non applicable")}${row("Rituel",mech.ritual?"Oui":"Non")}${row("Usage unique",mech.oneUse?"Oui":"Non")}
+   </div><h3>Effet</h3><p>${esc(mech.effectSummary||mech.effect||sp.effect||"Effet détaillé non documenté.")}</p>
+   <h3>Augmentations</h3><p>${esc(mech.raises||sp.raises||"Aucune augmentation spécifique documentée.")}</p>
+   ${mech.special?`<h3>Spécial</h3><p>${esc(mech.special)}</p>`:""}
+   ${(mech.restrictions||mech.restriction)?`<h3>Restrictions</h3><p>${esc(mech.restrictions||mech.restriction)}</p>`:""}
+   <p class="row-sub">${esc(mech.source||sp.source||"Référentiel L5R 1e")} · ${esc(mech.sourceStatus||"Corpus consolidé")}</p></div>`;
+}
+function l5rSessionPanelHtml(c){
+ const ch=c.characteristics||{},sd=c.systemData||{},ctx=c.generationContext||{},rings=l5rRings(ch);
+ const spells=l5rOccupationValues(ctx.l5rSpells||sd.l5rSpells);
+ const tattoos=l5rOccupationValues(ctx.l5rTattoos||sd.l5rTattoos);
+ const skills=characterSheetSkillRows(c).slice().sort((a,b)=>Number(b[1])-Number(a[1])||String(a[0]).localeCompare(String(b[0]),"fr"));
+ const equipment=Array.isArray(c.equipment)?c.equipment:(Array.isArray(sd.equipment)?sd.equipment:[]);
+ const schoolRank=Number(sd.schoolRank||1), wpl=Number(sd.woundsPerLevel||Math.max(1,rings.earth*2)), damage=Number(sd.woundsCurrent||0), max=Number(sd.woundsMax||wpl*8);
+ const isShugenja=l5rIsShugenjaSchool(ctx.profession);
+ return `<div class="l5r-session-panel">
+   <header class="l5r-session-head">${characterPortraitMarkup(c,"l5r-session-portrait")}<div><div class="card-kicker">${c.type==="PC"?"PJ":"PNJ"} · FICHE DE SÉANCE</div><h1>${esc(c.name)}</h1><p>${esc(c.profession||"—")} · Rang ${schoolRank} · ${esc(locationName(c.currentLocationId))}</p></div>
+   <button class="btn secondary" type="button" onclick="window.l5rOpenFullCharacter('${esc(c.id)}')">Fiche complète</button></header>
+   <div class="l5r-session-stats"><b>Terre ${rings.earth}</b><b>Eau ${rings.water}</b><b>Feu ${rings.fire}</b><b>Air ${rings.air}</b><b>Vide ${rings.void}</b><b>Blessures ${damage}/${max}</b><b>Vide dispo. ${sd.voidPoints??ch.void??rings.void}</b></div>
+   <section><h3>Compétences utiles</h3><div class="l5r-session-skills">${skills.length?skills.slice(0,12).map(([k,v])=>`<span>${esc(k)} <b>${v}</b></span>`).join(""):"Aucune compétence enregistrée."}</div></section>
+   ${isShugenja?`<section><h3>Sorts / parchemins connus</h3><div class="l5r-session-spells">${spells.length?spells.map(n=>`<button type="button" class="session-spell-btn" onclick="window.l5rOpenSessionSpell('${esc(c.id)}','${esc(String(n)).replace(/'/g,"&#39;")}')">${esc(n)}</button>`).join(""):"<p>Aucun sort/parchemin enregistré.</p>"}</div></section>`:""}
+   ${tattoos.length?`<section><h3>Tatouages Ise Zumi</h3><div class="l5r-session-skills">${tattoos.map(x=>`<span>${esc(x)}</span>`).join("")}</div></section>`:""}
+   <section><h3>Équipement</h3><p>${equipment.length?equipment.map(x=>esc(typeof x==="string"?x:(x.name||x.label||"Objet"))).join(" · "):"Aucun équipement enregistré."}</p></section>
+ </div>`;
+}
+window.l5rOpenSessionCharacter=function(id){openCharacterSheet(id,true);};
+window.l5rOpenFullCharacter=function(id){openCharacterSheet(id,false);};
+window.l5rOpenSessionSpell=function(id,name){
+ const c=state.characters.find(x=>x.id===id); if(!c)return;
+ $("#characterSheetTitle").textContent=`${c.name} — ${name}`;
+ $("#characterSheetBody").classList.add("compact-sheet");
+ $("#characterSheetBody").innerHTML=l5rSessionSpellDetailHtml(c,name);
+ openModal("characterSheetModal");
+};
+
+function openCharacterSheet(id, compact=false) {
+  const c=state.characters.find(x=>x.id===id); if(!c) return;
+  $('#characterSheetTitle').textContent=c.name||'Personnage';
+  $('#characterSheetBody').classList.toggle('compact-sheet',!!compact);
+  const isL5r=profileKeyForCampaign()==='l5r1';
+  $('#characterSheetBody').innerHTML=isL5r?(compact?l5rSessionPanelHtml(c):characterSystemSheetHtml(c)):`<div class="character-sheet-hero">${characterPortraitMarkup(c,'character-sheet-portrait')}<div><div class="card-kicker">${c.type==='PC'?'PJ':'PNJ'} · ${esc(SYSTEM_PROFILES[profileKeyForCampaign()]?.label||'Système')}</div><h2>${esc(c.name)}</h2><div class="entity-meta">${esc(c.profession||'Rôle non défini')} · ${esc(locationName(c.currentLocationId))}</div>${c.description&&!compact?`<p>${esc(c.description)}</p>`:''}</div></div>${characterSystemSheetHtml(c)}${compact?'':`<section class="sheet-section"><h3>Relations</h3><div class="sheet-relations">${characterRelationsHtml(c)}</div></section>`}`;
+  $('#characterSheetEditButton').dataset.id=c.id; $('#characterSheetCompactButton').dataset.id=c.id; $('#characterSheetCompactButton').textContent=compact?'Fiche complète':'Fiche de séance';
+  openModal('characterSheetModal');
+}
+
+function renderLocationsManager() {
+  const query = state.locationSearch.trim().toLowerCase();
+  let rows = [...state.locations];
+
+  if (query) {
+    rows = rows.filter(l =>
+      `${l.name || ""} ${l.description || ""} ${locationTypeLabel(l.type)}`.toLowerCase().includes(query)
+    );
+  }
+
+  rows.sort((a,b) => {
+    const pa = lpathSafe(a);
+    const pb = lpathSafe(b);
+    return pa.localeCompare(pb, "fr");
+  });
+
+  $("#locationsManagerList").innerHTML = rows.length ? rows.map(l => {
+    const current = state.campaign?.currentLocationId === l.id;
+    return `
+      <article class="entity-card ${l.deleted ? "archived" : ""} ${current ? "current-entity" : ""}">
+        <div class="entity-head">
+          <div>
+            <div class="card-kicker">${esc(locationTypeLabel(l.type))}</div>
+            <h3 class="entity-title">${esc(l.name)}</h3>
+          </div>
+          ${current ? '<span class="badge canon">Lieu actuel</span>' : ''}
+        </div>
+        <div class="location-path">${esc(lpathSafe(l))}</div>
+        <div class="entity-description">${esc(l.description || "Aucune description.")}</div>
+        ${(()=>{if(profileKeyForCampaign()!=="l5r1") return ""; const hs=l5rCampaignLocationState(l,state.campaign); if(!hs.known) return ""; const cur=hs.current||{}; return `<div class="l5r-history-block ${hs.available?"available":"unavailable"}"><span class="l5r-history-badge">Historique ${esc(state.campaign?.l5rYear||"")} : ${esc(hs.state)}</span><div class="l5r-history-detail">${cur.nameAtDate?`Nom : ${esc(cur.nameAtDate)} · `:""}${cur.controller?`Contrôle : ${esc(cur.controller)} · `:""}${cur.occupation?`Occupation : ${esc(cur.occupation)} · `:""}${esc(hs.label||"")}</div></div>`;})()}
+        <div class="entity-actions">
+          <button class="btn secondary location-edit-btn" data-id="${esc(l.id)}">Modifier</button>
+          ${!current && !l.deleted ? `<button class="btn danger-soft location-archive-btn" data-id="${esc(l.id)}">Archiver</button>` : ""}
+          ${l.deleted ? `<button class="btn secondary location-restore-btn" data-id="${esc(l.id)}">Restaurer</button>` : ""}
+        </div>
+      </article>
+    `;
+  }).join("") : `<div class="empty-state"><div class="empty-icon">⌖</div><h1>Aucun lieu</h1><p>Crée un premier lieu pour structurer la campagne.</p></div>`;
+
+  $$(".location-edit-btn").forEach(b => b.addEventListener("click", () => openLocationEditor(b.dataset.id)));
+  $$(".location-archive-btn").forEach(b => b.addEventListener("click", () => archiveLocation(b.dataset.id, true)));
+  $$(".location-restore-btn").forEach(b => b.addEventListener("click", () => archiveLocation(b.dataset.id, false)));
+}
+
+function lpathSafe(location) {
+  if (!location) return "";
+  if (!location.deleted) return locationPath(location.id) || location.name;
+  const parts = [location.name];
+  let current = location.parentLocationId ? state.locations.find(x => x.id === location.parentLocationId) : null;
+  const seen = new Set([location.id]);
+  while (current && !seen.has(current.id)) {
+    seen.add(current.id);
+    parts.unshift(current.name);
+    current = current.parentLocationId ? state.locations.find(x => x.id === current.parentLocationId) : null;
+  }
+  return parts.join(" › ");
+}
+
+function renderPlots() {
+  $("#plotList").innerHTML = state.plots
+    .filter(p => !p.deleted && p.status === "active")
+    .sort((a,b) => (b.priority || 0) - (a.priority || 0))
+    .map(p => `
+      <button class="plot-row" data-plot="${esc(p.id)}">
+        <div class="row-main">
+          <div class="row-title">${esc(p.title)}</div>
+          <div class="row-sub">${esc(p.description || "")}</div>
+        </div>
+        <div class="priority" title="Priorité ${p.priority || 0}/5">
+          ${[1,2,3,4,5].map(i => `<i class="${i <= (p.priority || 0) ? "on": ""}"></i>`).join("")}
+        </div>
+      </button>
+    `).join("");
+}
+
+
+function renderScenes() {
+  const currentSceneId = state.campaign?.currentSceneId;
+  const rows = [...state.scenes].filter(s => !s.deleted).sort((a,b) => {
+    const da = `${a.gameDate || ""} ${a.startTime || ""}`;
+    const db = `${b.gameDate || ""} ${b.startTime || ""}`;
+    return da.localeCompare(db, "fr");
+  });
+
+  $("#scenesList").innerHTML = rows.length ? rows.map(scene => {
+    const active = scene.id === currentSceneId;
+    const participants = (scene.characterIds || []).map(characterById).filter(Boolean);
+    return `
+      <article class="scene-card ${active ? "active-scene" : ""}">
+        <div class="scene-card-top">
+          <div>
+            <div class="card-kicker">${active ? "SCÈNE ACTIVE" : esc(statusLabel(scene.status))}</div>
+            <h3>${esc(scene.title)}</h3>
+          </div>
+          ${active ? '<span class="badge canon">Active</span>' : ''}
+        </div>
+        <div class="scene-meta">
+          <span>${esc(scene.gameDate || "Date libre")}</span>
+          <span>${esc(scene.startTime || "Heure libre")}</span>
+          <span>${esc(locationName(scene.locationId))}</span>
+        </div>
+        <div class="scene-description">${esc(scene.description || "")}</div>
+        <div class="participant-tags">
+          ${participants.length
+            ? participants.map(c => `<button type="button" class="participant-tag session-character-btn" data-character-id="${esc(c.id)}" title="Ouvrir la fiche de séance">${esc(c.name)}</button>`).join("")
+            : '<span class="row-sub">Aucun participant défini</span>'}
+        </div>
+        <div class="entity-actions">
+          <button class="btn ${active ? "secondary" : "primary"} activate-scene-btn" data-scene-id="${esc(scene.id)}">
+            ${active ? "Scène courante" : "Activer"}
+          </button>
+          <button class="btn secondary scene-edit-btn" data-scene-id="${esc(scene.id)}">Modifier</button>
+          ${active ? "" : `<button class="btn danger-soft scene-archive-btn" data-scene-id="${esc(scene.id)}">Archiver</button>`}
+        </div>
+      </article>
+    `;
+  }).join("") : `<div class="empty-state"><div class="empty-icon">◫</div><h1>Aucune scène</h1><p>Crée une scène pour préparer la partie.</p></div>`;
+
+  $$(".activate-scene-btn").forEach(btn => btn.addEventListener("click", () => openSceneModal(btn.dataset.sceneId)));
+  $$(".scene-edit-btn").forEach(btn => btn.addEventListener("click", () => openSceneEditor(btn.dataset.sceneId)));
+  $$(".scene-archive-btn").forEach(btn => btn.addEventListener("click", () => archiveScene(btn.dataset.sceneId)));
+  $$(".session-character-btn").forEach(btn => btn.addEventListener("click", () => openCharacterSheet(btn.dataset.characterId,true)));
+}
+
+function renderNotes() {
+  let rows = [...state.notes].filter(n => !n.deleted);
+  if (state.notesFilter === "pending") rows = rows.filter(n => !n.processed);
+  rows.sort((a,b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")));
+
+  const pending = state.notes.filter(n => !n.deleted && !n.processed).length;
+  $("#notesSummary").textContent = `${rows.length} note(s) affichée(s) · ${pending} non traitée(s)`;
+
+  $("#notesList").innerHTML = rows.length ? rows.map(note => `
+    <article class="note-row ${note.processed ? "processed" : ""}">
+      <div>
+        <div class="note-text">${esc(note.text)}</div>
+        <div class="note-meta">
+          ${note.processed ? "Traitée" : "Non traitée"} ·
+          ${esc(formatRealDate(note.createdAt))}
+          ${note.sceneId ? ` · ${esc(state.scenes.find(s => s.id === note.sceneId)?.title || "Scène")}` : ""}
+        </div>
+      </div>
+      <div class="note-actions">
+        <button class="btn secondary note-toggle" data-note-id="${esc(note.id)}">
+          ${note.processed ? "Marquer non traitée" : "Marquer traitée"}
+        </button>
+      </div>
+    </article>
+  `).join("") : `
+    <div class="empty-state">
+      <div class="empty-icon">✎</div>
+      <h1>Aucune note</h1>
+      <p>Les notes rapides saisies pendant la partie apparaîtront ici.</p>
+    </div>
+  `;
+
+  $$(".note-toggle").forEach(btn => btn.addEventListener("click", async () => {
+    const note = state.notes.find(n => n.id === btn.dataset.noteId);
+    if (!note) return;
+    note.processed = !note.processed;
+    note.updatedAt = JDRDB.nowIso();
+    await JDRDB.put("notes", note);
+    renderNotes();
+    renderAlerts();
+    showToast(note.processed ? "Note marquée traitée." : "Note remise en non traitée.");
+  }));
+}
+
+function renderEvents() {
+  const rows = [...state.events]
+    .filter(e => !e.deleted)
+    .sort((a,b) => (a.gameTime || "").localeCompare(b.gameTime || ""))
+    .slice(-20);
+
+  $("#eventList").innerHTML = rows.map(e => `
+    <div class="event-row">
+      <div class="event-time">${esc(e.gameTime || "")}</div>
+      <div class="event-content">
+        <div class="event-title">${esc(e.title)}</div>
+        <div class="event-meta">${esc(e.description || locationName(e.locationId))}</div>
+      </div>
+    </div>
+  `).join("");
+}
+
+function renderAlerts() {
+  const noteAlert = alerts[0];
+  noteAlert.title = `${state.notes.filter(n => !n.processed).length} note(s) non traitée(s)`;
+
+  $("#alertList").innerHTML = alerts.map(a => `
+    <div class="alert-row ${a.type}">
+      <div class="alert-icon">${a.icon}</div>
+      <div class="row-main">
+        <div class="row-title">${esc(a.title)}</div>
+        <div class="row-sub">${esc(a.detail)}</div>
+      </div>
+    </div>
+  `).join("");
+}
+
+function renderCampaignHeader() {
+  if (!state.campaign) {
+    const labels={l5r1:"L5R / L5A 1e",dnd5:"D&D 5e / 5.5e",vampire2:"Vampire V2",ward:"W.A.R.D."};
+    $("#campaignButton").textContent = "Aucune campagne";
+    $("#dateChip").textContent = "—"; $("#timeChip").textContent = "—"; $("#locationChip").textContent = "Bibliothèque JDR"; $("#sessionChip").textContent = labels[selectedSystemKey()]||"JDR";
+    return;
+  }
+
+  $("#campaignButton").textContent = state.campaign.name;
+  $("#dateChip").textContent = state.campaign.currentGameDate || "—";
+  $("#timeChip").textContent = state.campaign.currentGameTime || "—";
+  $("#locationChip").textContent = locationName(state.campaign.currentLocationId);
+  $("#sessionChip").textContent = state.session ? `Séance ${state.session.number}` : "Aucune séance";
+
+  const metrics = $$(".metric-value");
+  if (metrics[0]) metrics[0].textContent = state.campaign.currentGameDate || "—";
+  if (metrics[1]) metrics[1].textContent = state.campaign.currentGameTime || "—";
+  if (metrics[2]) metrics[2].textContent = locationName(state.campaign.currentLocationId);
+
+  const sceneTitle = $(".situation-card h2");
+  if (sceneTitle) sceneTitle.textContent = state.scene?.title || "Aucune scène active";
+
+  const sessionTitle = $(".session-card h2");
+  if (sessionTitle) sessionTitle.textContent = state.session ? `Séance ${state.session.number}` : "Aucune séance";
+
+  const sessionStats = $$(".session-card .session-stats strong");
+  if (sessionStats.length >= 4) {
+    const sessionScenes = state.session
+      ? state.scenes.filter(s => s.sessionId === state.session.id && !s.deleted).length
+      : 0;
+    const sessionEvents = state.session
+      ? state.events.filter(e => e.sessionId === state.session.id && !e.deleted).length
+      : 0;
+    const sessionNotes = state.session
+      ? state.notes.filter(n => n.sessionId === state.session.id && !n.processed).length
+      : 0;
+
+    sessionStats[0].textContent = state.session?.status === "active" ? "En cours" : "—";
+    sessionStats[1].textContent = String(sessionScenes);
+    sessionStats[2].textContent = String(sessionEvents);
+    sessionStats[3].textContent = String(sessionNotes);
+  }
+}
+
+function applyState() {
+  document.body.dataset.theme = state.theme;
+  document.body.dataset.gameTheme = state.gameTheme;
+  const themeSelect = $("#gameThemeSelect");
+  if (themeSelect) themeSelect.value = state.gameTheme;
+
+  document.body.classList.toggle("sidebar-collapsed", state.sidebarCollapsed);
+  document.body.classList.toggle("assistant-collapsed", state.assistantCollapsed);
+  document.body.classList.toggle("assistant-expanded", state.assistantExpanded);
+  document.body.classList.toggle("game-mode", state.gameMode);
+
+  $("#assistantToggle").textContent = state.assistantCollapsed ? "◀" : "▶";
+  $("#assistantExpand").textContent = state.assistantExpanded ? "▣" : "⛶";
+  $("#gameModeButton").textContent = state.gameMode ? "■ Quitter le mode partie" : "▶ Mode partie";
+
+  renderCampaignHeader();
+}
+
+function showToast(text) {
+  const toast = document.createElement("div");
+  toast.className = "toast";
+  toast.textContent = text;
+  $("#toastContainer").appendChild(toast);
+  setTimeout(() => toast.remove(), 2600);
+}
+
+function setSaveState(text, kind = "saved") {
+  const el = $("#saveState");
+  el.textContent = text;
+  el.style.color =
+    kind === "error" ? "var(--danger)" :
+    kind === "saving" ? "var(--warning)" :
+    "var(--success)";
+}
+
+function openModal(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.classList.remove("hidden");
+  requestAnimationFrame(() => {
+    const panel = el.querySelector(".modal");
+    if (panel) panel.scrollTop = 0;
+    el.scrollTop = 0;
+  });
+}
+
+function closeModal(el) {
+  el.closest(".modal-backdrop")?.classList.add("hidden");
+}
+
+
+function systemDefaultTheme(system) {
+  const value = String(system || "").toLowerCase();
+  if (value.includes("l5r") || value.includes("legend")) return "l5r";
+  if (value.includes("d&d") || value.includes("dnd") || value.includes("dungeons")) return "dnd";
+  if (value.includes("vampire")) return "vampire";
+  if (value.includes("ward") || value.includes("w.a.r.d")) return "ward";
+  return "neutral";
+}
+
+function campaignStatusLabel(value) {
+  const labels = {
+    preparation:"Préparation",
+    active:"Active",
+    paused:"En pause",
+    complete:"Terminée",
+    archived:"Archivée"
+  };
+  return labels[value] || value || "—";
+}
+
+function sessionStatusLabel(value) {
+  const labels = {
+    planned:"Prévue",
+    active:"Active",
+    completed:"Terminée"
+  };
+  return labels[value] || value || "—";
+}
+
+function safeFileName(value) {
+  return String(value || "campagne")
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9_-]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .slice(0, 80) || "campagne";
+}
+
+function renderCampaignsManager() {
+  const rows = [...state.campaigns].sort((a,b) =>
+    String(b.updatedAt || "").localeCompare(String(a.updatedAt || ""))
+  );
+
+  $("#activeCampaignSummary").innerHTML = state.campaign ? `
+    <article class="campaign-summary-card">
+      <div class="entity-head">
+        <div>
+          <div class="card-kicker">CAMPAGNE ACTIVE</div>
+          <h2>${esc(state.campaign.name)}</h2>
+        </div>
+        <span class="badge canon">${esc(campaignStatusLabel(state.campaign.status))}</span>
+      </div>
+      <div class="entity-meta">
+        <span>${esc(state.campaign.gameSystem || "Système non défini")}${state.campaign.edition ? ` · ${esc(state.campaign.edition)}` : ""}</span>
+        <span>•</span>
+        <span>${esc(state.campaign.universe || "Univers non défini")}</span>
+        <span>•</span>
+        <span>${esc(state.campaign.currentGameDate || "Date non définie")} ${esc(state.campaign.currentGameTime || "")}</span>
+      </div>
+      <div class="entity-description">${esc(state.campaign.description || "Aucune description.")}</div>
+      <div class="campaign-actions-row">
+        <button class="btn secondary" id="editActiveCampaignInline">Modifier</button>
+        <button class="btn secondary" id="exportActiveCampaignInline">Exporter JSON</button>
+      </div>
+    </article>
+  ` : "";
+
+  $("#campaignsManagerList").innerHTML = rows.length ? rows.map(c => {
+    const active = c.id === state.campaignId;
+    return `
+      <article class="entity-card ${active ? "active-campaign" : ""}">
+        <div class="entity-head">
+          <div>
+            <div class="card-kicker">${active ? "ACTIVE" : esc(campaignStatusLabel(c.status))}</div>
+            <h3 class="entity-title">${esc(c.name)}</h3>
+          </div>
+          <span class="campaign-system-badge">${esc(c.gameSystem || "—")}${c.edition ? ` ${esc(c.edition)}` : ""}</span>
+        </div>
+        <div class="entity-meta">
+          <span>${esc(c.universe || "Univers non défini")}</span>
+          <span>•</span>
+          <span>${esc(c.currentGameDate || "Date non définie")}</span>
+        </div>
+        <div class="entity-description">${esc(c.description || "Aucune description.")}</div>
+        <div class="entity-actions">
+          ${active ? "" : `<button class="btn primary campaign-open-btn" data-id="${esc(c.id)}">Ouvrir</button>`}
+          <button class="btn secondary campaign-edit-btn" data-id="${esc(c.id)}">Modifier</button>
+          <button class="btn secondary campaign-export-btn" data-id="${esc(c.id)}">Exporter</button>
+        </div>
+      </article>
+    `;
+  }).join("") : `<div class="empty-state"><div class="empty-icon">▤</div><h1>Aucune campagne</h1><p>Crée une campagne pour commencer.</p></div>`;
+
+  $("#editActiveCampaignInline")?.addEventListener("click", () => openCampaignEditor(state.campaignId));
+  $("#exportActiveCampaignInline")?.addEventListener("click", () => exportCampaign(state.campaignId));
+
+  $$(".campaign-open-btn").forEach(btn => btn.addEventListener("click", () => activateCampaign(btn.dataset.id)));
+  $$(".campaign-edit-btn").forEach(btn => btn.addEventListener("click", () => openCampaignEditor(btn.dataset.id)));
+  $$(".campaign-export-btn").forEach(btn => btn.addEventListener("click", () => exportCampaign(btn.dataset.id)));
+}
+
+function renderSessionParticipantEditor(selectedIds = []) {
+  const selected = new Set(selectedIds || []);
+  $("#sessionParticipantsEditor").innerHTML = state.characters
+    .filter(c => !c.deleted)
+    .sort((a,b) => {
+      if (a.type !== b.type) return a.type === "PC" ? -1 : 1;
+      return (a.name || "").localeCompare(b.name || "", "fr");
+    })
+    .map(c => `
+      <label class="participant-check">
+        <input type="checkbox" value="${esc(c.id)}" ${selected.has(c.id) ? "checked" : ""} />
+        <span>${esc(c.name)} <span class="row-sub">(${c.type === "PC" ? "PJ" : "PNJ"})</span></span>
+      </label>
+    `).join("");
+}
+
+function selectedSessionParticipants() {
+  return $$("#sessionParticipantsEditor input[type=checkbox]:checked").map(x => x.value);
+}
+
+function renderSessionsManager() {
+  const current = state.session && state.session.status === "active" ? state.session : null;
+
+  $("#currentSessionPanel").innerHTML = current ? `
+    <article class="session-current-card active-session">
+      <div class="entity-head">
+        <div>
+          <div class="card-kicker">SÉANCE ACTIVE</div>
+          <h2>Séance ${esc(current.number)}${current.title ? ` — ${esc(current.title)}` : ""}</h2>
+        </div>
+        <span class="badge canon">En cours</span>
+      </div>
+      <div class="session-stat-line">
+        <span>Date réelle : ${esc(current.realDate || "—")}</span>
+        <span>Date de jeu : ${esc(current.gameDateStart || state.campaign?.currentGameDate || "—")}</span>
+        <span>${(current.characterIds || []).length} participant(s)</span>
+      </div>
+      <div class="session-participant-list">
+        ${(current.characterIds || []).map(characterById).filter(Boolean)
+          .map(c => `<span class="participant-tag">${esc(c.name)}</span>`).join("") || '<span class="row-sub">Aucun participant.</span>'}
+      </div>
+      <div class="entity-description">${esc(current.summary || "Aucun résumé pour le moment.")}</div>
+    </article>
+  ` : `
+    <article class="session-current-card">
+      <div class="card-kicker">AUCUNE SÉANCE ACTIVE</div>
+      <h2>La campagne est hors séance</h2>
+      <div class="entity-description">Crée une nouvelle séance pour associer automatiquement notes, événements et scènes au prochain temps de jeu.</div>
+    </article>
+  `;
+
+  $("#editCurrentSessionButton").disabled = !current;
+  $("#endCurrentSessionButton").disabled = !current;
+
+  const rows = [...state.sessions].sort((a,b) => Number(b.number || 0) - Number(a.number || 0));
+  $("#sessionsManagerList").innerHTML = rows.length ? rows.map(s => `
+    <article class="entity-card ${s.id === state.campaign?.currentSessionId ? "current-entity" : ""}">
+      <div class="entity-head">
+        <div>
+          <div class="card-kicker">${esc(sessionStatusLabel(s.status))}</div>
+          <h3 class="entity-title">Séance ${esc(s.number)}${s.title ? ` — ${esc(s.title)}` : ""}</h3>
+        </div>
+        <span class="mini-badge">${esc(s.realDate || "—")}</span>
+      </div>
+      <div class="entity-meta">
+        <span>${esc(s.gameDateStart || "—")}</span>
+        ${s.gameDateEnd ? `<span>→ ${esc(s.gameDateEnd)}</span>` : ""}
+        <span>•</span>
+        <span>${(s.characterIds || []).length} participant(s)</span>
+      </div>
+      <div class="entity-description">${esc(s.summary || "Aucun résumé.")}</div>
+      <div class="entity-actions">
+        <button class="btn secondary session-edit-btn" data-id="${esc(s.id)}">Modifier</button>
+        ${s.status !== "active" ? `<button class="btn primary session-activate-btn" data-id="${esc(s.id)}">Activer</button>` : ""}
+      </div>
+    </article>
+  `).join("") : `<div class="empty-state"><div class="empty-icon">▶</div><h1>Aucune séance</h1><p>La première séance sera créée ici.</p></div>`;
+
+  $$(".session-edit-btn").forEach(btn => btn.addEventListener("click", () => openSessionEditor(btn.dataset.id)));
+  $$(".session-activate-btn").forEach(btn => btn.addEventListener("click", () => activateExistingSession(btn.dataset.id)));
+}
+
+
+function campaignEditorIsL5r(){
+ return normalizedSystemKey($("#campaignEditSystem")?.value)==="l5r1";
+}
+function refreshCampaignEditorTimeline(){
+ const box=$("#campaignEditL5rTimeline");
+ if(!box) return;
+ const isL5r=campaignEditorIsL5r();
+ box.classList.toggle("hidden",!isL5r);
+ if(!isL5r) return;
+ const raw=$("#campaignEditL5rYear")?.value||"";
+ const y=Number(raw), cont=$("#campaignEditL5rContinuity")?.value||"aeg_original";
+ const period=raw!==""&&Number.isFinite(y)?l5rPeriodAtYear(y,cont):null;
+ const out=$("#campaignEditL5rPeriodPreview");
+ if(out) out.textContent=period?`${period.label} (${y})`:(raw?"Période non répertoriée pour cette continuité.":"Année non définie : aucun filtrage historique.");
+}
+
+function openCampaignEditor(id = null) {
+  const c = id ? state.campaigns.find(x => x.id === id) : null;
+  $("#campaignEditModalTitle").textContent = c ? "Modifier la campagne" : "Nouvelle campagne";
+  $("#campaignEditId").value = c?.id || "";
+  $("#campaignEditName").value = c?.name || "";
+  $("#campaignEditSystem").value = c?.gameSystem === "D&D" ? "D&D 5e — 2014" : (c?.gameSystem || "L5R");
+  $("#campaignEditEdition").value = c?.edition || (c ? "" : "1E");
+  $("#campaignEditUniverse").value = c?.universe || "";
+  $("#campaignEditStatus").value = c?.status || "preparation";
+  $("#campaignEditGameDate").value = c?.currentGameDate || "";
+  $("#campaignEditGameTime").value = c?.currentGameTime || "08:00";
+  $("#campaignEditTheme").value = c?.currentGameTheme || systemDefaultTheme(c?.gameSystem || "L5R");
+  $("#campaignEditGM").value = c?.gm || "";
+  $("#campaignEditDescription").value = c?.description || "";
+  $("#campaignEditL5rYear").value = c?.l5rYear ?? "";
+  $("#campaignEditL5rContinuity").value = c?.l5rContinuity || "aeg_original";
+  refreshCampaignEditorTimeline();
+  openModal("campaignEditModal");
+}
+
+async function saveCampaignEntity() {
+  const id = $("#campaignEditId").value || JDRDB.uuid("campaign");
+  const existing = state.campaigns.find(c => c.id === id);
+  const name = $("#campaignEditName").value.trim();
+  if (!name) return showToast("Le nom de la campagne est obligatoire.");
+
+  const row = {
+    ...(existing || {}),
+    id,
+    name,
+    gameSystem: $("#campaignEditSystem").value,
+    edition: $("#campaignEditEdition").value.trim(),
+    universe: $("#campaignEditUniverse").value.trim(),
+    description: $("#campaignEditDescription").value.trim(),
+    status: $("#campaignEditStatus").value,
+    gm: $("#campaignEditGM").value.trim(),
+    currentGameDate: $("#campaignEditGameDate").value.trim(),
+    currentGameTime: $("#campaignEditGameTime").value || "08:00",
+    currentLocationId: existing?.currentLocationId || null,
+    currentSessionId: existing?.currentSessionId || null,
+    currentSceneId: existing?.currentSceneId || null,
+    currentGameTheme: $("#campaignEditTheme").value,
+    createdAt: existing?.createdAt || JDRDB.nowIso(),
+    updatedAt: JDRDB.nowIso()
+  };
+
+  if (normalizedSystemKey(row.gameSystem)==="l5r1") {
+    const rawYear=$("#campaignEditL5rYear")?.value||"";
+    if (rawYear!=="" && Number.isFinite(Number(rawYear))) row.l5rYear=Number(rawYear);
+    else delete row.l5rYear;
+    row.l5rContinuity=$("#campaignEditL5rContinuity")?.value||"aeg_original";
+  } else {
+    delete row.l5rYear;
+    delete row.l5rContinuity;
+  }
+
+  await JDRDB.put("campaigns", row);
+
+  if (existing) Object.assign(existing, row);
+  else state.campaigns.push(row);
+
+  $("#campaignEditModal").classList.add("hidden");
+
+  if (!existing || id === state.campaignId) {
+    await activateCampaign(id);
+  } else {
+    renderCampaignsManager();
+    showToast("Campagne modifiée.");
+  }
+}
+
+async function activateCampaign(id) {
+  const target = await JDRDB.get("campaigns", id);
+  if (!target) return showToast("Campagne introuvable.");
+
+  await JDRDB.setSetting("activeCampaignId", id);
+  state.campaignId = id;
+  setSelectedSystem(normalizedSystemKey(target.gameSystem),{fromCampaign:true});
+  await reloadActiveCampaign();
+  switchView("dashboard");
+  showToast(`Campagne ouverte : ${target.name}`);
+}
+
+function nextSessionNumber() {
+  return Math.max(0, ...state.sessions.map(s => Number(s.number || 0))) + 1;
+}
+
+function openSessionEditor(id = null) {
+  const s = id ? state.sessions.find(x => x.id === id) : null;
+  $("#sessionEditModalTitle").textContent = s ? "Modifier la séance" : "Nouvelle séance";
+  $("#sessionEditId").value = s?.id || "";
+  $("#sessionEditNumber").value = s?.number || nextSessionNumber();
+  $("#sessionEditRealDate").value = s?.realDate || new Date().toISOString().slice(0,10);
+  $("#sessionEditTitle").value = s?.title || "";
+  $("#sessionEditGameDateStart").value = s?.gameDateStart || state.campaign?.currentGameDate || "";
+  $("#sessionEditStatus").value = s?.status || "active";
+  $("#sessionEditSummary").value = s?.summary || "";
+
+  const defaults = s?.characterIds || state.characters.filter(c => c.type === "PC" && !c.deleted).map(c => c.id);
+  renderSessionParticipantEditor(defaults);
+
+  openModal("sessionEditModal");
+}
+
+async function saveSessionEntity() {
+  const id = $("#sessionEditId").value || JDRDB.uuid("session");
+  const existing = state.sessions.find(s => s.id === id);
+  const status = $("#sessionEditStatus").value;
+
+  if (status === "active") {
+    for (const other of state.sessions.filter(s => s.id !== id && s.status === "active")) {
+      other.status = "completed";
+      other.gameDateEnd = state.campaign?.currentGameDate || other.gameDateEnd || null;
+      other.realEndTime = JDRDB.nowIso();
+      other.updatedAt = JDRDB.nowIso();
+      await JDRDB.put("sessions", other);
+    }
+  }
+
+  const row = {
+    ...(existing || {}),
+    id,
+    campaignId: state.campaign.id,
+    number: Number($("#sessionEditNumber").value || nextSessionNumber()),
+    title: $("#sessionEditTitle").value.trim(),
+    realDate: $("#sessionEditRealDate").value,
+    gameDateStart: $("#sessionEditGameDateStart").value.trim(),
+    gameDateEnd: status === "completed"
+      ? (existing?.gameDateEnd || state.campaign.currentGameDate || null)
+      : null,
+    realStartTime: existing?.realStartTime || (status === "active" ? JDRDB.nowIso() : null),
+    realEndTime: status === "completed" ? (existing?.realEndTime || JDRDB.nowIso()) : null,
+    characterIds: selectedSessionParticipants(),
+    summary: $("#sessionEditSummary").value.trim(),
+    status,
+    createdAt: existing?.createdAt || JDRDB.nowIso(),
+    updatedAt: JDRDB.nowIso()
+  };
+
+  await JDRDB.put("sessions", row);
+
+  if (existing) Object.assign(existing, row);
+  else state.sessions.push(row);
+
+  if (status === "active") {
+    state.session = row;
+    await saveCampaignPatch({ currentSessionId:id }, "ACTIVATE_SESSION");
+  } else if (state.campaign.currentSessionId === id) {
+    state.session = null;
+    await saveCampaignPatch({ currentSessionId:null }, "CLOSE_SESSION");
+  }
+
+  $("#sessionEditModal").classList.add("hidden");
+  renderSessionsManager();
+  renderCampaignHeader();
+  showToast(existing ? "Séance modifiée." : "Séance créée.");
+}
+
+async function activateExistingSession(id) {
+  const s = state.sessions.find(x => x.id === id);
+  if (!s) return;
+
+  for (const other of state.sessions.filter(x => x.id !== id && x.status === "active")) {
+    other.status = "completed";
+    other.gameDateEnd = state.campaign.currentGameDate || null;
+    other.realEndTime = JDRDB.nowIso();
+    other.updatedAt = JDRDB.nowIso();
+    await JDRDB.put("sessions", other);
+  }
+
+  s.status = "active";
+  s.realStartTime = s.realStartTime || JDRDB.nowIso();
+  s.realEndTime = null;
+  s.updatedAt = JDRDB.nowIso();
+  await JDRDB.put("sessions", s);
+
+  state.session = s;
+  await saveCampaignPatch({ currentSessionId:id }, "ACTIVATE_SESSION");
+  renderSessionsManager();
+  renderCampaignHeader();
+  showToast(`Séance ${s.number} activée.`);
+}
+
+async function endCurrentSession() {
+  const s = state.session;
+  if (!s || s.status !== "active") return;
+
+  const ok = confirm(`Terminer la séance ${s.number}${s.title ? ` — ${s.title}` : ""} ?`);
+  if (!ok) return;
+
+  s.status = "completed";
+  s.gameDateEnd = state.campaign.currentGameDate || null;
+  s.realEndTime = JDRDB.nowIso();
+  s.updatedAt = JDRDB.nowIso();
+  await JDRDB.put("sessions", s);
+
+  state.session = null;
+  await saveCampaignPatch({ currentSessionId:null }, "END_SESSION");
+  renderSessionsManager();
+  renderCampaignHeader();
+  showToast("Séance terminée.");
+}
+
+const CAMPAIGN_EXPORT_STORES = [
+  "characters","locations","factions","relations","plots","scenarios",
+  "scenes","sessions","events","notes","informations","items","documents","history"
+];
+
+async function buildCampaignExport(campaignId) {
+  const campaign = await JDRDB.get("campaigns", campaignId);
+  if (!campaign) throw new Error("Campagne introuvable");
+
+  const payload = {
+    format:"JDR_CAMPAIGN",
+    version:"1.0",
+    exportedAt:JDRDB.nowIso(),
+    campaign:{...campaign}
+  };
+
+  for (const store of CAMPAIGN_EXPORT_STORES) {
+    payload[store] = await JDRDB.getAllByIndex(store, "campaignId", campaignId);
+  }
+
+  return payload;
+}
+
+async function exportCampaign(campaignId = state.campaignId) {
+  try {
+    const payload = await buildCampaignExport(campaignId);
+    const blob = new Blob([JSON.stringify(payload, null, 2)], {type:"application/json"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${safeFileName(payload.campaign.name)}_JDR_CAMPAIGN.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1500);
+    showToast("Export JSON créé.");
+  } catch (err) {
+    console.error(err);
+    showToast("Impossible d’exporter la campagne.");
+  }
+}
+
+function remapValue(value, map) {
+  return value && map.has(value) ? map.get(value) : value;
+}
+
+function remapArray(values, map) {
+  return (values || []).map(v => remapValue(v,map));
+}
+
+async function importCampaignPayload(payload) {
+  if (!payload || payload.format !== "JDR_CAMPAIGN" || !payload.campaign) {
+    throw new Error("Format de campagne invalide.");
+  }
+
+  const maps = {};
+  const storesWithIds = [
+    "characters","locations","factions","relations","plots","scenarios",
+    "scenes","sessions","events","notes","informations","items","documents","history"
+  ];
+
+  const prefix = {
+    characters:"character", locations:"location", factions:"faction", relations:"relation",
+    plots:"plot", scenarios:"scenario", scenes:"scene", sessions:"session",
+    events:"event", notes:"note", informations:"information", items:"item",
+    documents:"document", history:"history"
+  };
+
+  for (const store of storesWithIds) {
+    maps[store] = new Map();
+    for (const row of (payload[store] || [])) {
+      if (row?.id) maps[store].set(row.id, JDRDB.uuid(prefix[store]));
+    }
+  }
+
+  const anyId = (id) => {
+    if (!id) return id;
+    for (const map of Object.values(maps)) {
+      if (map.has(id)) return map.get(id);
+    }
+    return id;
+  };
+
+  const newCampaignId = JDRDB.uuid("campaign");
+  const c = {...payload.campaign};
+  c.id = newCampaignId;
+  c.name = `${c.name} — import`;
+  c.currentLocationId = remapValue(c.currentLocationId, maps.locations);
+  c.currentSessionId = remapValue(c.currentSessionId, maps.sessions);
+  c.currentSceneId = remapValue(c.currentSceneId, maps.scenes);
+  c.createdAt = JDRDB.nowIso();
+  c.updatedAt = JDRDB.nowIso();
+  await JDRDB.put("campaigns", c);
+
+  const writeRows = async (store, transform) => {
+    for (const old of (payload[store] || [])) {
+      const row = transform({...old});
+      row.id = maps[store].get(old.id) || JDRDB.uuid(prefix[store]);
+      row.campaignId = newCampaignId;
+      await JDRDB.put(store, row);
+    }
+  };
+
+  await writeRows("characters", r => ({
+    ...r,
+    factionIds:remapArray(r.factionIds,maps.factions),
+    currentLocationId:remapValue(r.currentLocationId,maps.locations)
+  }));
+
+  await writeRows("locations", r => ({
+    ...r,
+    parentLocationId:remapValue(r.parentLocationId,maps.locations),
+    mapId:remapValue(r.mapId,maps.documents),
+    ownerCharacterId:remapValue(r.ownerCharacterId,maps.characters),
+    factionId:remapValue(r.factionId,maps.factions)
+  }));
+
+  await writeRows("factions", r => ({
+    ...r,
+    headquartersLocationId:remapValue(r.headquartersLocationId,maps.locations),
+    leaderCharacterIds:remapArray(r.leaderCharacterIds,maps.characters),
+    memberCharacterIds:remapArray(r.memberCharacterIds,maps.characters)
+  }));
+
+  await writeRows("relations", r => ({
+    ...r,
+    sourceId:anyId(r.sourceId),
+    targetId:anyId(r.targetId)
+  }));
+
+  await writeRows("plots", r => ({
+    ...r,
+    characterIds:remapArray(r.characterIds,maps.characters),
+    factionIds:remapArray(r.factionIds,maps.factions),
+    locationIds:remapArray(r.locationIds,maps.locations),
+    clueIds:remapArray(r.clueIds,maps.informations),
+    eventIds:remapArray(r.eventIds,maps.events)
+  }));
+
+  await writeRows("scenarios", r => ({
+    ...r,
+    characterIds:remapArray(r.characterIds,maps.characters),
+    factionIds:remapArray(r.factionIds,maps.factions),
+    locationIds:remapArray(r.locationIds,maps.locations)
+  }));
+
+  await writeRows("sessions", r => ({
+    ...r,
+    characterIds:remapArray(r.characterIds,maps.characters)
+  }));
+
+  await writeRows("scenes", r => ({
+    ...r,
+    scenarioId:remapValue(r.scenarioId,maps.scenarios),
+    sessionId:remapValue(r.sessionId,maps.sessions),
+    locationId:remapValue(r.locationId,maps.locations),
+    characterIds:remapArray(r.characterIds,maps.characters)
+  }));
+
+  await writeRows("events", r => ({
+    ...r,
+    sessionId:remapValue(r.sessionId,maps.sessions),
+    sceneId:remapValue(r.sceneId,maps.scenes),
+    locationId:remapValue(r.locationId,maps.locations),
+    characterIds:remapArray(r.characterIds,maps.characters),
+    factionIds:remapArray(r.factionIds,maps.factions),
+    plotIds:remapArray(r.plotIds,maps.plots)
+  }));
+
+  await writeRows("notes", r => ({
+    ...r,
+    sessionId:remapValue(r.sessionId,maps.sessions),
+    sceneId:remapValue(r.sceneId,maps.scenes)
+  }));
+
+  await writeRows("informations", r => ({
+    ...r,
+    sourceId:anyId(r.sourceId),
+    knownByCharacterIds:remapArray(r.knownByCharacterIds,maps.characters)
+  }));
+
+  await writeRows("items", r => ({
+    ...r,
+    ownerCharacterId:remapValue(r.ownerCharacterId,maps.characters),
+    locationId:remapValue(r.locationId,maps.locations),
+    containerItemId:remapValue(r.containerItemId,maps.items)
+  }));
+
+  await writeRows("documents", r => ({
+    ...r,
+    characterIds:remapArray(r.characterIds,maps.characters),
+    locationIds:remapArray(r.locationIds,maps.locations),
+    factionIds:remapArray(r.factionIds,maps.factions),
+    scenarioIds:remapArray(r.scenarioIds,maps.scenarios)
+  }));
+
+  await writeRows("history", r => ({
+    ...r,
+    entityId:anyId(r.entityId)
+  }));
+
+  state.campaigns = await JDRDB.getAll("campaigns");
+  await activateCampaign(newCampaignId);
+  showToast("Campagne importée comme nouvelle campagne.");
+}
+
+
+const SYSTEM_SCOPED_STORES = ["characters","locations","factions","items","scenarios","documents","informations"];
+function isSystemScopedRow(row,key=selectedSystemKey()){
+  return row && row.scope==="system" && normalizedSystemKey(row.systemKey||row.system)===key;
+}
+async function scopedRows(store,campaignId=state.campaignId,key=selectedSystemKey()){
+  const all=(await JDRDB.getAll(store)).filter(x=>!x.deleted);
+  return all.filter(x=>isSystemScopedRow(x,key) || (campaignId && x.campaignId===campaignId));
+}
+async function loadSystemOnlyContext(){
+  state.campaignId=null; state.campaign=null; state.session=null; state.scene=null;
+  state.sessions=[]; state.scenes=[]; state.events=[]; state.notes=[]; state.plots=[]; state.relations=[];
+  state.characters=await scopedRows("characters",null);
+  state.locations=await scopedRows("locations",null);
+  state.locationMap=new Map(state.locations.map(l=>[l.id,l]));
+  state.factions=await scopedRows("factions",null);
+  state.items=await scopedRows("items",null);
+  state.informations=await scopedRows("informations",null);
+  state.scenarios=await scopedRows("scenarios",null);
+  state.documents=await scopedRows("documents",null);
+  populateLocationSelect(); populateSceneSelect(); populateGeneratorStyles(); renderGeneratorProfileSummary();
+  renderCharacters(); renderCharactersManager(); renderLocationsManager(); renderPlots(); renderEvents(); renderNotes(); renderScenes(); renderAlerts(); renderSessionsManager(); renderCampaignsManager(); applyState();
+}
+async function closeCampaignContext(){
+  await JDRDB.setSetting("activeCampaignId",null);
+  await loadSystemOnlyContext();
+  switchView("systemLibrary");
+  showToast("Campagne fermée : bibliothèque du JDR active.");
+}
+
+async function reloadActiveCampaign() {
+  state.campaign = await JDRDB.get("campaigns", state.campaignId);
+  if (!state.campaign) throw new Error("Aucune campagne active.");
+
+  setSelectedSystem(normalizedSystemKey(state.campaign.gameSystem),{fromCampaign:true});
+  state.gameTheme = state.campaign.currentGameTheme || systemDefaultTheme(state.campaign.gameSystem);
+  localStorage.setItem("jdr-game-theme", state.gameTheme);
+
+  state.locations = await scopedRows("locations",state.campaignId);
+  state.locationMap = new Map(state.locations.filter(l => !l.deleted).map(l => [l.id,l]));
+  state.characters = await scopedRows("characters",state.campaignId);
+  state.plots = (await JDRDB.getAllByIndex("plots","campaignId",state.campaignId)).filter(x => !x.deleted);
+  state.factions = await scopedRows("factions",state.campaignId);
+  state.items = await scopedRows("items",state.campaignId);
+  state.informations = await scopedRows("informations",state.campaignId);
+  state.scenarios = await scopedRows("scenarios",state.campaignId);
+  state.documents = await scopedRows("documents",state.campaignId);
+  state.relations = (await JDRDB.getAllByIndex("relations","campaignId",state.campaignId)).filter(x => !x.deleted);
+  state.scenes = await JDRDB.getAllByIndex("scenes","campaignId",state.campaignId);
+  state.sessions = await JDRDB.getAllByIndex("sessions","campaignId",state.campaignId);
+  state.events = (await JDRDB.getAllByIndex("events","campaignId",state.campaignId)).filter(x => !x.deleted);
+  state.notes = await JDRDB.getAllByIndex("notes","campaignId",state.campaignId);
+
+  state.session = state.campaign.currentSessionId
+    ? await JDRDB.get("sessions",state.campaign.currentSessionId)
+    : null;
+  state.scene = state.campaign.currentSceneId
+    ? await JDRDB.get("scenes",state.campaign.currentSceneId)
+    : null;
+
+  populateLocationSelect();
+  populateSceneSelect();
+  populateGeneratorStyles();
+  renderGeneratorProfileSummary();
+  renderCharacters();
+  renderCharactersManager();
+  renderLocationsManager();
+  renderPlots();
+  renderEvents();
+  renderNotes();
+  renderScenes();
+  renderAlerts();
+  renderSessionsManager();
+  renderCampaignsManager();
+  applyState();
+}
+
+function switchView(view) {
+  state.currentView = view;
+  $$(".nav-item").forEach(btn => btn.classList.toggle("active", btn.dataset.view === view));
+
+  $("#dashboardView").classList.toggle("active-view", view === "dashboard");
+  $("#sessionView").classList.toggle("active-view", view === "session");
+  $("#campaignView").classList.toggle("active-view", view === "campaign");
+  $("#charactersView").classList.toggle("active-view", view === "characters");
+  $("#locationsView").classList.toggle("active-view", view === "locations");
+  $("#scenesView").classList.toggle("active-view", view === "scenes");
+  $("#notesView").classList.toggle("active-view", view === "notes");
+  $("#generatorsView").classList.toggle("active-view", view === "generators");
+
+  const dedicated = ["dashboard","session","campaign","characters","locations","scenes","notes","generators"];
+  const isPlaceholder = !dedicated.includes(view);
+  $("#placeholderView").classList.toggle("active-view", isPlaceholder);
+
+  if (isPlaceholder) {
+    const placeholderTitle=$("#placeholderTitle"); if(placeholderTitle) placeholderTitle.textContent = viewTitles[view] || "Module";
+    renderWorkspaceModule(view);
+  }
+  if (view === "session") renderSessionsManager();
+  if (view === "campaign") renderCampaignsManager();
+  if (view === "characters") renderCharactersManager();
+  if (view === "locations") renderLocationsManager();
+  if (view === "notes") renderNotes();
+  if (view === "scenes") renderScenes();
+  if (view === "generators") {
+    populateGeneratorStyles();
+    renderGeneratorProfileSummary();
+
+    const key = profileKeyForCampaign();
+    const charDefaults =
+      key === "l5r1" ? {socialStatus:"samurai",clan:"dragon",profession:"mirumoto_bushi",occupation:"warrior"} :
+      key === "dnd5" ? {ancestry:"human",profession:"fighter"} :
+      key === "vampire2" ? {country:"usa",clan:"ventrue",profession:"executive"} :
+      key === "ward" ? {country:"usa",region:"",agency:"cia",profession:"cia_operations",orientation:""} : {};
+
+    const locDefaults =
+      key === "l5r1" ? {clan:"dragon",environment:"mountain"} :
+      key === "dnd5" ? {culture:"human",environment:"plain"} :
+      key === "vampire2" ? {country:"usa",region:"",district:"downtown"} :
+      key === "ward" ? {country:"usa",region:"",setting:"urban"} : {};
+
+    const genCharBox = $("#generatorCharacterContextContainer") || $("#generatorCharacterContext");
+    const genLocBox = $("#generatorLocationContextContainer") || $("#generatorLocationContext");
+    if (genCharBox) genCharBox.id = "generatorCharacterContextContainer";
+    if (genLocBox) genLocBox.id = "generatorLocationContextContainer";
+
+    renderContextFields($("#generatorCharacterContextContainer"), "character", charDefaults, "genChar_");
+    renderContextFields($("#generatorLocationContextContainer"), "location", locDefaults, "genLoc_");
+  }
+}
+
+function populateSceneSelect() {
+  const select = $("#sceneSelect");
+  select.innerHTML = state.scenes.filter(scene => !scene.deleted).map(scene =>
+    `<option value="${esc(scene.id)}">${esc(scene.gameDate || "—")} · ${esc(scene.startTime || "—")} · ${esc(scene.title)} · ${esc(locationName(scene.locationId))}</option>`
+  ).join("");
+}
+
+function updateScenePreview() {
+  const scene = state.scenes.find(s => s.id === $("#sceneSelect").value);
+  if (!scene) return;
+
+  $("#scenePreview").innerHTML = `
+    <strong>${esc(scene.title)}</strong>
+    <div>${esc(scene.description || "")}</div>
+    <div class="scene-preview-meta">
+      ${esc(scene.gameDate || "Date libre")} · ${esc(scene.startTime || "Heure libre")} · ${esc(locationName(scene.locationId))}
+    </div>
+  `;
+
+  const compat = sceneCompatibility(scene);
+  const box = $("#sceneCompatibility");
+  box.className = `compatibility-message ${compat.type}`;
+  box.textContent = compat.text;
+}
+
+function openSceneModal(sceneId = null) {
+  populateSceneSelect();
+  const select = $("#sceneSelect");
+  if (sceneId && state.scenes.some(s => s.id === sceneId)) select.value = sceneId;
+  else if (state.campaign?.currentSceneId) select.value = state.campaign.currentSceneId;
+  updateScenePreview();
+  openModal("sceneModal");
+}
+
+async function activateSelectedScene() {
+  const scene = state.scenes.find(s => s.id === $("#sceneSelect").value);
+  if (!scene) return;
+
+  const patch = { currentSceneId: scene.id };
+  const syncLocation = $("#syncSceneLocation").checked;
+  const syncDateTime = $("#syncSceneDateTime").checked;
+
+  if (syncLocation && scene.locationId) {
+    patch.currentLocationId = scene.locationId;
+  }
+
+  if (syncDateTime) {
+    const compat = sceneCompatibility(scene);
+    if (compat.type === "warning") {
+      const ok = confirm(
+        `La scène "${scene.title}" commence avant l'heure actuelle.\n\n` +
+        `Voulez-vous quand même replacer la campagne au ${scene.gameDate || state.campaign.currentGameDate} à ${scene.startTime || state.campaign.currentGameTime} ?`
+      );
+      if (!ok) {
+        // On change la scène et le lieu, mais pas l'horloge.
+      } else {
+        if (scene.gameDate) patch.currentGameDate = scene.gameDate;
+        if (scene.startTime) patch.currentGameTime = scene.startTime;
+      }
+    } else {
+      if (scene.gameDate) patch.currentGameDate = scene.gameDate;
+      if (scene.startTime) patch.currentGameTime = scene.startTime;
+    }
+  }
+
+  const previousScene = state.scene;
+  state.scene = scene;
+  await saveCampaignPatch(patch, "CHANGE_SCENE");
+
+  if (previousScene && previousScene.id !== scene.id && previousScene.status === "active") {
+    previousScene.status = "completed";
+    previousScene.updatedAt = JDRDB.nowIso();
+    await JDRDB.put("scenes", previousScene);
+  }
+
+  scene.status = "active";
+  scene.updatedAt = JDRDB.nowIso();
+  await JDRDB.put("scenes", scene);
+
+  if (syncLocation && scene.locationId) {
+    for (const characterId of (scene.characterIds || [])) {
+      const character = state.characters.find(c => c.id === characterId && !c.deleted);
+      if (!character) continue;
+      character.currentLocationId = scene.locationId;
+      character.updatedAt = JDRDB.nowIso();
+      await JDRDB.put("characters", character);
+    }
+  }
+
+  $("#sceneModal").classList.add("hidden");
+  renderScenes();
+  renderCharacters();
+  renderCharactersManager();
+  renderCampaignHeader();
+  showToast(`Scène active : ${scene.title}`);
+}
+
+function addAssistantMessage(type, html) {
+  const el = document.createElement("div");
+  el.className = `assistant-message ${type}`;
+  el.innerHTML = html;
+  $("#assistantContent").appendChild(el);
+  $(".assistant-scroll").scrollTop = $(".assistant-scroll").scrollHeight;
+}
+
+function normalizeSearchText(value) {
+  return String(value ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("fr");
+}
+function campaignSearchPools() {
+  return [
+    ...(state.characters||[]).filter(x=>!x.deleted).map(x=>[x.type==="PC"?"PJ":"PNJ",x.name,x]),
+    ...(state.locations||[]).filter(x=>!x.deleted).map(x=>["Lieu",x.name,x]),
+    ...(state.factions||[]).filter(x=>!x.deleted).map(x=>["Faction",x.name,x]),
+    ...(state.plots||[]).filter(x=>!x.deleted).map(x=>["Intrigue",x.title,x]),
+    ...(state.scenarios||[]).filter(x=>!x.deleted).map(x=>["Scénario",x.title,x]),
+    ...(state.events||[]).filter(x=>!x.deleted).map(x=>["Événement",x.title,x]),
+    ...(state.items||[]).filter(x=>!x.deleted).map(x=>["Objet",x.name,x]),
+    ...(state.informations||[]).filter(x=>!x.deleted).map(x=>["Information",x.title||x.name||"Information",x]),
+    ...(state.documents||[]).filter(x=>!x.deleted).map(x=>["Document",x.title,x])
+  ];
+}
+function searchCampaignData(query, limit=20) {
+  const words=normalizeSearchText(query).split(/\s+/).filter(w=>w.length>1 && !["qui","que","quoi","quel","quelle","quels","quelles","est","sont","dans","sur","avec","les","des","une","pour","moi","mon","mes","du","de","la","le","ce","cette","ici","retrouve","trouve","montre","donne"].includes(w));
+  return campaignSearchPools().map(entry=>{
+    const hay=normalizeSearchText(JSON.stringify(entry[2]));
+    const name=normalizeSearchText(entry[1]);
+    let score=words.reduce((n,w)=>n+(name.includes(w)?5:hay.includes(w)?1:0),0);
+    return {entry,score};
+  }).filter(x=>x.score>0).sort((a,b)=>b.score-a.score).slice(0,limit).map(x=>x.entry);
+}
+function entitySummary(type,name,row) {
+  const bits=[];
+  if(type==="PJ"||type==="PNJ") {
+    if(row.generationContext?.profession) bits.push(row.generationContext.profession);
+    if(row.currentLocationId) bits.push(locationName(row.currentLocationId));
+  } else if(type==="Événement") {
+    if(row.gameDate) bits.push(row.gameDate+(row.gameTime?` ${row.gameTime}`:""));
+    if(row.locationId) bits.push(locationName(row.locationId));
+  } else if(type==="Intrigue"||type==="Scénario") {
+    if(row.status) bits.push(row.status);
+  }
+  const desc=row.description||row.content||row.notes||"";
+  return `<strong>${esc(type)} — ${esc(name||"Sans nom")}</strong>${bits.length?`<br><span>${esc(bits.join(" · "))}</span>`:""}${desc?`<br>${esc(String(desc).slice(0,240))}`:""}`;
+}
+async function assistantReply(question) {
+  const q=normalizeSearchText(question).replace(/[^a-z0-9'’]+/g," ").trim();
+  const tokens=new Set(q.split(/\s+/).filter(Boolean));
+  const has=(...words)=>words.some(w=>tokens.has(w));
+  const asksPnj = has("pnj") || (tokens.has("personnage") && (tokens.has("non")||tokens.has("joueur")));
+  const asksPj = has("pj") || (tokens.has("personnage") && tokens.has("joueur") && !tokens.has("non"));
+  const asksList = has("liste","lister","tous","toutes","quels","quelles","donne","montre","affiche","enumerer","enumere");
+  const asksCount = has("combien","nombre","compte","compter");
+  const chars=(state.characters||[]).filter(c=>!c.deleted);
+  const pcs=chars.filter(c=>c.type==="PC"||c.characterType==="PJ"||c.type==="PJ"||c.role==="PJ"||c.isPlayerCharacter===true);
+  const npcs=chars.filter(c=>!pcs.includes(c));
+  const wantsList=asksList;
+  const wantsCount=asksCount;
+  const named=chars.map(c=>({c,n:normalizeSearchText(c.name||"")})).filter(x=>x.n&&q.includes(x.n)).sort((a,b)=>b.n.length-a.n.length)[0]?.c;
+  const listAnswer=(title,rows,labelFn)=>`<strong>${esc(title)} — ${rows.length}</strong><br>${rows.length?rows.map(x=>`• ${esc(labelFn(x))}`).join("<br>"):"Aucun élément enregistré."}`;
+  let answer="";
+
+  if(q.includes("intrigue") && (q.includes("ouverte")||q.includes("active"))) {
+    const active=(state.plots||[]).filter(p=>p.status==="active"&&!p.deleted);
+    answer=`<strong>${active.length} intrigue(s) active(s)</strong><br>${active.length?active.map(p=>`• ${esc(p.title)} — priorité ${p.priority||0}`).join("<br>"):"Aucune intrigue active."}`;
+  } else if(asksPnj && (has("lieu","ici","present","presents")||q.includes("qui est ici"))) {
+    const loc=state.campaign.currentLocationId;
+    const here=npcs.filter(c=>c.currentLocationId===loc || (state.scene?.characterIds||[]).includes(c.id));
+    answer=listAnswer(`PNJ présents — ${locationName(loc)}`,here,c=>c.name||"Sans nom");
+  } else if(asksPnj && (wantsList||wantsCount||tokens.has("campagne"))) {
+    answer=wantsCount&&!wantsList?`<strong>${npcs.length} PNJ</strong> enregistré(s) dans cette campagne.`:listAnswer("PNJ de la campagne",npcs,c=>c.name||"Sans nom");
+  } else if(asksPj && (wantsList||wantsCount||tokens.has("campagne"))) {
+    answer=wantsCount&&!wantsList?`<strong>${pcs.length} PJ</strong> enregistré(s) dans cette campagne.`:listAnswer("PJ de la campagne",pcs,c=>c.name||"Sans nom");
+  } else if(q.includes("lieu") && (wantsList||wantsCount)) {
+    const rows=(state.locations||[]).filter(x=>!x.deleted); answer=wantsCount&&!wantsList?`<strong>${rows.length} lieu(x)</strong> enregistré(s).`:listAnswer("Lieux de la campagne",rows,x=>x.name||"Sans nom");
+  } else if(q.includes("faction") && (wantsList||wantsCount)) {
+    const rows=(state.factions||[]).filter(x=>!x.deleted); answer=wantsCount&&!wantsList?`<strong>${rows.length} faction(s)</strong> enregistrée(s).`:listAnswer("Factions de la campagne",rows,x=>x.name||"Sans nom");
+  } else if(q.includes("scenario") && (wantsList||wantsCount)) {
+    const rows=(state.scenarios||[]).filter(x=>!x.deleted); answer=wantsCount&&!wantsList?`<strong>${rows.length} scénario(s)</strong> enregistré(s).`:listAnswer("Scénarios",rows,x=>x.title||"Sans titre");
+  } else if(q.includes("objet") && (wantsList||wantsCount)) {
+    const rows=(state.items||[]).filter(x=>!x.deleted); answer=wantsCount&&!wantsList?`<strong>${rows.length} objet(s)</strong> enregistré(s).`:listAnswer("Objets",rows,x=>x.name||"Sans nom");
+  } else if((q.includes("indice")||q.includes("information")) && (q.includes("reste")||q.includes("decouvrir")||q.includes("scene"))) {
+    const clues=state.scene?.clues||state.scene?.informations||"";
+    answer=`<strong>Indices de la scène — ${esc(state.scene?.title||"Aucune scène active")}</strong><br>${clues?esc(Array.isArray(clues)?clues.join(" · "):clues):"Aucun indice structuré n’est enregistré pour cette scène."}`;
+  } else if(named && (q.includes("xp")||q.includes("progression")||q.includes("evolution"))) {
+    const hist=(await JDRDB.getAllByIndex('history','campaignId',state.campaignId)).filter(h=>!h.deleted&&h.entityType==='progression'&&h.entityId===named.id).sort((a,b)=>(b.createdAt||'').localeCompare(a.createdAt||''));
+    answer=`<strong>Progression — ${esc(named.name)}</strong><br>XP actuel enregistré : <strong>${Number(named.xp||0)}</strong>${hist.length?`<br><br>${hist.slice(0,8).map(h=>`• ${esc(h.summary||'Progression')}${h.progression?.evolution?` — ${esc(h.progression.evolution)}`:''}`).join('<br>')}`:'<br>Aucune entrée de progression enregistrée.'}`;
+  } else if(named && (q.includes("ou est")||q.includes("localis")||q.includes("trouve"))) {
+    answer=`<strong>${esc(named.name)}</strong><br>Localisation enregistrée : ${esc(named.currentLocationId?locationName(named.currentLocationId):"non renseignée")}.`;
+  } else if(named && (q.includes("intrigue")||q.includes("relation")||q.includes("connait")||q.includes("connais"))) {
+    const rels=(state.relations||[]).filter(r=>!r.deleted&&(r.sourceId===named.id||r.targetId===named.id));
+    const plotHits=(state.plots||[]).filter(p=>!p.deleted&&normalizeSearchText(JSON.stringify(p)).includes(normalizeSearchText(named.name)));
+    answer=`<strong>Liens — ${esc(named.name)}</strong><br>${rels.length?rels.map(r=>`• ${esc(v191EntityName(r.sourceId))} — ${esc(r.relationType||'lié à')} — ${esc(v191EntityName(r.targetId))}`).join('<br>'):'Aucune relation structurée.'}${plotHits.length?`<br><br><strong>Intrigues correspondantes</strong><br>${plotHits.map(p=>`• ${esc(p.title)}`).join('<br>')}`:''}`;
+  } else if(named && q.includes("sait")) {
+    const infos=(state.informations||[]).filter(i=>!i.deleted&&((i.knownByCharacterIds||[]).includes(named.id)||normalizeSearchText(JSON.stringify(i)).includes(normalizeSearchText(named.name))));
+    answer=listAnswer(`Informations connues par ${named.name}`,infos,i=>i.title||i.name||i.content||"Information");
+  } else if(q.includes("continuit")) {
+    const issues=[];
+    if(state.scene?.locationId && state.campaign.currentLocationId && state.scene.locationId!==state.campaign.currentLocationId) issues.push("Le lieu de la scène active diffère du lieu actuel de la campagne.");
+    const missing=(state.scene?.characterIds||[]).filter(id=>!state.characters.some(c=>c.id===id&&!c.deleted));
+    if(missing.length) issues.push(`${missing.length} personnage(s) référencé(s) par la scène sont absents ou archivés.`);
+    answer=`<strong>CONTRÔLE DE CONTINUITÉ LOCAL</strong><br>${issues.length?issues.map(x=>`⚠ ${esc(x)}`).join("<br>"):"Aucune incohérence simple détectée entre la scène active, son lieu et ses personnages."}`;
+  } else if(q.includes("resum")||q.includes("situation")) {
+    const active=(state.plots||[]).filter(p=>p.status==="active"&&!p.deleted);
+    answer=`<strong>SITUATION</strong><br>${esc(state.scene?.title||"Aucune scène active")} à ${esc(locationName(state.campaign.currentLocationId))}, le ${esc(state.campaign.currentGameDate)} à ${esc(state.campaign.currentGameTime)}.<br><br><strong>CAMPAGNE</strong><br>${state.characters.filter(x=>!x.deleted).length} personnage(s) · ${state.events.length} événement(s) · ${active.length} intrigue(s) active(s) · ${(state.scenarios||[]).length} scénario(s).`;
+  } else {
+    const hits=searchCampaignData(question,8);
+    answer=hits.length?`<strong>RECHERCHE LOCALE — ${hits.length} résultat(s)</strong><br><br>${hits.map(([t,n,r])=>entitySummary(t,n,r)).join("<br><br>")}<div class="source">Source : données locales de la campagne, sans API IA.</div>`:`<strong>AUCUN RÉSULTAT LOCAL</strong><br>Je n’ai pas reconnu une commande précise et aucun mot significatif de « ${esc(question)} » ne correspond aux données de la campagne.`;
+  }
+  setTimeout(()=>addAssistantMessage("assistant",answer),120);
+}
+
+async function saveCampaignPatch(patch, actionLabel) {
+  if (!state.campaign) return;
+  const previous = { ...state.campaign };
+  Object.assign(state.campaign, patch, { updatedAt: JDRDB.nowIso() });
+
+  try {
+    setSaveState("● Sauvegarde...", "saving");
+    await JDRDB.put("campaigns", state.campaign);
+    await JDRDB.history(
+      state.campaign.id,
+      "campaign",
+      state.campaign.id,
+      actionLabel,
+      previous,
+      state.campaign,
+      "USER"
+    );
+    setSaveState("● Sauvegardé");
+    applyState();
+  } catch (err) {
+    console.error(err);
+    setSaveState("⚠ Erreur", "error");
+    showToast("Erreur de sauvegarde locale.");
+  }
+}
+
+async function loadData() {
+  setSaveState("● Chargement...", "saving");
+  await JDRDB.open();
+
+  state.campaigns = await JDRDB.getAll("campaigns");
+  state.campaignId = await JDRDB.getSetting("activeCampaignId", null);
+
+  if (state.campaignId && !state.campaigns.some(c => c.id === state.campaignId)) {
+    state.campaignId = null;
+    await JDRDB.setSetting("activeCampaignId",null);
+  }
+
+  if (state.campaignId) {
+    if (state.campaignId === "campaign_l5r_demo") await JDRDB.ensureDemoScenes(state.campaignId);
+    await reloadActiveCampaign();
+  } else {
+    await loadSystemOnlyContext();
+    switchView("systemLibrary");
+  }
+
+  setSaveState(
+    JDRDB.backendMode === "indexeddb" ? "● Sauvegardé" :
+    (JDRDB.backendMode === "localstorage" ? "● Sauvegarde locale" : "● Mémoire temporaire")
+  );
+  if (JDRDB.backendMode !== "indexeddb") {
+    showToast(JDRDB.backendMode === "localstorage"
+      ? "IndexedDB indisponible : mode localStorage activé automatiquement."
+      : "Stockage persistant indisponible : mode mémoire temporaire activé.");
+  }
+}
+
+function populateLocationSelect() {
+  const selects = [
+    $("#locationSelect"),
+    $("#characterEditLocation"),
+    $("#sceneEditLocation")
+  ].filter(Boolean);
+
+  const rows = state.locations
+    .filter(l => !l.deleted)
+    .sort((a,b) => locationPath(a.id).localeCompare(locationPath(b.id), "fr"));
+
+  for (const select of selects) {
+    const previous = select.value;
+    select.innerHTML = rows
+      .map(l => `<option value="${esc(l.id)}">${esc(locationPath(l.id))}</option>`)
+      .join("");
+    if (previous && state.locationMap.has(previous)) select.value = previous;
+  }
+
+  if ($("#locationSelect") && state.campaign) {
+    $("#locationSelect").value = state.campaign.currentLocationId || "";
+  }
+}
+
+function populateParentLocationSelect(excludeId = null) {
+  const select = $("#locationEditParent");
+  select.innerHTML = `<option value="">— Aucun parent —</option>` +
+    state.locations
+      .filter(l => !l.deleted && l.id !== excludeId)
+      .sort((a,b) => locationPath(a.id).localeCompare(locationPath(b.id), "fr"))
+      .map(l => `<option value="${esc(l.id)}">${esc(locationPath(l.id))}</option>`)
+      .join("");
+}
+
+function renderSceneParticipantEditor(selectedIds = []) {
+  const selected = new Set(selectedIds || []);
+  $("#sceneParticipantsEditor").innerHTML = state.characters
+    .filter(c => !c.deleted)
+    .sort((a,b) => (a.name || "").localeCompare(b.name || "", "fr"))
+    .map(c => `
+      <label class="participant-check">
+        <input type="checkbox" value="${esc(c.id)}" ${selected.has(c.id) ? "checked" : ""} />
+        <span>${esc(c.name)} <span class="row-sub">(${c.type === "PC" ? "PJ" : "PNJ"})</span></span>
+      </label>
+    `).join("");
+}
+
+function selectedSceneParticipants() {
+  return $$("#sceneParticipantsEditor input[type=checkbox]:checked").map(x => x.value);
+}
+
+async function openCharacterEditor(id = null, presetType = null) {
+  const c = id ? state.characters.find(x => x.id === id) : null;
+  $("#characterEditId").value = c?.id || "";
+  $("#characterEditType").value = c?.type || presetType || "NPC";
+  $("#characterPlayerName").value = c?.playerName || "";
+  state.editingPortrait = isSafePortraitSrc(c?.portrait) ? c.portrait : null;
+  $("#characterEditImportance").value = String(c?.importance ?? 2);
+  $("#characterEditName").value = c?.name || "";
+  $("#characterEditProfession").value = c?.profession || "";
+  $("#characterEditStatus").value = c?.status || "active";
+  populateLocationSelect();
+  $("#characterEditLocation").value = c?.currentLocationId || state.campaign?.currentLocationId || "";
+  $("#characterEditDescription").value = c?.description || "";
+
+  state.editingAdvantages = (c?.advantages || []).map(x => normalizeTrait(x, "positive", x.source || "Système"));
+  state.editingDisadvantages = (c?.disadvantages || []).map(x => normalizeTrait(x, "negative", x.source || "Système"));
+  await loadCharacterEquipment(c?.id || null);
+
+  populateGeneratorStyles();
+  populateTraitAndEquipmentCatalogs();
+
+  const key = profileKeyForCampaign();
+  let context = c?.generationContext || {};
+  if (!Object.keys(context).length) {
+    if (key === "l5r1") {
+      context = c?.name === "Mirumoto Ren"
+        ? {clan:"dragon",profession:"mirumoto_bushi"}
+        : {clan:"dragon",profession:"mirumoto_bushi"};
+    } else if (key === "dnd5") {
+      context = {ancestry:"human",profession:"fighter"};
+    } else if (key === "vampire2") {
+      context = {country:"usa",clan:"ventrue",profession:"executive"};
+    } else if (key === "ward") {
+      context = {country:"usa",region:"",agency:"cia",profession:"cia_operations",orientation:""};
+    }
+  }
+
+  $("#characterContextLabel").textContent = contextConfig("character").label;
+  renderContextFields($("#characterContextEditor"), "character", context);
+  state.lastCharacterProfession = context.profession || null;
+
+  if (context.profession && !c?.profession) contextChanged("character", "", false);
+  const autoApplyProfile = !c && (key !== "ward" || $("#characterEditType").value === "NPC");
+  renderRulesEditors(c, !c, context, autoApplyProfile);
+  renderSystemSpecificEditor(c);
+  if (key === "l5r1") {
+    const rankEl=$("#systemSpecificEditor")?.querySelector('[data-system-key="schoolRank"]');
+    const rerenderL5rSpellsForRank=()=>{
+      const v=readContextFields($("#characterContextEditor"));
+      v.schoolRank=rankEl?.value ?? c?.systemData?.schoolRank ?? 1;
+      renderContextFields($("#characterContextEditor"),"character",v);
+    };
+    rerenderL5rSpellsForRank();
+    $("#systemSpecificEditor")?.querySelector('[data-system-key="schoolRank"]')?.addEventListener("change",rerenderL5rSpellsForRank);
+  }
+  renderSelectedTraits();
+
+  if (!c && state.editingEquipment.length === 0) {
+    replaceStartingEquipmentForCurrentContext(true);
+  } else {
+    renderEquipmentEditor();
+  }
+
+  syncCharacterTypeUI();
+  updateCharacterPortraitPreview();
+  $("#characterPortraitInput").value = "";
+  $("#characterPortraitInfo").textContent = state.editingPortrait
+    ? "Portrait enregistré."
+    : "PNG, JPEG ou WebP.";
+
+  openModal("characterEditModal");
+}
+
+async function saveCharacterEntity() {
+  const id = $("#characterEditId").value || JDRDB.uuid("character");
+  const existing = state.characters.find(c => c.id === id);
+  const name = $("#characterEditName").value.trim();
+  if (!name) return showToast("Le nom du personnage est obligatoire.");
+
+  const row = {
+    ...(existing || {}),
+    id,
+    campaignId: state.campaign.id,
+    type: $("#characterEditType").value,
+    name,
+    alias: existing?.alias || "",
+    portrait: state.editingPortrait || null,
+    gender: existing?.gender || null,
+    age: existing?.age || null,
+    species: existing?.species || "Humain",
+    profession: $("#characterEditProfession").value.trim(),
+    generationContext: readContextFields($("#characterContextEditor")),
+    rank: existing?.rank || null,
+    description: $("#characterEditDescription").value.trim(),
+    status: $("#characterEditStatus").value,
+    importance: Number($("#characterEditImportance").value),
+    factionIds: existing?.factionIds || [],
+    currentLocationId: $("#characterEditLocation").value || null,
+    playerName: $("#characterEditType").value === "PC"
+      ? ($("#characterPlayerName").value.trim() || null)
+      : null,
+    characteristics: readCharacteristicsEditor(),
+    skills: readSkillsEditor(),
+    systemData: readSystemSpecificEditor(),
+    advantages: state.editingAdvantages.map(x => ({...x})),
+    disadvantages: state.editingDisadvantages.map(x => ({...x})),
+    biography: existing?.biography || "",
+    motivations: existing?.motivations || "",
+    objectives: existing?.objectives || "",
+    initials: name.split(/\s+/).map(x => x[0]).slice(0,2).join("").toUpperCase(),
+    canonicalStatus: existing?.canonicalStatus || "CANON",
+    deleted: false,
+    createdAt: existing?.createdAt || JDRDB.nowIso(),
+    updatedAt: JDRDB.nowIso()
+  };
+
+  await JDRDB.put("characters", row);
+  await persistCharacterEquipment(id);
+  await JDRDB.history(state.campaign.id, "character", id, existing ? "UPDATE" : "CREATE", existing || null, row, "USER");
+
+  if (existing) Object.assign(existing, row);
+  else state.characters.push(row);
+
+  $("#characterEditModal").classList.add("hidden");
+  state.editingPortrait = null;
+  state.editingAdvantages = [];
+  state.editingDisadvantages = [];
+  state.editingEquipment = [];
+  state.originalEquipmentIds = [];
+  renderCharactersManager();
+  renderCharacters();
+  renderScenes();
+  showToast(existing ? "Personnage modifié." : "Personnage créé.");
+}
+
+async function archiveCharacter(id, archived) {
+  const c = state.characters.find(x => x.id === id);
+  if (!c) return;
+
+  const previous = { ...c };
+  c.deleted = archived;
+  c.updatedAt = JDRDB.nowIso();
+  await JDRDB.put("characters", c);
+  await JDRDB.history(state.campaign.id, "character", id, archived ? "ARCHIVE" : "RESTORE", previous, c, "USER");
+
+  renderCharactersManager();
+  renderCharacters();
+  renderScenes();
+  showToast(archived ? "Personnage archivé." : "Personnage restauré.");
+}
+
+function openLocationEditor(id = null) {
+  const l = id ? state.locations.find(x => x.id === id) : null;
+  $("#locationModalTitle").textContent = l ? "Modifier le lieu" : "Nouveau lieu";
+  $("#locationEditId").value = l?.id || "";
+  $("#locationEditName").value = l?.name || "";
+  $("#locationEditType").value = l?.type || "other";
+  populateParentLocationSelect(l?.id || null);
+  $("#locationEditParent").value = l?.parentLocationId || "";
+  $("#locationEditDescription").value = l?.description || "";
+
+  populateGeneratorStyles();
+
+  const key = profileKeyForCampaign();
+  let context = l?.generationContext || {};
+  if (!Object.keys(context).length) {
+    if (key === "l5r1") context = {clan:"dragon",environment:"mountain"};
+    else if (key === "dnd5") context = {culture:"human",environment:"plain"};
+    else if (key === "vampire2") context = {country:"usa",region:"",district:"downtown"};
+    else if (key === "ward") context = {country:"usa",region:"",setting:"urban"};
+  }
+
+  $("#locationContextLabel").textContent = contextConfig("location").label;
+  renderContextFields($("#locationContextEditor"), "location", context);
+
+  openModal("locationEditModal");
+}
+
+function createsLocationCycle(id, parentId) {
+  if (!id || !parentId) return false;
+  let current = state.locations.find(x => x.id === parentId);
+  const seen = new Set();
+  while (current && !seen.has(current.id)) {
+    if (current.id === id) return true;
+    seen.add(current.id);
+    current = current.parentLocationId ? state.locations.find(x => x.id === current.parentLocationId) : null;
+  }
+  return false;
+}
+
+async function saveLocationEntity() {
+  const id = $("#locationEditId").value || JDRDB.uuid("location");
+  const existing = state.locations.find(l => l.id === id);
+  const name = $("#locationEditName").value.trim();
+  const parentLocationId = $("#locationEditParent").value || null;
+
+  if (!name) return showToast("Le nom du lieu est obligatoire.");
+  if (createsLocationCycle(id, parentLocationId)) return showToast("Ce parent créerait une boucle dans l’arborescence.");
+
+  const row = {
+    ...(existing || {}),
+    id,
+    campaignId: state.campaign.id,
+    name,
+    type: $("#locationEditType").value,
+    parentLocationId,
+    description: $("#locationEditDescription").value.trim(),
+    generationContext: readContextFields($("#locationContextEditor")),
+    timelineKey: existing?.timelineKey || l5rLocationTimelineKey({name}) || null,
+    mapId: existing?.mapId || null,
+    ownerCharacterId: existing?.ownerCharacterId || null,
+    factionId: existing?.factionId || null,
+    canonicalStatus: existing?.canonicalStatus || "CANON",
+    deleted: false,
+    createdAt: existing?.createdAt || JDRDB.nowIso(),
+    updatedAt: JDRDB.nowIso()
+  };
+
+  await JDRDB.put("locations", row);
+  await JDRDB.history(state.campaign.id, "location", id, existing ? "UPDATE" : "CREATE", existing || null, row, "USER");
+
+  if (existing) Object.assign(existing, row);
+  else state.locations.push(row);
+
+  state.locationMap = new Map(state.locations.filter(l => !l.deleted).map(l => [l.id, l]));
+
+  $("#locationEditModal").classList.add("hidden");
+  populateLocationSelect();
+  renderLocationsManager();
+  renderCharactersManager();
+  renderScenes();
+  renderCampaignHeader();
+  showToast(existing ? "Lieu modifié." : "Lieu créé.");
+}
+
+async function archiveLocation(id, archived) {
+  const l = state.locations.find(x => x.id === id);
+  if (!l) return;
+
+  if (archived && state.campaign.currentLocationId === id) {
+    return showToast("Impossible d’archiver le lieu actuellement utilisé par la campagne.");
+  }
+  if (archived && state.locations.some(x => !x.deleted && x.parentLocationId === id)) {
+    return showToast("Impossible d’archiver ce lieu : il possède encore des sous-lieux actifs.");
+  }
+  if (archived && state.scenes.some(s => !s.deleted && s.locationId === id)) {
+    return showToast("Impossible d’archiver ce lieu : une scène active ou prévue l’utilise encore.");
+  }
+
+  const previous = { ...l };
+  l.deleted = archived;
+  l.updatedAt = JDRDB.nowIso();
+  await JDRDB.put("locations", l);
+  await JDRDB.history(state.campaign.id, "location", id, archived ? "ARCHIVE" : "RESTORE", previous, l, "USER");
+
+  state.locationMap = new Map(state.locations.filter(x => !x.deleted).map(x => [x.id, x]));
+  populateLocationSelect();
+  renderLocationsManager();
+  renderCharactersManager();
+  renderScenes();
+  showToast(archived ? "Lieu archivé." : "Lieu restauré.");
+}
+
+function openSceneEditor(id = null) {
+  const s = id ? state.scenes.find(x => x.id === id) : null;
+  $("#sceneEditModalTitle").textContent = s ? "Modifier la scène" : "Nouvelle scène";
+  $("#sceneEditId").value = s?.id || "";
+  $("#sceneEditTitle").value = s?.title || "";
+  $("#sceneEditDescription").value = s?.description || "";
+  $("#sceneEditDate").value = s?.gameDate || state.campaign?.currentGameDate || "";
+  $("#sceneEditTime").value = s?.startTime || state.campaign?.currentGameTime || "";
+  populateLocationSelect();
+  $("#sceneEditLocation").value = s?.locationId || state.campaign?.currentLocationId || "";
+  $("#sceneEditStatus").value = s?.status || "planned";
+  $("#sceneEditObjective").value = s?.gmObjective || "";
+  renderSceneParticipantEditor(s?.characterIds || state.scene?.characterIds || []);
+  openModal("sceneEditModal");
+}
+
+async function saveSceneEntity() {
+  const id = $("#sceneEditId").value || JDRDB.uuid("scene");
+  const existing = state.scenes.find(s => s.id === id);
+  const title = $("#sceneEditTitle").value.trim();
+  if (!title) return showToast("Le titre de la scène est obligatoire.");
+
+  const row = {
+    ...(existing || {}),
+    id,
+    campaignId: state.campaign.id,
+    scenarioId: existing?.scenarioId || null,
+    sessionId: existing?.sessionId || state.session?.id || null,
+    title,
+    description: $("#sceneEditDescription").value.trim(),
+    locationId: $("#sceneEditLocation").value || null,
+    gameDate: $("#sceneEditDate").value.trim(),
+    startTime: $("#sceneEditTime").value || null,
+    endTime: existing?.endTime || null,
+    characterIds: selectedSceneParticipants(),
+    status: $("#sceneEditStatus").value,
+    gmObjective: $("#sceneEditObjective").value.trim(),
+    deleted: false,
+    createdAt: existing?.createdAt || JDRDB.nowIso(),
+    updatedAt: JDRDB.nowIso()
+  };
+
+  await JDRDB.put("scenes", row);
+  await JDRDB.history(state.campaign.id, "scene", id, existing ? "UPDATE" : "CREATE", existing || null, row, "USER");
+
+  if (existing) Object.assign(existing, row);
+  else state.scenes.push(row);
+
+  if (state.campaign.currentSceneId === row.id) state.scene = row;
+
+  $("#sceneEditModal").classList.add("hidden");
+  populateSceneSelect();
+  renderScenes();
+  renderCharacters();
+  renderCampaignHeader();
+  showToast(existing ? "Scène modifiée." : "Scène créée.");
+}
+
+async function archiveScene(id) {
+  const s = state.scenes.find(x => x.id === id);
+  if (!s) return;
+  if (state.campaign.currentSceneId === id) return showToast("Impossible d’archiver la scène actuellement active.");
+
+  const previous = { ...s };
+  s.deleted = true;
+  s.status = "abandoned";
+  s.updatedAt = JDRDB.nowIso();
+  await JDRDB.put("scenes", s);
+  await JDRDB.history(state.campaign.id, "scene", id, "ARCHIVE", previous, s, "USER");
+
+  populateSceneSelect();
+  renderScenes();
+  showToast("Scène archivée.");
+}
+
+
+
+$("#newPCButton").addEventListener("click", () => openCharacterEditor(null, "PC"));
+$("#newNPCButton").addEventListener("click", () => openCharacterEditor(null, "NPC"));
+$("#quickCharacter").addEventListener("click", () => openCharacterEditor(null, "PC"));
+$("#quickNPC").addEventListener("click", () => openCharacterEditor(null, "NPC"));
+$("#generateNpcProfileButton").addEventListener("click", applyGeneratedNpcProfile);
+$("#recalculateSystemValuesButton").addEventListener("click", recalculateSystemValues);
+$("#randomTraitsButton").addEventListener("click", generateRandomCharacterTraits);
+$("#addPositiveTraitButton").addEventListener("click", () => addCatalogTrait("positive"));
+$("#addNegativeTraitButton").addEventListener("click", () => addCatalogTrait("negative"));
+$("#addCustomPositiveTraitButton").addEventListener("click", () => openCustomTraitModal("positive"));
+$("#addCustomNegativeTraitButton").addEventListener("click", () => openCustomTraitModal("negative"));
+
+$("#saveCustomTraitButton").addEventListener("click", () => {
+  const kind = $("#customTraitKind").value === "negative" ? "negative" : "positive";
+  const name = $("#customTraitName").value.trim();
+  if (!name) return showToast("Indique le nom du trait.");
+
+  const trait = normalizeTrait({
+    name,
+    cost: $("#customTraitCost").value.trim(),
+    note: $("#customTraitNote").value.trim(),
+    source: $("#customTraitSource").value.trim() || "MJ"
+  }, kind, "MJ");
+
+  const target = kind === "positive" ? state.editingAdvantages : state.editingDisadvantages;
+  target.push(trait);
+  $("#customTraitModal").classList.add("hidden");
+  renderSelectedTraits();
+});
+
+$("#addEquipmentButton").addEventListener("click", addCatalogEquipment);
+$("#applyStartingEquipmentButton").addEventListener("click", applyStartingEquipment);
+
+$("#addCustomEquipmentButton").addEventListener("click", () => {
+  $("#customEquipmentName").value = "";
+  $("#customEquipmentType").value = "equipment";
+  $("#customEquipmentQuantity").value = "1";
+  $("#customEquipmentDescription").value = "";
+  openModal("customEquipmentModal");
+});
+
+$("#saveCustomEquipmentButton").addEventListener("click", () => {
+  const name = $("#customEquipmentName").value.trim();
+  if (!name) return showToast("Indique le nom de l’équipement.");
+
+  addEquipmentEntry(
+    name,
+    $("#customEquipmentType").value,
+    $("#customEquipmentDescription").value.trim(),
+    Number($("#customEquipmentQuantity").value || 1),
+    "custom"
+  );
+  $("#customEquipmentModal").classList.add("hidden");
+});
+
+$("#characterEditImportance").addEventListener("change", () => {
+  if (profileKeyForCampaign() !== "ward") return;
+  if ($("#characterEditType").value !== "NPC") return;
+  if ($("#characterEditId").value) return;
+  const ctx = readContextFields($("#characterContextEditor"));
+  renderRulesEditors(null, true, ctx, true);
+});
+
+$("#characterEditType").addEventListener("change", () => {
+  syncCharacterTypeUI();
+  renderSystemSpecificEditor({
+    systemData:readSystemSpecificEditor(),
+    characteristics:readCurrentCharacteristics(),
+    skills:readSkillsEditor(),
+    generationContext:readContextFields($("#characterContextEditor"))
+  });
+});
+
+$("#characterEditName").addEventListener("input", () => {
+  if (!state.editingPortrait) updateCharacterPortraitPreview();
+});
+
+$("#chooseCharacterPortraitButton").addEventListener("click", () => {
+  $("#characterPortraitInput").click();
+});
+
+$("#characterPortraitInput").addEventListener("change", async e => {
+  const file = e.target.files?.[0];
+  if (!file) return;
+
+  if (!["image/png","image/jpeg","image/webp"].includes(file.type)) {
+    showToast("Format non pris en charge. Utilise PNG, JPEG ou WebP.");
+    e.target.value = "";
+    return;
+  }
+
+  if (file.size > 12 * 1024 * 1024) {
+    showToast("Image trop volumineuse : 12 Mo maximum avant compression.");
+    e.target.value = "";
+    return;
+  }
+
+  try {
+    $("#characterPortraitInfo").textContent = "Préparation du portrait…";
+    state.editingPortrait = await resizePortraitFile(file);
+    updateCharacterPortraitPreview();
+    $("#characterPortraitInfo").textContent = `${file.name} — portrait optimisé pour la campagne.`;
+  } catch (err) {
+    state.editingPortrait = null;
+    updateCharacterPortraitPreview();
+    $("#characterPortraitInfo").textContent = "Impossible de lire cette image.";
+    showToast("Impossible d’utiliser cette image.");
+  }
+});
+
+$("#removeCharacterPortraitButton").addEventListener("click", () => {
+  state.editingPortrait = null;
+  $("#characterPortraitInput").value = "";
+  $("#characterPortraitInfo").textContent = "Portrait supprimé. Enregistre le personnage pour confirmer.";
+  updateCharacterPortraitPreview();
+});
+
+$("#saveCharacterButton").addEventListener("click", saveCharacterEntity);
+
+$("#characterFilter").addEventListener("change", e => {
+  state.characterFilter = e.target.value;
+  renderCharactersManager();
+});
+
+$("#characterSearch").addEventListener("input", e => {
+  state.characterSearch = e.target.value;
+  renderCharactersManager();
+});
+
+$("#newLocationButton").addEventListener("click", () => openLocationEditor());
+$("#saveLocationEntityButton").addEventListener("click", saveLocationEntity);
+
+$("#locationSearch").addEventListener("input", e => {
+  state.locationSearch = e.target.value;
+  renderLocationsManager();
+});
+
+$("#newSceneButton").addEventListener("click", () => openSceneEditor());
+$("#saveSceneEntityButton").addEventListener("click", saveSceneEntity);
+
+
+$("#generateCharacterNameButton").addEventListener("click", () => {
+  const ctx = readContextFields($("#characterContextEditor"));
+  $("#characterEditName").value = generateCharacterName($("#characterNameStyle").value, ctx);
+});
+
+$("#generateLocationNameButton").addEventListener("click", () => {
+  const ctx = readContextFields($("#locationContextEditor"));
+  $("#locationEditName").value = generateLocationName($("#locationNameStyle").value, ctx);
+});
+
+$("#generateCharacterNameMain").addEventListener("click", () => {
+  const ctx = readContextFields($("#generatorCharacterContextContainer"));
+  $("#generatedCharacterResult").textContent = generateCharacterName($("#generatorCharacterStyle").value, ctx);
+});
+
+$("#generateLocationNameMain").addEventListener("click", () => {
+  const ctx = readContextFields($("#generatorLocationContextContainer"));
+  $("#generatedLocationResult").textContent = generateLocationName($("#generatorLocationStyle").value, ctx);
+});
+
+$("#copyCharacterName").addEventListener("click", () => {
+  const text = $("#generatedCharacterResult").textContent.trim();
+  if (text && text !== "—") copyText(text);
+});
+
+$("#copyLocationName").addEventListener("click", () => {
+  const text = $("#generatedLocationResult").textContent.trim();
+  if (text && text !== "—") copyText(text);
+});
+
+$("#applyProfessionPresetButton").addEventListener("click", () => {
+  const ctx = readContextFields($("#characterContextEditor"));
+  contextChanged("character", "", false);
+  renderRulesEditors(null, true, ctx, true);
+  showToast("Profil métier/école appliqué.");
+});
+
+$("#applyProfessionRulesButton").addEventListener("click", () => {
+  const ctx = readContextFields($("#characterContextEditor"));
+  renderRulesEditors(null, true, ctx, true);
+  renderSystemSpecificEditor(null);
+  showToast("Caractéristiques, compétences et valeurs dérivées proposées selon le contexte.");
+});
+
+$("#resetRulesProfileButton").addEventListener("click", () => {
+  if (confirm("Réinitialiser les caractéristiques et compétences selon le profil du système ?")) {
+    renderRulesEditors(null, true, readContextFields($("#characterContextEditor")), false);
+    renderSystemSpecificEditor(null);
+  }
+});
+
+$("#addCustomSkillButton").addEventListener("click", () => {
+  $("#customSkillName").value = "";
+  $("#customSkillValue").value = "0";
+  openModal("customSkillModal");
+});
+
+$("#saveCustomSkillButton").addEventListener("click", () => {
+  const name = $("#customSkillName").value.trim();
+  if (!name) return showToast("Indique le nom de la compétence.");
+
+  const existing = $$(".skill-input").some(i => i.dataset.skill.toLowerCase() === name.toLowerCase());
+  if (existing) return showToast("Cette compétence existe déjà.");
+
+  const div = document.createElement("div");
+  div.className = "skill-field custom-skill";
+  div.innerHTML = `
+    <label>${esc(name)}</label>
+    <input class="skill-input" data-skill="${esc(name)}" type="number" value="${Number($("#customSkillValue").value || 0)}" min="0" step="1" />
+  `;
+  const grid = $("#skillsEditor");
+  if (grid.querySelector(".row-sub")) grid.innerHTML = "";
+  grid.appendChild(div);
+  $("#customSkillModal").classList.add("hidden");
+});
+
+
+$("#newCampaignButton").addEventListener("click", () => openCampaignEditor());
+$("#saveCampaignEntityButton").addEventListener("click", saveCampaignEntity);
+$("#exportCampaignButton").addEventListener("click", () => exportCampaign(state.campaignId));
+$("#importCampaignButton").addEventListener("click", () => $("#campaignImportInput").click());
+
+$("#campaignEditL5rYear")?.addEventListener("input", refreshCampaignEditorTimeline);
+$("#campaignEditL5rContinuity")?.addEventListener("change", refreshCampaignEditorTimeline);
+$("#campaignEditSystem").addEventListener("change", e => {
+  const theme = systemDefaultTheme(e.target.value);
+  refreshCampaignEditorTimeline();
+  $("#campaignEditTheme").value = theme;
+
+  const presets = {
+    "L5R": {edition:"1E", universe:"Rokugan"},
+    "D&D": {edition:"5e", universe:""},
+    "Vampire": {edition:"V2", universe:"Monde des Ténèbres"},
+    "W.A.R.D.": {edition:"", universe:"W.A.R.D."},
+    "Générique": {edition:"", universe:""}
+  };
+  const preset = presets[e.target.value];
+  if (preset && !$("#campaignEditId").value) {
+    $("#campaignEditEdition").value = preset.edition;
+    $("#campaignEditUniverse").value = preset.universe;
+  }
+  refreshCampaignEditorTimeline();
+});
+
+$("#campaignImportInput").addEventListener("change", async e => {
+  const file = e.target.files?.[0];
+  if (!file) return;
+
+  try {
+    const text = await file.text();
+    const payload = JSON.parse(text);
+    await importCampaignPayload(payload);
+  } catch (err) {
+    console.error(err);
+    showToast(`Import impossible : ${err.message || "fichier invalide"}`);
+  } finally {
+    e.target.value = "";
+  }
+});
+
+$("#newSessionButton").addEventListener("click", () => openSessionEditor());
+$("#editCurrentSessionButton").addEventListener("click", () => {
+  if (state.session) openSessionEditor(state.session.id);
+});
+$("#endCurrentSessionButton").addEventListener("click", endCurrentSession);
+$("#saveSessionEntityButton").addEventListener("click", saveSessionEntity);
+
+$("#sidebarToggle").addEventListener("click", () => {
+  state.sidebarCollapsed = !state.sidebarCollapsed;
+  applyState();
+});
+
+$("#assistantToggle").addEventListener("click", () => {
+  state.assistantCollapsed = true;
+  state.assistantExpanded = false;
+  applyState();
+});
+
+$("#assistantRestore").addEventListener("click", () => {
+  state.assistantCollapsed = false;
+  applyState();
+});
+
+$("#assistantExpand").addEventListener("click", () => {
+  state.assistantCollapsed = false;
+  state.assistantExpanded = !state.assistantExpanded;
+  applyState();
+});
+
+$("#gameSystemSelect")?.addEventListener("change",async e=>{
+  setSelectedSystem(e.target.value);
+  if(state.campaign && !campaignMatchesSelectedSystem(state.campaign)) {
+    await JDRDB.setSetting("activeCampaignId",null);
+    await loadSystemOnlyContext();
+  } else if(!state.campaign) {
+    await loadSystemOnlyContext();
+  }
+  switchView("systemLibrary");
+  showToast(`JDR sélectionné : ${e.target.options[e.target.selectedIndex].text}`);
+});
+
+$("#themeToggle").addEventListener("click", () => {
+  state.theme = state.theme === "dark" ? "light" : "dark";
+  localStorage.setItem("jdr-theme", state.theme);
+  applyState();
+  showToast(`Thème ${state.theme === "dark" ? "sombre" : "clair"} activé`);
+});
+
+$$(".nav-item").forEach(btn => btn.addEventListener("click", () => switchView(btn.dataset.view)));
+$("#backDashboard").addEventListener("click", () => switchView("dashboard"));
+
+$$("[data-open-modal]").forEach(btn => btn.addEventListener("click", () => {
+  if (btn.dataset.openModal === "timeModal" && state.campaign) {
+    $("#currentDateTimeLabel").textContent = `${state.campaign.currentGameDate} · ${state.campaign.currentGameTime}`;
+    $("#targetGameDate").value = state.campaign.currentGameDate || "";
+    $("#targetGameTime").value = state.campaign.currentGameTime || "";
+  }
+  openModal(btn.dataset.openModal);
+}));
+$$(".modal-close").forEach(btn => btn.addEventListener("click", () => closeModal(btn)));
+$$(".modal-backdrop").forEach(backdrop => backdrop.addEventListener("click", e => {
+  if (e.target === backdrop) backdrop.classList.add("hidden");
+}));
+
+$("#saveNote").addEventListener("click", async () => {
+  const note = $("#noteText").value.trim();
+  if (!note) return showToast("La note est vide.");
+
+  try {
+    const row = {
+      id: JDRDB.uuid("note"),
+      campaignId: state.campaign.id,
+      sessionId: state.session?.id || null,
+      sceneId: state.scene?.id || null,
+      text: note,
+      type: "quick",
+      processed: false,
+      createdAt: JDRDB.nowIso()
+    };
+    await JDRDB.put("notes", row);
+    state.notes.push(row);
+    $("#noteText").value = "";
+    $("#noteModal").classList.add("hidden");
+    renderNotes();
+    renderAlerts();
+    showToast("Note enregistrée dans IndexedDB.");
+  } catch (err) {
+    console.error(err);
+    showToast("Erreur lors de l’enregistrement de la note.");
+  }
+});
+
+$("#saveEvent").addEventListener("click", async () => {
+  const title = $("#eventTitle").value.trim() || "Nouvel événement";
+  const description = $("#eventDescription").value.trim();
+
+  try {
+    const row = {
+      id: JDRDB.uuid("event"),
+      campaignId: state.campaign.id,
+      sessionId: state.session?.id || null,
+      sceneId: state.scene?.id || null,
+      title,
+      description,
+      gameDate: state.campaign.currentGameDate,
+      gameTime: state.campaign.currentGameTime,
+      realTimestamp: JDRDB.nowIso(),
+      locationId: state.campaign.currentLocationId,
+      characterIds: [],
+      factionIds: [],
+      plotIds: [],
+      eventType: "narrative",
+      importance: 2,
+      visibility: "GM_ONLY",
+      canonicalStatus: "CANON",
+      deleted: false,
+      createdAt: JDRDB.nowIso()
+    };
+    await JDRDB.put("events", row);
+    await JDRDB.history(state.campaign.id, "event", row.id, "CREATE", null, row, "USER");
+    state.events.push(row);
+    renderEvents();
+    $("#eventModal").classList.add("hidden");
+    showToast("Événement enregistré dans IndexedDB.");
+  } catch (err) {
+    console.error(err);
+    showToast("Erreur lors de l’enregistrement de l’événement.");
+  }
+});
+
+$$(".time-add").forEach(btn => btn.addEventListener("click", async () => {
+  const add = Number(btn.dataset.minutes);
+  const [h, m] = (state.campaign.currentGameTime || "00:00").split(":").map(Number);
+  const total = (h * 60 + m + add) % 1440;
+  const newTime = `${String(Math.floor(total / 60)).padStart(2,"0")}:${String(total % 60).padStart(2,"0")}`;
+
+  $("#timeModal").classList.add("hidden");
+  await saveCampaignPatch({ currentGameTime: newTime }, "ADVANCE_TIME");
+  showToast(`Heure avancée à ${newTime}.`);
+}));
+
+
+$$(".day-add").forEach(btn => btn.addEventListener("click", async () => {
+  const days = Number(btn.dataset.days || 0);
+  const nextDate = incrementGameDate(state.campaign.currentGameDate, days);
+  $("#timeModal").classList.add("hidden");
+  await saveCampaignPatch({ currentGameDate: nextDate }, "ADVANCE_DAY");
+  showToast(`Date avancée à ${nextDate}.`);
+}));
+
+$("#goToDateTime").addEventListener("click", async () => {
+  const date = $("#targetGameDate").value.trim();
+  const time = $("#targetGameTime").value;
+
+  if (!date && !time) return showToast("Indique une date, une heure ou les deux.");
+
+  const patch = {};
+  if (date) patch.currentGameDate = date;
+  if (time) patch.currentGameTime = time;
+
+  $("#timeModal").classList.add("hidden");
+  await saveCampaignPatch(patch, "SET_DATE_TIME");
+  showToast(`Campagne positionnée sur ${state.campaign.currentGameDate} à ${state.campaign.currentGameTime}.`);
+});
+
+$("#saveLocation").addEventListener("click", async () => {
+  const id = $("#locationSelect").value;
+  $("#locationModal").classList.add("hidden");
+  await saveCampaignPatch({ currentLocationId: id }, "CHANGE_LOCATION");
+  showToast(`Lieu actuel : ${locationName(id)}`);
+});
+
+$("#assistantSend").addEventListener("click", () => {
+  const input = $("#assistantInput");
+  const q = input.value.trim();
+  if (!q) return;
+  addAssistantMessage("user", esc(q));
+  input.value = "";
+  assistantReply(q);
+});
+
+$("#assistantInput").addEventListener("keydown", e => {
+  if (e.key === "Enter" && !e.shiftKey) {
+    e.preventDefault();
+    $("#assistantSend").click();
+  }
+});
+
+$$("[data-suggestion]").forEach(btn => btn.addEventListener("click", () => {
+  const q = btn.dataset.suggestion;
+  addAssistantMessage("user", esc(q));
+  assistantReply(q);
+}));
+
+$$(".assistant-tab").forEach(btn => btn.addEventListener("click", () => {
+  $$(".assistant-tab").forEach(b => b.classList.remove("active"));
+  btn.classList.add("active");
+  const map = {
+    discussion: "Mode discussion activé.",
+    continuity: "Mode continuité activé : les réponses privilégieront les incohérences et les dépendances.",
+    rules: "Mode règles activé : le futur moteur interrogera uniquement le corpus de règles."
+  };
+  addAssistantMessage("system", map[btn.dataset.assistantTab]);
+}));
+
+$("#gameModeButton").addEventListener("click", () => {
+  state.gameMode = !state.gameMode;
+  if (state.gameMode) {
+    switchView("dashboard");
+    showToast("Mode partie activé.");
+  } else {
+    showToast("Mode partie désactivé.");
+  }
+  applyState();
+});
+
+$("#startSceneButton").addEventListener("click", () => openSceneModal());
+$("#sceneChangeFromView").addEventListener("click", () => openSceneModal());
+$("#sceneSelect").addEventListener("change", updateScenePreview);
+$("#activateScene").addEventListener("click", activateSelectedScene);
+
+$("#showAllNotes").addEventListener("click", () => {
+  state.notesFilter = "all";
+  renderNotes();
+});
+
+$("#showPendingNotes").addEventListener("click", () => {
+  state.notesFilter = "pending";
+  renderNotes();
+});
+
+$("#dateChip").addEventListener("click", () => {
+  $("#currentDateTimeLabel").textContent = `${state.campaign.currentGameDate || "—"} · ${state.campaign.currentGameTime || "—"}`;
+  $("#targetGameDate").value = state.campaign.currentGameDate || "";
+  $("#targetGameTime").value = state.campaign.currentGameTime || "";
+  openModal("timeModal");
+});
+
+$("#timeChip").addEventListener("click", () => $("#dateChip").click());
+$("#locationChip").addEventListener("click", () => openModal("locationModal"));
+$("#sessionChip").addEventListener("click", () => switchView("session"));
+
+$("#sceneDetailsButton").addEventListener("click", () => switchView("scenes"));
+$("#sessionButton").addEventListener("click", () => switchView("session"));
+$("#searchButton").addEventListener("click", () => openGlobalSearch());
+$("#settingsButton").addEventListener("click", () => switchView("campaign"));
+$("#campaignButton").addEventListener("click", () => switchView("campaign"));
+
+$("#quickInformation").addEventListener("click", () => quickCreateEntity("informations"));
+$("#quickItem").addEventListener("click", () => quickCreateEntity("items"));
+$("#quickPlot").addEventListener("click", () => quickCreateEntity("plots"));
+
+document.addEventListener("keydown", e => {
+  if (e.ctrlKey && e.key.toLowerCase() === "n") {
+    e.preventDefault();
+    openModal("noteModal");
+  }
+  if (e.ctrlKey && e.key.toLowerCase() === "e") {
+    e.preventDefault();
+    openModal("eventModal");
+  }
+  if (e.ctrlKey && e.code === "Space") {
+    e.preventDefault();
+    state.assistantCollapsed = !state.assistantCollapsed;
+    applyState();
+  }
+  if (e.key === "F9") {
+    e.preventDefault();
+    $("#gameModeButton").click();
+  }
+  if (e.key === "Escape") {
+    $$(".modal-backdrop").forEach(m => m.classList.add("hidden"));
+  }
+});
+
+
+
+const WORKSPACE_MODULES = {
+  timeline:{store:"events", title:"Chronologie", icon:"◷", nameKey:"title", descKey:"description"},
+  events:{store:"events", title:"Événements", icon:"◆", nameKey:"title", descKey:"description"},
+  factions:{store:"factions", title:"Factions", icon:"⚑", nameKey:"name", descKey:"description"},
+  items:{store:"items", title:"Objets", icon:"◇", nameKey:"name", descKey:"description"},
+  plots:{store:"plots", title:"Intrigues", icon:"⌁", nameKey:"title", descKey:"description"},
+  scenarios:{store:"scenarios", title:"Scénarios", icon:"▤", nameKey:"title", descKey:"description"},
+  documents:{store:"documents", title:"Documents", icon:"▧", nameKey:"title", descKey:"content"}
+};
+function workspaceRows(store){
+  if(store==="events") return state.events||[];
+  if(store==="plots") return state.plots||[];
+  if(store==="factions") return state.factions||[];
+  if(store==="items") return state.items||[];
+  if(store==="informations") return state.informations||[];
+  if(store==="scenarios") return state.scenarios||[];
+  if(store==="documents") return state.documents||[];
+  return [];
+}
+async function renderSystemLibrary(){
+  const host=$("#placeholderView .empty-state"); if(!host) return;
+  const key=selectedSystemKey();
+  const labels={l5r1:"L5R / L5A — 1re édition",dnd5:"D&D 5e / 5.5e",vampire2:"Vampire V2",ward:"W.A.R.D."};
+  const campaigns=(state.campaigns||[]).filter(c=>campaignMatchesSelectedSystem(c));
+  const campaignIds=new Set(campaigns.map(c=>c.id));
+  const stores=["characters","locations","factions","items","scenarios","documents"], data={};
+  for(const store of stores){ try{ data[store]=(await JDRDB.getAll(store)).filter(x=>!x.deleted&&(isSystemScopedRow(x,key)||campaignIds.has(x.campaignId))); }catch(_){ data[store]=[]; } }
+  const stat=(label,n,view)=>`<button class="btn secondary system-lib-open" data-view="${view}">${esc(label)} <strong>${n}</strong></button>`;
+  host.innerHTML=`<div class="workspace-head"><div><div class="eyebrow">BIBLIOTHÈQUE DE JEU — SANS CAMPAGNE OBLIGATOIRE</div><h1>▥ ${esc(labels[key]||key)}</h1><p>Le JDR sélectionné pilote les règles et ressources globales. Ouvrir une campagne sélectionne automatiquement son JDR.</p></div></div>
+  <div class="system-derived"><strong>Ressources du JDR</strong><div class="campaign-actions-row">
+  ${stat("Règles",key==="l5r1"?"7 clans intégrés":"disponibles","rules")}
+  ${stat("Bestiaire",key==="l5r1"?L5R1_CREATURES.length:(key==="dnd5"?DND_CREATURES_2014.length:0),"bestiary")}
+  ${stat("PNJ / personnages",data.characters.length,"characters")}${stat("Lieux",data.locations.length,"locations")}
+  ${stat("Factions",data.factions.length,"factions")}${stat("Objets",data.items.length,"items")}
+  ${stat("Scénarios",data.scenarios.length,"scenarios")}${stat("Documents",data.documents.length,"documents")}</div></div>
+  ${state.campaign?`<div class="system-derived"><strong>Contexte actuel</strong><p>Campagne ouverte : <strong>${esc(state.campaign.name)}</strong></p><button class="btn secondary" id="closeCampaignContextBtn">Fermer la campagne / Retour au JDR</button></div>`:""}
+  <div class="system-derived"><strong>Campagnes associées (${campaigns.length})</strong><div class="workspace-list">${campaigns.length?campaigns.map(c=>`<article class="entity-card"><div class="entity-head"><div><div class="card-kicker">${esc(c.edition||"")}</div><h3 class="entity-title">${esc(c.name)}</h3></div></div><div class="entity-description">${esc(c.description||c.universe||"")}</div><div class="entity-actions"><button class="btn primary system-campaign-open" data-id="${esc(c.id)}">Ouvrir cette campagne</button></div></article>`).join(""):"<p>Aucune campagne associée à ce JDR.</p>"}</div></div>
+  ${key==="l5r1"?`<div class="system-derived"><strong>Corpus L5R 1e intégré</strong><p>Les sept livres de clan traités (Crabe, Grue, Dragon, Lion, Phénix, Scorpion, Licorne) sont accessibles par « Règles », indépendamment de la campagne active.</p></div>`:""}`;
+  $$(".system-lib-open").forEach(b=>b.addEventListener("click",()=>switchView(b.dataset.view)));
+  $$(".system-campaign-open").forEach(b=>b.addEventListener("click",()=>activateCampaign(b.dataset.id)));
+  $("#closeCampaignContextBtn")?.addEventListener("click",closeCampaignContext);
+}
+
+const DND_RULESET_REFERENCE={
+"2014":{label:"D&D 5e — 2014",origin:"Race, historique et classe.",surprise:"Surpris : pas de déplacement ni d’action au premier tour ; pas de réaction avant la fin de ce tour.",exhaustion:"Six niveaux avec un effet distinct à chaque niveau.",source:"Basic Rules 2014 / corpus local"},
+"2024":{label:"D&D 5.5e — 2024",origin:"Espèce, historique et classe ; les ajustements de caractéristiques sont liés à l’historique.",surprise:"Surpris : Désavantage au jet d’Initiative.",exhaustion:"Niveaux 1–6 : -2 aux tests d20 et -5 ft de Vitesse par niveau ; mort au niveau 6.",source:"D&D Free Rules 2024"}
+};
+const DND2024_MASTERIES=["Cleave","Graze","Nick","Push","Sap","Slow","Topple","Vex"];
+function renderDndRulesLibrary(){
+ const host=$("#placeholderView");if(!host)return;
+ host.innerHTML=`<div class="empty-state"><div class="workspace-head"><div><div class="card-kicker">D&D 5</div><h1>Règles 5e / 5.5e</h1><p>Les règles 2014 et 2024 restent séparées. Le profil du personnage détermine l’édition appliquée.</p></div></div><div class="workspace-list">${Object.values(DND_RULESET_REFERENCE).map(r=>`<article class="entity-card"><h3>${esc(r.label)}</h3><p><b>Création :</b> ${esc(r.origin)}</p><p><b>Surprise :</b> ${esc(r.surprise)}</p><p><b>Épuisement :</b> ${esc(r.exhaustion)}</p><small>${esc(r.source)}</small></article>`).join("")}<article class="entity-card"><div class="card-kicker">2024 / 5.5e</div><h3>Maîtrises d’armes</h3><p>${DND2024_MASTERIES.map(x=>`<span class="sheet-chip">${x}</span>`).join(" ")}</p><p>La disponibilité doit dépendre de la classe et des armes maîtrisées par le personnage.</p></article></div></div>`;
+}
+
+function renderRulesLibrary(){
+  const host=$("#placeholderView .empty-state"); if(!host) return;
+  const key=selectedSystemKey();
+  if(key==="l5r1"){ renderL5rRulesLibrary(); return; }
+  const labels={dnd5:"D&D 5e / 5.5e",vampire2:"Vampire V2",ward:"W.A.R.D."};
+  host.innerHTML=`<div class="workspace-head"><div><div class="eyebrow">${esc(labels[key]||key)}</div><h1>▥ Règles</h1><p>Bibliothèque globale du système sélectionné. Les corpus détaillés seront affichés ici au fur et à mesure de leur intégration.</p></div></div>`;
+}
+
+function renderWorkspaceModule(view){
+  if(view==="items" && selectedSystemKey()==="l5r1"){ renderL5rItemLibrary(); return; }
+  const host=$("#placeholderView .empty-state"); if(!host) return;
+  if(view==="systemLibrary"){ host.innerHTML="<p>Chargement de la bibliothèque du JDR…</p>"; renderSystemLibrary(); return; }
+  if(view==="rules"){ renderRulesLibrary(); return; }
+  const cfg=WORKSPACE_MODULES[view];
+  if(!cfg){ host.innerHTML=`<div class="empty-icon">◈</div><h1>${esc(viewTitles[view]||"Module")}</h1><p>Module en préparation.</p><button class="btn primary" id="backDashboardDynamic">Retour au tableau de bord</button>`; $("#backDashboardDynamic")?.addEventListener("click",()=>switchView("dashboard")); return; }
+  let rows=workspaceRows(cfg.store).filter(x=>!x.deleted);
+  if(view==="timeline") rows=[...rows].sort((a,b)=>`${b.gameDate||""} ${b.gameTime||""}`.localeCompare(`${a.gameDate||""} ${a.gameTime||""}`));
+  host.innerHTML=`<div class="workspace-head"><div><div class="eyebrow">GESTION DE CAMPAGNE</div><h1>${cfg.icon} ${esc(cfg.title)}</h1></div><button class="btn primary" id="workspaceAdd">+ Ajouter</button></div><div class="workspace-list">${rows.length?rows.map(r=>`<article class="entity-card"><div class="entity-head"><div><div class="card-kicker">${esc((r.status||r.eventType||"actif").toString().toUpperCase())}</div><h3 class="entity-title">${esc(r[cfg.nameKey]||"Sans nom")}</h3></div></div><div class="entity-description">${esc(r[cfg.descKey]||"")}</div>${cfg.store==="events"?`<div class="row-sub">${esc(r.gameDate||"")} ${esc(r.gameTime||"")} · ${esc(locationName(r.locationId))}</div>`:""}<div class="entity-actions"><button class="btn secondary workspace-edit" data-id="${esc(r.id)}">Modifier</button><button class="btn danger-soft workspace-delete" data-id="${esc(r.id)}">Archiver</button></div></article>`).join(""):`<p>Aucune entrée. Utilise « Ajouter » pour commencer.</p>`}</div>`;
+  $("#workspaceAdd")?.addEventListener("click",()=>quickCreateEntity(cfg.store));
+  $$(".workspace-edit").forEach(b=>b.addEventListener("click",()=>quickCreateEntity(cfg.store,b.dataset.id)));
+  $$(".workspace-delete").forEach(b=>b.addEventListener("click",()=>archiveWorkspaceEntity(cfg.store,b.dataset.id)));
+}
+async function quickCreateEntity(store,id=null){
+  const cfg=Object.values(WORKSPACE_MODULES).find(x=>x.store===store)||{title:"Information",nameKey:"title",descKey:"description"};
+  const current=id?await JDRDB.get(store,id):null;
+  const name=prompt(`${cfg.title} — nom / titre`, current?.[cfg.nameKey]||""); if(name===null||!name.trim()) return;
+  const description=prompt("Description / notes", current?.[cfg.descKey]||""); if(description===null) return;
+  const now=JDRDB.nowIso(); const row=current||{id:JDRDB.uuid(store.slice(0,-1)||"entry"),...(state.campaign?{campaignId:state.campaign.id,scope:"campaign",systemKey:selectedSystemKey()}:{campaignId:null,scope:"system",systemKey:selectedSystemKey()}),createdAt:now};
+  row[cfg.nameKey]=name.trim(); row[cfg.descKey]=description.trim(); row.updatedAt=now; row.deleted=false;
+  if(store==="plots"){ row.status=row.status||"active"; row.priority=row.priority||3; }
+  if(store==="events" && state.campaign){ row.gameDate=row.gameDate||state.campaign.currentGameDate; row.gameTime=row.gameTime||state.campaign.currentGameTime; row.locationId=row.locationId||state.campaign.currentLocationId; row.eventType=row.eventType||"narrative"; }
+  await JDRDB.put(store,row); if(state.campaign) await reloadActiveCampaign(); else await loadSystemOnlyContext(); applyState(); switchView(state.currentView===cfg.title.toLowerCase()?state.currentView:(Object.keys(WORKSPACE_MODULES).find(k=>WORKSPACE_MODULES[k].store===store)||"dashboard")); showToast(`${cfg.title} enregistré.`);
+}
+async function archiveWorkspaceEntity(store,id){ const row=await JDRDB.get(store,id); if(!row)return; row.deleted=true; row.updatedAt=JDRDB.nowIso(); await JDRDB.put(store,row); await reloadActiveCampaign(); applyState(); renderWorkspaceModule(state.currentView); showToast("Entrée archivée."); }
+function openGlobalSearch(){
+  const q=prompt("Recherche globale — personnage, lieu, faction, intrigue, scénario, objet, événement ou document");
+  if(!q||!q.trim()) return;
+  const hits=searchCampaignData(q,20);
+  switchView("dashboard");
+  addAssistantMessage("user",`Recherche : ${esc(q)}`);
+  addAssistantMessage("assistant",hits.length?`<strong>${hits.length} résultat(s)</strong><br><br>${hits.map(([t,n,r])=>entitySummary(t,n,r)).join("<br><br>")}`:`<strong>Aucun résultat</strong><br>Aucune donnée locale ne correspond à « ${esc(q)} ».`);
+}
+
+window.addEventListener("DOMContentLoaded", async () => {
+  try {
+    await loadData();
+  } catch (err) {
+    console.error(err);
+    setSaveState("⚠ Erreur", "error");
+    const message = err?.message || String(err || "Erreur inconnue");
+    showToast(`Impossible d’initialiser le stockage local : ${message}`);
+    if (window.__showJdrDiagnostic) {
+      window.__showJdrDiagnostic(`Initialisation impossible : ${message}`);
+    }
+  }
+});
+
+/* =========================================================
+   V0.19.10 — Référentiels canoniques et validation des compétences
+   ========================================================= */
+function v191EntityOptions(){
+  const groups=[['Personnage',state.characters||[],'name'],['Lieu',state.locations||[],'name'],['Faction',state.factions||[],'name'],['Intrigue',state.plots||[],'title'],['Scénario',state.scenarios||[],'title'],['Objet',state.items||[],'name']];
+  return groups.flatMap(([type,rows,key])=>rows.filter(x=>!x.deleted).map(x=>({id:x.id,label:`${type} — ${x[key]||'Sans nom'}`})));
+}
+function v191EntityName(id){ const e=v191EntityOptions().find(x=>x.id===id); return e?.label||id||'—'; }
+async function v191Pick(label,options,current=''){
+  const txt=options.map((x,i)=>`${i+1}. ${x.label}`).join('\n');
+  const raw=prompt(`${label}\n${txt}`, current?String(Math.max(1,options.findIndex(x=>x.id===current)+1)):'1');
+  if(raw===null) return null; const n=parseInt(raw,10); return options[n-1]?.id||null;
+}
+async function v191CreateRelation(){
+  const opts=v191EntityOptions(); if(opts.length<2){showToast('Crée au moins deux entités avant une relation.');return;}
+  const sourceId=await v191Pick('Source',opts); if(!sourceId)return; const targetId=await v191Pick('Cible',opts.filter(x=>x.id!==sourceId)); if(!targetId)return;
+  const relationType=prompt('Type de relation (allié, ennemi, membre, propriétaire, lié à…)', 'lié à'); if(relationType===null)return;
+  const notes=prompt('Notes / détails','')??''; const now=JDRDB.nowIso();
+  await JDRDB.put('relations',{id:JDRDB.uuid('relation'),campaignId:state.campaignId,sourceId,targetId,relationType:relationType.trim()||'lié à',notes,createdAt:now,updatedAt:now,deleted:false});
+  await reloadActiveCampaign(); renderWorkspaceModule('relations'); showToast('Relation enregistrée.');
+}
+async function v191CreateJournal(){
+  const title=prompt('Journal — titre de l’entrée', state.session?`Séance ${state.session.number||''}`:'Compte rendu'); if(!title)return;
+  const description=prompt('Ce qui s’est réellement passé : décisions, conséquences, changements…',''); if(description===null)return;
+  const now=JDRDB.nowIso(); await JDRDB.put('history',{id:JDRDB.uuid('history'),campaignId:state.campaignId,entityType:'journal',entityId:state.scene?.id||state.session?.id||state.campaignId,action:'SESSION_LOG',summary:title,details:description,sessionId:state.session?.id||null,sceneId:state.scene?.id||null,gameDate:state.campaign?.currentGameDate||null,createdAt:now,updatedAt:now,deleted:false});
+  renderWorkspaceModule('journal'); showToast('Journal enregistré.');
+}
+async function v191CreateProgression(){
+  const pcs=(state.characters||[]).filter(c=>!c.deleted && (c.characterType==='PJ'||c.type==='PJ'||c.role==='PJ'||c.isPlayerCharacter===true));
+  const choices=(pcs.length?pcs:(state.characters||[]).filter(c=>!c.deleted)).map(c=>({id:c.id,label:c.name||'Sans nom'})); if(!choices.length){showToast('Aucun personnage disponible.');return;}
+  const characterId=await v191Pick('PJ / personnage',choices); if(!characterId)return; const character=state.characters.find(c=>c.id===characterId);
+  const currency=(prompt('Type de progression : XP, PP, Karma, amélioration…','XP')||'XP').trim();
+  const amountRaw=prompt(`Quantité de ${currency} (négatif autorisé pour correction)`, '0'); if(amountRaw===null)return; const amount=Number(String(amountRaw).replace(',','.')); if(!Number.isFinite(amount)){showToast('Quantité invalide.');return;}
+  const reason=prompt('Motif / récompense / évolution','')??''; const evolution=prompt('Évolution obtenue (niveau, compétence, trait, équipement, autre)','')??''; const now=JDRDB.nowIso();
+  await JDRDB.put('history',{id:JDRDB.uuid('history'),campaignId:state.campaignId,entityType:'progression',entityId:characterId,action:'CHARACTER_PROGRESSION',summary:`${character.name||'PJ'} : ${amount>=0?'+':''}${amount} ${currency}`,details:reason,progression:{currency,amount,evolution},sessionId:state.session?.id||null,sceneId:state.scene?.id||null,gameDate:state.campaign?.currentGameDate||null,createdAt:now,updatedAt:now,deleted:false});
+  if(currency.toLowerCase()==='xp'){ character.xp=Number(character.xp||0)+amount; character.updatedAt=now; await JDRDB.put('characters',character); await reloadActiveCampaign(); }
+  renderWorkspaceModule('progression'); showToast('Progression enregistrée.');
+}
+async function v191AddScenarioScene(scenarioId){
+  const sc=state.scenarios.find(x=>x.id===scenarioId); if(!sc)return; const title=prompt(`Nouvelle scène — ${sc.title||'Scénario'}`,''); if(!title)return;
+  const description=prompt('Description / situation prévue','')??''; const objective=prompt('Objectif de la scène','')??''; const clues=prompt('Indices / informations à découvrir','')??''; const consequences=prompt('Conséquences prévues / embranchements','')??'';
+  const locs=(state.locations||[]).filter(x=>!x.deleted).map(x=>({id:x.id,label:x.name||'Sans nom'})); const locationId=locs.length?await v191Pick('Lieu de la scène',locs):null;
+  const now=JDRDB.nowIso(); const existing=(state.scenes||[]).filter(x=>x.scenarioId===scenarioId&&!x.deleted); await JDRDB.put('scenes',{id:JDRDB.uuid('scene'),campaignId:state.campaignId,scenarioId,title,description,objective,clues,consequences,locationId,status:'planned',order:existing.length+1,characterIds:[],createdAt:now,updatedAt:now,deleted:false});
+  await reloadActiveCampaign(); renderWorkspaceModule('scenarios'); showToast('Scène ajoutée au scénario.');
+}
+async function v191History(kind){ return (await JDRDB.getAllByIndex('history','campaignId',state.campaignId)).filter(x=>!x.deleted&&x.entityType===kind).sort((a,b)=>(b.createdAt||'').localeCompare(a.createdAt||'')); }
+const _renderWorkspaceModuleV190=renderWorkspaceModule;
+renderWorkspaceModule=function(view){
+  const host=$('#placeholderView .empty-state'); if(!host)return;
+  if(view==='relations'){
+    const rows=state.relations||[]; host.innerHTML=`<div class="workspace-head"><div><div class="eyebrow">COHÉRENCE DE CAMPAGNE</div><h1>⇄ Relations</h1></div><button class="btn primary" id="v191AddRelation">+ Relation</button></div><div class="workspace-list">${rows.length?rows.map(r=>`<article class="entity-card"><h3 class="entity-title">${esc(v191EntityName(r.sourceId))} ⇄ ${esc(v191EntityName(r.targetId))}</h3><div class="card-kicker">${esc(r.relationType||'lié à')}</div><div class="entity-description">${esc(r.notes||'')}</div></article>`).join(''):'<p>Aucune relation enregistrée.</p>'}</div>`; $('#v191AddRelation')?.addEventListener('click',v191CreateRelation); return;
+  }
+  if(view==='journal'||view==='progression'){
+    v191History(view==='journal'?'journal':'progression').then(rows=>{host.innerHTML=`<div class="workspace-head"><div><div class="eyebrow">SUIVI DE CAMPAGNE</div><h1>${view==='journal'?'▣ Journal de campagne':'★ Progression des PJ'}</h1></div><button class="btn primary" id="v191AddHist">+ Ajouter</button></div><div class="workspace-list">${rows.length?rows.map(r=>`<article class="entity-card"><h3 class="entity-title">${esc(r.summary||'Entrée')}</h3><div class="row-sub">${esc(r.gameDate||'')} ${r.sessionId?'· séance liée':''}</div><div class="entity-description">${esc(r.details||'')}${r.progression?.evolution?`<br><strong>Évolution :</strong> ${esc(r.progression.evolution)}`:''}</div></article>`).join(''):'<p>Aucune entrée.</p>'}</div>`; $('#v191AddHist')?.addEventListener('click',view==='journal'?v191CreateJournal:v191CreateProgression);}); return;
+  }
+  _renderWorkspaceModuleV190(view);
+  if(view==='scenarios'){
+    $$('.entity-card').forEach((card,i)=>{ const sc=(state.scenarios||[]).filter(x=>!x.deleted)[i]; if(!sc)return; const scenes=(state.scenes||[]).filter(x=>x.scenarioId===sc.id&&!x.deleted).sort((a,b)=>(a.order||0)-(b.order||0)); const box=document.createElement('div'); box.className='scenario-scenes'; box.innerHTML=`<div class="row-sub"><strong>${scenes.length} scène(s)</strong> ${scenes.map(s=>`· ${esc(s.order||'?')}. ${esc(s.title)} [${esc(s.status||'planned')}]`).join(' ')}</div><button class="btn secondary v191AddScene" data-id="${esc(sc.id)}">+ Scène</button>`; card.appendChild(box); }); $$('.v191AddScene').forEach(b=>b.addEventListener('click',()=>v191AddScenarioScene(b.dataset.id)));
+  }
+};
+(function v191InstallNav(){
+  const run=()=>{ const nav=document.querySelector('.sidebar nav, .sidebar-nav, aside nav'); if(!nav||document.querySelector('[data-view="relations"]'))return; [['relations','⇄','Relations'],['journal','▣','Journal'],['progression','★','Progression PJ']].forEach(([view,icon,label])=>{const b=document.createElement('button');b.className='nav-item';b.dataset.view=view;b.innerHTML=`<span>${icon}</span><span>${label}</span>`;b.addEventListener('click',()=>switchView(view));nav.appendChild(b);}); viewTitles.relations='Relations';viewTitles.journal='Journal de campagne';viewTitles.progression='Progression PJ'; };
+  window.addEventListener('DOMContentLoaded',()=>setTimeout(run,50));
+})();
+
+
+/* =========================================================
+   V0.19.10 — Validation transversale des compétences
+   ========================================================= */
+async function v194CreateRelation(){
+  const opts=v191EntityOptions(); if(opts.length<2){showToast('Crée au moins deux entités avant une relation.');return;}
+  const sourceId=await v191Pick('Source de la relation',opts); if(!sourceId)return;
+  const targetId=await v191Pick('Cible de la relation',opts.filter(x=>x.id!==sourceId)); if(!targetId)return;
+  const relationType=prompt('Type de relation (membre de, travaille pour, allié, rival, parent, propriétaire, connaît…)', 'lié à'); if(relationType===null)return;
+  const reciprocal=confirm('Cette relation est-elle réciproque ?\nOK = réciproque · Annuler = orientée source → cible');
+  const status=(prompt('État du lien : actif, ancien, rompu, incertain…','actif')||'actif').trim();
+  const secrecy=(prompt('Visibilité : public, connu_pj, partiel_pj, secret_mj','public')||'public').trim().toLowerCase();
+  const playerKnowledge=secrecy==='secret_mj'?'':(prompt('Ce que les PJ savent réellement de ce lien','')??'');
+  const notes=prompt('Notes MJ / vérité complète','')??''; const now=JDRDB.nowIso();
+  await JDRDB.put('relations',{id:JDRDB.uuid('relation'),campaignId:state.campaignId,sourceId,targetId,relationType:relationType.trim()||'lié à',direction:reciprocal?'reciprocal':'directed',status,secrecy,playerKnowledge,notes,createdAt:now,updatedAt:now,deleted:false});
+  await reloadActiveCampaign(); renderWorkspaceModule('relations'); showToast('Relation avancée enregistrée.');
+}
+v191CreateRelation=v194CreateRelation;
+
+const _renderWorkspaceV193=renderWorkspaceModule;
+renderWorkspaceModule=function(view){
+  if(view!=='relations') return _renderWorkspaceV193(view);
+  const host=$('#placeholderView .empty-state'); if(!host)return;
+  const rows=state.relations||[];
+  host.innerHTML=`<div class="workspace-head"><div><div class="eyebrow">VÉRITÉ MJ ET CONNAISSANCES PJ</div><h1>⇄ Relations</h1></div><button class="btn primary" id="v194AddRelation">+ Relation</button></div><div class="workspace-list">${rows.length?rows.map(r=>`<article class="entity-card"><h3 class="entity-title">${esc(v191EntityName(r.sourceId))} ${r.direction==='reciprocal'?'⇄':'→'} ${esc(v191EntityName(r.targetId))}</h3><div class="card-kicker">${esc(r.relationType||'lié à')} · ${esc(r.status||'actif')} · ${esc(r.secrecy||'public')}</div>${r.playerKnowledge?`<div class="entity-description"><strong>Connu des PJ :</strong> ${esc(r.playerKnowledge)}</div>`:''}${r.notes?`<div class="entity-description"><strong>Notes MJ :</strong> ${esc(r.notes)}</div>`:''}</article>`).join(''):'<p>Aucune relation enregistrée.</p>'}</div>`;
+  $('#v194AddRelation')?.addEventListener('click',v194CreateRelation);
+};
+
+const _assistantReplyV193=assistantReply;
+assistantReply=async function(question){
+  const q=normalizeSearchText(question).replace(/[^a-z0-9'’]+/g,' ').trim();
+  const chars=(state.characters||[]).filter(c=>!c.deleted);
+  const named=chars.map(c=>({c,n:normalizeSearchText(c.name||'')})).filter(x=>x.n&&q.includes(x.n)).sort((a,b)=>b.n.length-a.n.length)[0]?.c;
+  if(named && (q.includes('lien')||q.includes('relation')) && (q.includes('secret')||q.includes('reel')||q.includes('verite'))){
+    const rels=(state.relations||[]).filter(r=>!r.deleted&&(r.sourceId===named.id||r.targetId===named.id));
+    const answer=`<strong>Relations MJ — ${esc(named.name)}</strong><br>${rels.length?rels.map(r=>`• ${esc(v191EntityName(r.sourceId))} ${r.direction==='reciprocal'?'⇄':'→'} ${esc(r.relationType||'lié à')} → ${esc(v191EntityName(r.targetId))} [${esc(r.secrecy||'public')}]${r.notes?` — ${esc(r.notes)}`:''}`).join('<br>'):'Aucune relation structurée.'}`;
+    setTimeout(()=>addAssistantMessage('assistant',answer),120); return;
+  }
+  if(named && (q.includes('sait')||q.includes('savent')||q.includes('connu')) && (q.includes('pj')||q.includes('joueur'))){
+    const rels=(state.relations||[]).filter(r=>!r.deleted&&(r.sourceId===named.id||r.targetId===named.id)&&r.secrecy!=='secret_mj');
+    const answer=`<strong>Ce que les PJ savent — ${esc(named.name)}</strong><br>${rels.length?rels.map(r=>`• ${esc(r.playerKnowledge||`${v191EntityName(r.sourceId)} — ${r.relationType||'lié à'} — ${v191EntityName(r.targetId)}`)}`).join('<br>'):'Aucun lien connu des PJ n’est enregistré.'}`;
+    setTimeout(()=>addAssistantMessage('assistant',answer),120); return;
+  }
+  return _assistantReplyV193(question);
+};
+
+// V0.19.10 — consultation distincte de l'édition
+$('#characterSheetEditButton')?.addEventListener('click',()=>{const id=$('#characterSheetEditButton').dataset.id; $('#characterSheetModal').classList.add('hidden'); openCharacterEditor(id);});
+$('#characterSheetCompactButton')?.addEventListener('click',()=>{const id=$('#characterSheetCompactButton').dataset.id; const compact=$('#characterSheetBody').classList.contains('compact-sheet'); openCharacterSheet(id,!compact);});
+
+// V0.19.17 — création D&D contextuelle par classe : maîtrises, compétences, sous-classe, magie et équipement de départ.
+
+/* =========================================================
+   V0.19.21 — D&D 5e 2014 : constructeur de rencontre + suivi combat
+   ========================================================= */
+function dndEncounterStorageKey(){ return `jdr-dnd-encounter-${state.campaignId||'default'}`; }
+function dndCombatStorageKey(){ return `jdr-dnd-combat-${state.campaignId||'default'}`; }
+function dndLoadEncounter(){ try{return JSON.parse(localStorage.getItem(dndEncounterStorageKey())||'[]');}catch(e){return [];} }
+function dndSaveEncounter(rows){ localStorage.setItem(dndEncounterStorageKey(),JSON.stringify(rows)); }
+function dndLoadCombat(){ try{return JSON.parse(localStorage.getItem(dndCombatStorageKey())||'null');}catch(e){return null;} }
+function dndSaveCombat(data){ if(data)localStorage.setItem(dndCombatStorageKey(),JSON.stringify(data)); else localStorage.removeItem(dndCombatStorageKey()); }
+function dndCrValue(cr){ if(cr==='1/8')return .125;if(cr==='1/4')return .25;if(cr==='1/2')return .5;return Number(cr)||0; }
+function dndEncounterTotals(rows){
+  let creatures=0,xp=0,maxCr=0; const crs={};
+  rows.forEach(r=>{const c=dndCreatureById(r.creatureId);if(!c)return;const q=Math.max(1,Number(r.qty)||1);creatures+=q;xp+=q*(Number(c.xp)||0);maxCr=Math.max(maxCr,dndCrValue(c.cr));crs[c.cr]=(crs[c.cr]||0)+q;});
+  return {creatures,xp,maxCr,crs};
+}
+function dndEncounterCrLabel(t){
+  const entries=Object.entries(t.crs).sort((a,b)=>dndCrValue(b[0])-dndCrValue(a[0]));
+  return entries.length?entries.map(([cr,n])=>`${n} × FP ${cr}`).join(' · '):'—';
+}
+function dndPartyRows(){ return (state.characters||[]).filter(c=>!c.deleted&&c.type==='PC'); }
+function dndCombatantHp(c){ const sd=c?.systemData||{}; return Number(sd.hpCurrent??sd.hpMax??0)||0; }
+function dndCombatantHpMax(c){ const sd=c?.systemData||{}; return Number(sd.hpMax??sd.hpCurrent??0)||0; }
+function renderDndCombatModule(){
+  const host=$('#placeholderView .empty-state'); if(!host)return;
+  if(profileKeyForCampaign()!=='dnd5'){
+    host.innerHTML=`<div class="empty-icon">⚔</div><h1>Combats</h1><p>Le constructeur de rencontre V0.19.21 est actuellement spécialisé pour D&D 5e. Les autres systèmes conserveront leur moteur de combat propre.</p>`;return;
+  }
+  const encounter=dndLoadEncounter(), totals=dndEncounterTotals(encounter), combat=dndLoadCombat();
+  const creatureOptions=DND_CREATURES_2014.map(c=>`<option value="${esc(c.id)}">${esc(c.name)} · FP ${esc(c.cr)} · ${c.xp} PX</option>`).join('');
+  const party=dndPartyRows();
+  host.innerHTML=`<div class="workspace-head"><div><div class="eyebrow">D&D 5e 2014</div><h1>⚔ Rencontres et combat</h1></div><span class="mini-badge">${DND_CREATURES_2014.length} profils disponibles</span></div>
+  <div class="entity-card"><div class="rules-section-head"><div><div class="card-kicker">CONSTRUCTEUR DE RENCONTRE</div><strong>Composition</strong></div></div>
+  <div class="system-values-grid"><div class="system-value-field"><label>Créature</label><select id="dndEncounterCreature">${creatureOptions}</select></div><div class="system-value-field"><label>Quantité</label><input id="dndEncounterQty" type="number" min="1" max="99" value="1"></div><div class="system-value-field"><label>&nbsp;</label><button class="btn primary" id="dndEncounterAdd">+ Ajouter</button></div></div>
+  <div class="workspace-list" id="dndEncounterList">${encounter.length?encounter.map((r,i)=>{const c=dndCreatureById(r.creatureId);return c?`<article class="entity-card"><div class="entity-head"><div><div class="card-kicker">FP ${esc(c.cr)} · ${c.xp} PX / créature</div><h3 class="entity-title">${esc(c.name)}</h3></div><strong>× ${Math.max(1,Number(r.qty)||1)}</strong></div><div class="entity-description">${esc(c.type)} · CA ${c.ac} · PV ${c.hp} · ${esc(c.summary)}${c.actions?.length?`<br><span class="row-sub">Actions : ${c.actions.map(esc).join(" · ")}</span>`:""}</div><div class="entity-actions"><button class="btn secondary dnd-enc-minus" data-i="${i}">−1</button><button class="btn secondary dnd-enc-plus" data-i="${i}">+1</button><button class="btn danger-soft dnd-enc-remove" data-i="${i}">Retirer</button></div></article>`:'';}).join(''):'<p>Aucune créature dans la rencontre.</p>'}</div>
+  <div class="system-derived"><strong>${totals.creatures} adversaire(s) · ${totals.xp} PX bruts</strong><div class="system-note">Composition : ${esc(dndEncounterCrLabel(totals))}. Les PX affichés sont la somme des PX des profils sélectionnés ; aucun seuil de difficulté de groupe non sourcé n’est ajouté ici.</div></div>
+  <div class="entity-actions"><button class="btn secondary" id="dndEncounterClear">Vider</button><button class="btn primary" id="dndEncounterStart" ${encounter.length?'':'disabled'}>▶ Envoyer au combat</button></div></div>
+  <div class="entity-card"><div class="rules-section-head"><div><div class="card-kicker">GROUPE DE PJ</div><strong>${party.length} personnage(s) joueur(s)</strong></div></div><div class="system-note">${party.length?party.map(p=>`${esc(p.name)}${p.systemData?.level?` · niv. ${p.systemData.level}`:''}`).join(' · '):'Aucun PJ enregistré dans cette campagne.'}</div></div>
+  <div class="entity-card"><div class="rules-section-head"><div><div class="card-kicker">SUIVI DE COMBAT</div><strong>${combat?'Combat actif':'Aucun combat actif'}</strong></div>${combat?'<button class="btn danger-soft" id="dndCombatEnd">Terminer</button>':''}</div>${combat?dndCombatTrackerHtml(combat):'<div class="system-note">Compose une rencontre puis utilise « Envoyer au combat ». Les PJ actifs de la campagne sont ajoutés automatiquement.</div>'}</div>`;
+  $('#dndEncounterAdd')?.addEventListener('click',()=>{const id=$('#dndEncounterCreature').value,q=Math.max(1,Number($('#dndEncounterQty').value)||1);const rows=dndLoadEncounter();const old=rows.find(x=>x.creatureId===id);if(old)old.qty=(Number(old.qty)||1)+q;else rows.push({creatureId:id,qty:q});dndSaveEncounter(rows);renderDndCombatModule();});
+  $$('.dnd-enc-plus').forEach(b=>b.addEventListener('click',()=>{const rows=dndLoadEncounter(),r=rows[Number(b.dataset.i)];if(r)r.qty=(Number(r.qty)||1)+1;dndSaveEncounter(rows);renderDndCombatModule();}));
+  $$('.dnd-enc-minus').forEach(b=>b.addEventListener('click',()=>{const rows=dndLoadEncounter(),i=Number(b.dataset.i),r=rows[i];if(r){r.qty=(Number(r.qty)||1)-1;if(r.qty<=0)rows.splice(i,1);}dndSaveEncounter(rows);renderDndCombatModule();}));
+  $$('.dnd-enc-remove').forEach(b=>b.addEventListener('click',()=>{const rows=dndLoadEncounter();rows.splice(Number(b.dataset.i),1);dndSaveEncounter(rows);renderDndCombatModule();}));
+  $('#dndEncounterClear')?.addEventListener('click',()=>{dndSaveEncounter([]);renderDndCombatModule();});
+  $('#dndEncounterStart')?.addEventListener('click',dndStartCombatFromEncounter);
+  $('#dndCombatEnd')?.addEventListener('click',()=>{dndSaveCombat(null);renderDndCombatModule();showToast('Combat terminé.');});
+  $$('.dnd-init-input').forEach(inp=>inp.addEventListener('change',()=>dndUpdateCombatant(inp.dataset.id,{initiative:Number(inp.value)||0})));
+  $$('.dnd-hp-input').forEach(inp=>inp.addEventListener('change',()=>dndUpdateCombatant(inp.dataset.id,{hp:Math.max(0,Number(inp.value)||0)})));
+  $$('.dnd-hp-minus').forEach(b=>b.addEventListener('click',()=>dndChangeHp(b.dataset.id,-1)));
+  $$('.dnd-hp-plus').forEach(b=>b.addEventListener('click',()=>dndChangeHp(b.dataset.id,1)));
+}
+function dndCombatTrackerHtml(combat){
+  const rows=[...(combat.combatants||[])].sort((a,b)=>(Number(b.initiative)||0)-(Number(a.initiative)||0)||a.name.localeCompare(b.name,'fr'));
+  return `<div class="workspace-list">${rows.map((r,i)=>`<article class="entity-card"><div class="entity-head"><div><div class="card-kicker">${r.side==='pc'?'PJ':'ADVERSAIRE'} · ordre ${i+1}${r.cr?` · FP ${esc(r.cr)}`:''}</div><h3 class="entity-title">${esc(r.name)}</h3></div><div class="system-values-grid"><div class="system-value-field"><label>Initiative</label><input class="dnd-init-input" data-id="${esc(r.id)}" type="number" value="${Number(r.initiative)||0}"></div><div class="system-value-field"><label>PV</label><input class="dnd-hp-input" data-id="${esc(r.id)}" type="number" min="0" value="${Number(r.hp)||0}"></div></div></div><div class="entity-actions"><button class="btn secondary dnd-hp-minus" data-id="${esc(r.id)}">−1 PV</button><button class="btn secondary dnd-hp-plus" data-id="${esc(r.id)}">+1 PV</button><span class="row-sub">max ${Number(r.hpMax)||0}${r.ac?` · CA ${r.ac}`:''}${r.actions?.length?` · ${r.actions.map(esc).join(' / ')}`:''}</span></div></article>`).join('')}</div>`;
+}
+function dndStartCombatFromEncounter(){
+  const encounter=dndLoadEncounter(); if(!encounter.length)return;
+  const combatants=[];
+  dndPartyRows().forEach(p=>combatants.push({id:`pc-${p.id}`,sourceId:p.id,name:p.name,side:'pc',initiative:0,hp:dndCombatantHp(p),hpMax:dndCombatantHpMax(p)}));
+  encounter.forEach(r=>{const c=dndCreatureById(r.creatureId);if(!c)return;const q=Math.max(1,Number(r.qty)||1);for(let i=1;i<=q;i++)combatants.push({id:`enemy-${c.id}-${Date.now()}-${i}-${Math.random().toString(36).slice(2,7)}`,creatureId:c.id,name:q>1?`${c.name} ${i}`:c.name,side:'enemy',initiative:0,hp:c.hp,hpMax:c.hp,ac:c.ac,cr:c.cr,xp:c.xp,summary:c.summary,actions:c.actions||[],spellcasting:c.spellcasting||''});});
+  dndSaveCombat({startedAt:new Date().toISOString(),combatants});renderDndCombatModule();showToast('Rencontre envoyée au suivi de combat.');
+}
+function dndUpdateCombatant(id,patch){const combat=dndLoadCombat();if(!combat)return;const r=combat.combatants.find(x=>x.id===id);if(!r)return;Object.assign(r,patch);dndSaveCombat(combat);renderDndCombatModule();}
+function dndChangeHp(id,delta){const combat=dndLoadCombat();if(!combat)return;const r=combat.combatants.find(x=>x.id===id);if(!r)return;r.hp=Math.max(0,Math.min(Number(r.hpMax)||9999,(Number(r.hp)||0)+delta));dndSaveCombat(combat);renderDndCombatModule();}
+
+
+
+
+const L5R1_CRAB_CORPUS = {
+ source:"La Voie du Crabe (L5R 1e) — ouvrage contrôlé intégralement, PDF 130 pages",
+ coverage:["Chap. 1 — Le puissant Clan du Crabe","Chap. 2 — Histoire du Clan du Crabe","Chap. 3 — Création de personnages","Chap. 4 — Personnalités","Chap. 5 — Archétypes","Appendice I — Stratégie","Appendice II — Terres du Clan du Crabe","Appendice III — Recueil : philosophie, relations, magie et nemuranai","Appendice IV — scénario Entre le ciel et l’enfer","Feuilles de personnages, cartes et plans"],
+ skills:[
+  {name:"Connaissance : maho-tsukai",trait:"Intelligence",kind:"Bugei pour chasseurs Kuni ; dévalorisante pour les autres"},
+  {name:"Culture gobelin",trait:"Intelligence",kind:"Connaissance des comportements gobelins ; dévalorisante"},
+  {name:"Dialecte nezumi",trait:"Intelligence",kind:"Langue nezumi ; dévalorisante ; parler en public hors présence nezumi coûte de l’Honneur"},
+  {name:"Ingénierie",trait:"Intelligence",kind:"Conception, construction et entretien ; marchand ; obligatoire pour Kaiu"},
+  {name:"Intimidation",trait:"Volonté",kind:"Bugei"},{name:"Origami",trait:"Agilité",kind:"Dévalorisante"},
+  {name:"Pièges",trait:"Perception",kind:"Bugei pour Kaiu ; dévalorisante pour les autres"},
+  {name:"Siège",trait:"Perception",kind:"Bugei ; analyse fortifications, fuites et emploi des machines de siège"}
+ ],
+ advantages:["Dextérité du Crabe (8 PP) — arme non maîtrisée traitée comme compétence rang 1","Épée de la famille Kaiu (5 PP) — katana familial exceptionnel, +1 dé gardé aux dommages ; obligations familiales fortes","Poings de pierre (5 PP) — garde deux dés de dommages à mains nues au lieu d’un","Relation Nezumi (2 PP) — allié homme-rat, intermédiaire, informateur ou éclaireur","Sang d’Osano-Wo (3 PP) — résistance aux températures extrêmes et réussite automatique des jets de Constitution correspondants"],
+ disadvantages:["Souillure de l’Outremonde (1–5 PP) — chaque PP reçu donne un point de Corruption"],
+ families:[
+  {name:"Hida",bonus:"Force +1",school:"École Hida du Livre de base",summary:"Famille militaire dominante ; endurance, discipline, combat contre l’Outremonde."},
+  {name:"Hiruma",bonus:"Constitution +1",school:"Éclaireur Hiruma",skills:"Athlétisme, Connaissance : Outremonde, Corps à corps (Jiujitsu), Discrétion 2, Kenjutsu, Tir à l’arc",honor:"2",equipment:"katana, wakizashi, vêtements, sandales, jade sculpté, peintures de camouflage, 1 koku",techniques:["R1 Danser sur le fil du rasoir","R2 Rapide comme le vent","R3 Sentir l’empreinte du Dieu Sombre","R4 Dompter le faucon","R5 Voile des esprits"]},
+  {name:"Kaiu",bonus:"Perception +1",school:"Ingénieurs Kaiu",schoolBonus:"Intelligence +1",skills:"Armurerie, Art de la guerre, Forge, Histoire, Ingénierie, Pièges, Siège",honor:"2",equipment:"katana, wakizashi, armure lourde, kimono, matériel de topographie, dessin/encre, parchemins, 1 koku",techniques:["À chaque rang de Maîtrise, spécialisation accrue dans une des sept compétences de l’école"]},
+  {name:"Kuni",bonus:"Famille de shugenja du Crabe",school:"Chasseurs de sorciers Kuni (voie bushi rare)",schoolBonus:"Intuition +1",skills:"Athlétisme ou Discrétion, Chasse, Connaissance : Outremonde, Défense, Herboristerie, deux compétences de bugei",honor:"1 + cinq cases",equipment:"katana, wakizashi, vêtements de voyage, pendentif de jade, 1 koku",techniques:["R1 Frapper les ténèbres","R2 Repérer les ténèbres","R3 Vaincre les ténèbres","R4 Repousser les ténèbres","R5 Anéantir les ténèbres"]},
+  {name:"Yasuki",bonus:"Perception +1",school:"Marchand Yasuki",skills:"Artisanat, Commerce, Défense, Étiquette, Héraldique, Jeu, Sincérité",honor:"0 + cinq cases",equipment:"kimono, katana, wakizashi, vêtements de voyage, sac à dos en osier, sac de couchage, poney avec sacoches, 8 koku",techniques:["Progression par rang d’objets ; acquisition accélérée d’objets et services selon rareté et rang"]}
+ ],
+ paths:[{name:"Berserker du Crabe",bonus:"Constitution +1",rules:"Voie sans école propre : requiert Trompe-la-mort ; le personnage quitte son ancienne école, son Honneur est ramené à 1 s’il était supérieur ; la transe ignore les pénalités de blessures et augmente les dommages, mais impose un comportement de rage et réduit fortement l’espérance de vie."}],
+ spells:[
+  {element:"Terre",name:"Armure",mastery:4,summary:"Protection spirituelle renforçant la cible contre les dommages."},
+  {element:"Terre",name:"Lien mineur / Lien majeur",mastery:5,summary:"Rituel long destiné à immobiliser un être souillé ; la variante majeure vise notamment oni et maho-tsukai."},
+  {element:"Terre",name:"Mur de terre",mastery:3,summary:"Fait surgir un mur de Terre dont dimensions et résistance dépendent du rang de Maîtrise."},
+  {element:"Feu",name:"Derniers sacrements",mastery:2,summary:"Purification terminale d’une cible consentante souillée : elle meurt mais peut être délivrée de la Souillure."},
+  {element:"Air",name:"Peur",mastery:3,summary:"Manifestations sonores terrifiantes affectant humains et créatures de l’Outremonde."}
+ ],
+ nemuranai:["Chikara — katana ancestral du Clan du Crabe (3g3), jade et acier ; pouvoirs contre l’Outremonde et protection contre la corruption","Yama — wakizashi ancestral (2g2) ; stabilité du porteur et résistance aux chutes/désarçonnements","Ketsuen — armure du Guerrier de l’Ombre ; forte protection, réduction des effets de blessures et résistance à la magie","Bourse merveilleuse de Yasuki Hohiro — procure les petites sommes nécessaires aux dépenses courantes du porteur, avec des limites précises","Forge ancestrale de Kaiu — forge sacrée permettant la création de katana Kaiu exceptionnels (3g3), réputés pratiquement inaltérables"],
+ npcs:[
+  "Hida Kisada — Grand Ours, daimyo/champion du clan ; Hida rang 5, figure militaire majeure",
+  "Hida Yakamo — héritier de Kisada ; combattant massif, Hida rang 4",
+  "Hida O-Ushi — fille de Kisada ; commandement de la Grande Muraille et tempérament offensif",
+  "Hida Sukune — fils de Kisada ; stratège et intellectuel, davantage tourné vers l’étude de la guerre",
+  "Hida Amoro — berserker Hida rang 3 ; rage difficile à contenir",
+  "Hida Tsuru — plus jeune frère de Kisada ; commandant de cavalerie et vétéran",
+  "Hiruma Kage — éclaireur Hiruma rang 4 ; survivant et spécialiste de l’Outremonde",
+  "Yasuki Taka — marchand Yasuki rang 5 ; chef économique et négociateur majeur",
+  "Kaiu Utsu — maître de siège Kaiu rang 5 ; responsable de travaux et défenses de la Grande Muraille"
+ ],
+ archetypes:["Berserker Hida — feuille prête à jouer","Éclaireur Hiruma — feuille prête à jouer","Stratège Kaiu — feuille prête à jouer","Inquisitrice Kuni — feuille prête à jouer avec sorts","Contrebandier Yasuki — feuille prête à jouer"],
+ history:["Fondation et mission du clan liées à Hida et à la défense contre Fu Leng et l’Outremonde.","Chute des terres Hiruma et transformation durable de la famille en éclaireurs/guerriers de reconnaissance.","Conflits historiques avec la Grue, notamment autour de territoires et des Yasuki.","La Grande Muraille Kaiu devient le pivot stratégique, culturel et politique du clan.","À l’époque décrite, Hida Kisada dirige un clan toujours mobilisé contre l’Outremonde et en tension avec plusieurs puissances de l’Empire."],
+ strategy:["Doctrine fondée sur l’endurance, la défense en profondeur, les fortifications, la logistique et l’exploitation du terrain.","Emploi important des éclaireurs Hiruma, des ingénieurs Kaiu, de l’artillerie et des machines de siège.","Les raids et opérations dans l’Outremonde privilégient renseignement, mobilité, jade, ravitaillement et routes de repli.","La marine du Crabe assure transport, ravitaillement, patrouilles et défense côtière ; les Yasuki soutiennent la logistique et le commerce."],
+ places:["Territoire du Clan du Crabe","Terres de l’Outremonde et anciennes terres Hiruma","Ruines du château Hiruma — plan fourni","Tour de la Peur — plan fourni","Grande Muraille / Kaiu Kabe — plans de sections, postes et fortifications","Kyuden Hida — plans détaillés de la forteresse","Territoire Yasuki","Pont des Marées","Colonne des Marchands","Désolations Kuni","Forge ancestrale de Kaiu"],
+ relations:{Grue:"Rivalité ancienne et territoriale ; méfiance, contentieux historiques et opposition culturelle, malgré des échanges nécessaires.",Dragon:"Rapports distants ; incompréhension entre pragmatisme Crabe et mysticisme Dragon, mais respect possible pour certaines traditions martiales.",Lion:"Respect militaire mutuel, mais désaccord profond sur la place de l’Honneur face à la nécessité.",Phenix:"Respect du savoir magique ; coopération ponctuelle, notamment autour des phénomènes surnaturels.",Scorpion:"Hostilité et méfiance envers les intrigues ; relations difficiles et prudentes.",Licorne:"Relation relativement proche, nourrie par la franchise militaire et des intérêts frontaliers communs.","Clans mineurs":"Respect pour les groupes frontaliers tenaces ; le Crabe peut constituer un protecteur ou refuge contre de plus puissants voisins.",Nezumi:"Relations plus pragmatiques que dans beaucoup d’autres clans ; certains Crabes reconnaissent leur valeur comme alliés, guides ou informateurs."},
+ philosophy:["La mort est une réalité quotidienne : le devoir et la protection de l’Empire priment sur la recherche d’une mort glorieuse.","Le fort et le faible sont jugés sur leur utilité, leur endurance et leur capacité à tenir leur rôle.","Le Crabe se méfie des abstractions qui éloignent des réalités du Mur et de l’Outremonde.","Les enseignements de Shinsei sont interprétés de façon concrète : agir, survivre, protéger et comprendre par l’expérience."],
+ tables:["Tables d’héritage : passé indigne, passé glorieux, passé mitigé, mort glorieuse, fonctions prestigieuses et dons ; jusqu’à trois jets payés en PP","Table des Fortunes du Clan du Crabe : bonne ou mauvaise fortune, avec effets matériels, sociaux ou narratifs"],
+ scenario:{name:"Entre le ciel et l’enfer",theme:"Tradition contre innovation au sein de la famille Kaiu ; concours de forge de katana et intrigue autour d’une forgeronne",levels:"Prévu pour des PJ de rang de Maîtrise 1 ou 2",keyNpcs:["Kaiu Hisemasu — maître forgeron vieillissant","Kaiu Kamako — jeune forgeronne talentueuse, handicapée, au cœur du conflit","Kaiu Yoshisuke — maître forgeron rival","Kaiu Tokubei — élève traditionaliste de Yoshisuke","Hida Doshun — daimyo traditionaliste accueillant le tournoi","Noritsuya — ancien samurai Crabe devenu ronin","Kakita Toemon — maître forgeron Grue invité","Daidoji Shigetomi — garde du corps de Toemon"],locations:["croisée des chemins","château des Émissaires de l’Est","route du Serment brisé","auberge des Cinq Cerisiers"],structure:"Voyage, rencontres, concours de forge, sabotage/intrigue, choix moral et politique final ; plusieurs conclusions selon les actions des PJ.",rewards:"Armes de très grande qualité et conséquences durables possibles sur la famille Kaiu."},
+ maps:["Carte du territoire Crabe","Carte de l’Outremonde","Plan des ruines du château Hiruma","Plan de la Tour de la Peur","Plans de Kyuden Hida","Plans de la Grande Muraille / Kaiu Kabe"],
+ lore:["Pragmatisme, endurance et devoir de défense contre l’Outremonde structurent la culture du clan.","Les sensei sont souvent des vétérans blessés ou mutilés retirés du front.","Les Hida fournissent le cœur militaire ; les Hiruma reconnaissance et survie ; les Kaiu ingénierie/fortification ; les Kuni lutte spirituelle et étude de l’Outremonde ; les Yasuki économie, diplomatie et logistique.","Le jade, la connaissance de la Souillure et la préparation matérielle sont des réalités quotidiennes sur la frontière.","Le livre fournit de nombreuses amorces d’aventure dans ses marges : patrouilles, expéditions, diplomatie, commerce, fortifications, Outremonde et tensions internes." ]
+};
+function renderL5rCrabCorpus(){
+ const c=L5R1_CRAB_CORPUS;
+ const label=x=>typeof x==='string'?x:(x.name+(x.bonus?` — ${x.bonus}`:"")+(x.summary?` — ${x.summary}`:""));
+ const group=(title,items)=>`<article class="entity-card"><h3 class="entity-title">${esc(title)}</h3><div class="system-note">${(items||[]).map(x=>`• ${esc(label(x))}`).join("<br>")}</div></article>`;
+ const sc=c.scenario;
+ const scenario=[`${sc.name} — ${sc.theme}`,`Niveau : ${sc.levels}`,sc.structure,`PNJ : ${sc.keyNpcs.join(" ; ")}`,`Lieux : ${sc.locations.join(" ; ")}`,`Récompenses/conséquences : ${sc.rewards}`];
+ return `<div class="workspace-head"><div><div class="eyebrow">Source L5R 1e contrôlée intégralement</div><h2>Clan du Crabe — corpus complet du supplément</h2><p>${esc(c.source)}. Données techniques, PNJ, histoire, géographie, stratégie, magie et scénario structurés pour l’assistant.</p></div></div><div class="workspace-list">${group("Couverture du livre",c.coverage)}${group("Compétences",c.skills)}${group("Avantages",c.advantages)}${group("Désavantages",c.disadvantages)}${group("Familles / écoles",c.families)}${group("Voies particulières",c.paths)}${group("Sorts",c.spells)}${group("Nemuranai et forge",c.nemuranai)}${group("Personnalités / PNJ",c.npcs)}${group("Archétypes prêts à jouer",c.archetypes)}${group("Histoire",c.history)}${group("Stratégie et doctrine",c.strategy)}${group("Lieux",c.places)}${group("Cartes et plans disponibles",c.maps)}${group("Relations",Object.entries(c.relations||{}).map(([k,v])=>`${k} — ${v}`))}${group("Philosophie et culture",c.philosophy)}${group("Univers / usages MJ",c.lore)}${group("Tables",c.tables)}${group("Scénario",scenario)}</div>`;
+}
+
+
+
+const L5R1_ITEM_CORPUS=[
+{id:"l5r_ashi_kyu",clan:"Licorne",name:"Ashi-kyu — arc à pied",category:"Arme",subtype:"Arc gaijin",price:"7 koku",damage:"Flèche + dés selon Force",source:"Référentiel maître L5R 1e v5.0 — équipement gaijin/Licorne",rules:"Réarmement : 1 tour complet. Portée : (Force + 2) × 100 m. Les flèches coûtent deux fois le prix normal."},
+{id:"l5r_gaijin_long_sword",clan:"Licorne",name:"Épée longue gaijin",category:"Arme",subtype:"Épée gaijin",price:"25 koku",damage:"1g4",source:"Référentiel maître L5R 1e v5.0 — équipement gaijin/Licorne",rules:"Prérequis : Force 3 et Constitution 3. -5 à l’initiative. Ignore l’armure de l’adversaire."},
+{id:"l5r_nagayari",clan:"Licorne",name:"Nagayari",category:"Arme",subtype:"Très longue lance",price:"5 koku",damage:"3g2",source:"Référentiel maître L5R 1e v5.0 — équipement gaijin/Licorne",rules:"Arme d’hast. En position anti-cavalerie, donne automatiquement l’initiative contre une charge de cavalerie correctement engagée."},
+{id:"l5r_light_barding",clan:"Licorne",name:"Caparaçon léger",category:"Armure de monture",subtype:"Caparaçon",price:"—",damage:"—",source:"Référentiel maître L5R 1e v5.0 — montures",rules:"+5 au ND pour être touché de la monture."},
+{id:"l5r_heavy_barding",clan:"Licorne",name:"Caparaçon lourd",category:"Armure de monture",subtype:"Caparaçon",price:"—",damage:"—",source:"Référentiel maître L5R 1e v5.0 — montures",rules:"+10 au ND pour être touché de la monture."}
+];
+const L5R1_ITEM_SUPPLEMENTS=[
+{id:"l5r_ninja_kimono",name:"Kimono ninja renforcé",category:"Armure",subtype:"Équipement shinobi",clan:"Scorpion",damage:"—",price:"—",originEdition:"1e",status:"canon-1e",source:"La Voie du Scorpion / Référentiel maître L5R 1e v5.0",rules:"Considéré comme une armure légère : +5 au ND pour être touché. Bruyant : +5 au ND des jets de Discrétion ; un observateur reçoit une augmentation gratuite pour repérer le ninja en mouvement."},
+{id:"l5r_ninjato",name:"Ninja-to",category:"Arme",subtype:"Épée shinobi",clan:"Scorpion",damage:"1g2",price:"—",originEdition:"1e",status:"canon-1e",source:"La Voie du Scorpion / Référentiel maître L5R 1e v5.0",rules:"Arme de fabrication médiocre et fragile ; peut aussi servir comme lance courte ou arme de jet. Poignée souvent creuse pour dissimuler du petit matériel."},
+{id:"l5r_shuriken",name:"Shuriken",category:"Arme",subtype:"Arme de jet",clan:"Scorpion",damage:"1g1",price:"—",originEdition:"1e",status:"canon-1e",source:"La Voie du Scorpion / Référentiel maître L5R 1e v5.0",rules:"Principalement utilisé pour ralentir, distraire ou couvrir une fuite."},
+{id:"l5r_lockpicks",name:"Nécessaire de serrurerie",category:"Outil",subtype:"Infiltration",clan:"Scorpion",damage:"—",price:"—",originEdition:"1e",status:"canon-1e",source:"La Voie du Scorpion / Référentiel maître L5R 1e v5.0",rules:"Outils de crochetage fragiles destinés à l’ouverture discrète."},
+{id:"l5r_fukiya",name:"Fukiya — sarbacane",category:"Arme",subtype:"Arme discrète",clan:"Scorpion",damage:"1g1",price:"—",originEdition:"1e",status:"canon-1e",source:"La Voie du Scorpion / Référentiel maître L5R 1e v5.0",rules:"Peu précise et sensible au vent. Doit atteindre la peau nue ; +5 au ND si vêtement/obstacle protège la peau, +10 contre une cible en armure."},
+{id:"l5r_climbing_gear",name:"Griffes d’escalade",category:"Outil",subtype:"Escalade",clan:"Scorpion",damage:"—",price:"—",originEdition:"1e",status:"canon-1e",source:"La Voie du Scorpion / Référentiel maître L5R 1e v5.0",rules:"Lance 3 dés supplémentaires aux jets d’escalade. Environ 1,5 kg par griffe ; bruyant et gêne la marche."},
+{id:"l5r_nageteppo",name:"Nageteppo",category:"Consommable",subtype:"Diversion shinobi",clan:"Scorpion",damage:"Variable",price:"—",originEdition:"1e",status:"canon-1e",source:"La Voie du Scorpion / Référentiel maître L5R 1e v5.0",rules:"Petite bombe fragile. Lorsqu’elle est lancée comme grenade, lancer 1 dé : résultat pair, elle explose ; résultat impair, rien ne se passe."}
+];
+L5R1_ITEM_CORPUS.push(...L5R1_ITEM_SUPPLEMENTS);
+const L5R1_MAGIC_ITEMS=[
+{id:"l5r_asahina_incense",name:"Encens de concentration",category:"Objet magique",subtype:"Fétiche Asahina",clan:"Grue",price:"—",damage:"—",originEdition:"1e",status:"canon-1e",source:"La Voie de la Grue / Référentiel maître L5R 1e v5.0 — table d’héritage 6",rules:"Usage unique. Après quinze minutes de concentration, un shugenja récupère 2 points de Vide dépensés."},
+{id:"l5r_asahina_brooch",name:"Broche de plénitude",category:"Objet magique",subtype:"Fétiche Asahina",clan:"Grue",price:"—",damage:"—",originEdition:"1e",status:"canon-1e",source:"La Voie de la Grue / Référentiel maître L5R 1e v5.0 — table d’héritage 6",rules:"Usage unique. Permet de se passer de nourriture pendant une journée."},
+{id:"l5r_asahina_jade_amulet",name:"Amulette de jade",category:"Objet magique",subtype:"Fétiche Asahina",clan:"Grue",price:"—",damage:"—",originEdition:"1e",status:"canon-1e",source:"La Voie de la Grue / Référentiel maître L5R 1e v5.0 — table d’héritage 6",rules:"Usage unique. Accorde +2g2 pour résister à la Souillure de l’Outremonde."},
+{id:"l5r_asahina_makeup",name:"Nécessaire de maquillage Asahina",category:"Objet magique",subtype:"Fétiche Asahina",clan:"Grue",price:"—",damage:"—",originEdition:"1e",status:"canon-1e",source:"La Voie de la Grue / Référentiel maître L5R 1e v5.0 — table d’héritage 6",rules:"Usage unique. Permet de lancer 1 dé supplémentaire aux jets d’Artisan : comédien, Comédie et Déguisement."},
+{id:"l5r_asahina_bone_key",name:"Clé en os",category:"Objet magique",subtype:"Fétiche Asahina",clan:"Grue",price:"—",damage:"—",originEdition:"1e",status:"canon-1e",source:"La Voie de la Grue / Référentiel maître L5R 1e v5.0 — table d’héritage 6",rules:"Usage unique. Ouvre une porte fermée mécaniquement ou magiquement ; bloque les pièges mécaniques mais déclenche les pièges magiques."},
+{id:"l5r_asahina_crane_feather",name:"Plume de la Grue",category:"Objet magique",subtype:"Fétiche Asahina",clan:"Grue",price:"—",damage:"—",originEdition:"1e",status:"canon-1e",source:"La Voie de la Grue / Référentiel maître L5R 1e v5.0 — table d’héritage 6",rules:"Usage unique. Réduit le poids du porteur au dixième pendant au maximum une heure ; pendant cet effet, les blessures physiques lui infligent trois fois plus de dommages."},
+{id:"l5r_asahina_vision_acorn",name:"Gland des visions",category:"Objet magique",subtype:"Fétiche Asahina",clan:"Grue",price:"—",damage:"—",originEdition:"1e",status:"canon-1e",source:"La Voie de la Grue / Référentiel maître L5R 1e v5.0 — table d’héritage 6",rules:"Usage unique. Après concentration sur un sujet, plonge l’utilisateur dans un coma d’une heure et lui procure des visions ; leur précision reste à l’appréciation du MJ."},
+{id:"l5r_asahina_turtle_shell",name:"Carapace de tortue",category:"Objet magique",subtype:"Fétiche Asahina",clan:"Grue",price:"—",damage:"—",originEdition:"1e",status:"canon-1e",source:"La Voie de la Grue / Référentiel maître L5R 1e v5.0 — table d’héritage 6",rules:"Usage unique. Protège contre toutes les armes à distance pendant dix tours de combat."},
+{id:"l5r_asahina_white_grain",name:"Blanche gerbe de céréales",category:"Objet magique",subtype:"Fétiche Asahina",clan:"Grue",price:"—",damage:"—",originEdition:"1e",status:"canon-1e",source:"La Voie de la Grue / Référentiel maître L5R 1e v5.0 — table d’héritage 6",rules:"Usage unique. Restaure 2d10 points de blessures ; un non-shugenja doit toucher l’objet au moment d’invoquer son esprit."},
+{id:"l5r_asahina_black_fan",name:"Éventail noir",category:"Objet magique",subtype:"Fétiche Asahina",clan:"Grue",price:"—",damage:"—",originEdition:"1e",status:"canon-1e",source:"La Voie de la Grue / Référentiel maître L5R 1e v5.0 — table d’héritage 6",rules:"Usage unique. Ajoute 2d10 à la Gloire en points pendant une heure et donne une augmentation gratuite aux jets d’Art oratoire ou de Sincérité face aux personnes impressionnées."},
+{id:"l5r_kagaku_smoke",name:"Ekitai Kemuri — fumée liquide",category:"Artefact",subtype:"Kagaku Agasha",clan:"Dragon",price:"—",damage:"—",originEdition:"1e",status:"canon-1e",source:"La Voie du Dragon / Référentiel maître L5R 1e v5.0 — artefacts du Kagaku",rules:"Création : Intelligence + Kagaku, ND 10, 1 heure/dose. Produit environ dix minutes de fumée irritante ; Constitution ND 10 pour traverser, ND augmentable à la création."},
+{id:"l5r_kagaku_hinemuri",name:"Hinemuri — feu latent",category:"Artefact",subtype:"Kagaku Agasha",clan:"Dragon",price:"—",damage:"1g1/tour prolongé",originEdition:"1e",status:"canon-1e",source:"La Voie du Dragon / Référentiel maître L5R 1e v5.0 — artefacts du Kagaku",rules:"Création : Intelligence + Kagaku, ND 10, 2 heures/dose. Réagit aux variations de température et s’enflamme ; une exposition prolongée inflige 1g1 dommages par tour."},
+{id:"l5r_kagaku_moeagaru",name:"Moeagaru — papier aveuglant",category:"Artefact",subtype:"Kagaku Agasha",clan:"Dragon",price:"—",damage:"—",originEdition:"1e",status:"canon-1e",source:"La Voie du Dragon / Référentiel maître L5R 1e v5.0 — artefacts du Kagaku",rules:"Création : Intelligence + Kagaku, ND 10, 10 minutes. Flash intense ; Réflexes ND 10 à 20 pour éviter d’être aveuglé pendant une action complète."},
+{id:"l5r_kagaku_poluvora",name:"Poluvora — poudre noire",category:"Artefact",subtype:"Kagaku Agasha",clan:"Dragon",price:"—",damage:"1g1/dose",originEdition:"1e",status:"canon-1e",source:"La Voie du Dragon / Référentiel maître L5R 1e v5.0 — artefacts du Kagaku",rules:"Création : Intelligence + Kagaku, ND 20, 1 jour/dose. Substance instable surtout employée pour les feux d’artifice ; chaque dose provoque 1g1 dommages."},
+{id:"l5r_mizugusuri_lionheart",name:"Cœur du Lion",category:"Élixir magique",subtype:"Mizugusuri Agasha",clan:"Dragon",price:"—",damage:"—",originEdition:"1e",status:"canon-1e",source:"La Voie du Dragon / Référentiel maître L5R 1e v5.0 — mizugusuri",rules:"Création : Intelligence + Mizugusuri, ND 10. Pendant 5 tours, ajoute le rang d’Honneur au résultat des jets d’attaque ou de dommages ; +5 tours par augmentation."},
+{id:"l5r_mizugusuri_anvil",name:"Enclume de la Terre",category:"Élixir magique",subtype:"Mizugusuri Agasha",clan:"Dragon",price:"—",damage:"—",originEdition:"1e",status:"canon-1e",source:"La Voie du Dragon / Référentiel maître L5R 1e v5.0 — mizugusuri",rules:"Création : Intelligence + Mizugusuri, ND 20. Pendant 5 tours, immunise aux effets des blessures jusqu’au niveau Épuisé ; +5 tours par augmentation."},
+{id:"l5r_mizugusuri_liquidfire",name:"Feu liquide",category:"Élixir magique",subtype:"Mizugusuri Agasha",clan:"Dragon",price:"—",damage:"2g2 puis +1 dé/tour",originEdition:"1e",status:"canon-1e",source:"La Voie du Dragon / Référentiel maître L5R 1e v5.0 — mizugusuri",rules:"Création : Intelligence + Mizugusuri, ND 20. Se lance avec Agilité + compétence applicable. VD 2g2 ; les proches font Réflexes ND 10 ; après le premier tour la cible subit 1 dé supplémentaire par tour jusqu’à retrait des gouttes."},
+{id:"l5r_mizugusuri_airbrother",name:"Frère de l’Air",category:"Élixir magique",subtype:"Mizugusuri Agasha",clan:"Dragon",price:"—",damage:"—",originEdition:"1e",status:"canon-1e",source:"La Voie du Dragon / Référentiel maître L5R 1e v5.0 — mizugusuri",rules:"Création : Intelligence + Mizugusuri, ND 10. Immunise aux effets des sorts d’Air pendant 5 tours ; +5 tours par augmentation."},
+{id:"l5r_mizugusuri_waterbrother",name:"Frère de l’Eau",category:"Élixir magique",subtype:"Mizugusuri Agasha",clan:"Dragon",price:"—",damage:"—",originEdition:"1e",status:"canon-1e",source:"La Voie du Dragon / Référentiel maître L5R 1e v5.0 — mizugusuri",rules:"Création : Intelligence + Mizugusuri, ND 10. Immunise aux effets des sorts d’Eau pendant 5 tours ; +5 tours par augmentation."},
+{id:"l5r_crab_chikara",name:"Chikara",category:"Nemuranai",subtype:"Katana ancestral",clan:"Crabe",family:"Hida / patrimoine du Clan du Crabe",price:"Inestimable",damage:"3g3",originEdition:"1e",status:"canon-1e",source:"La Voie du Crabe — appendice Nemuranai / corpus Crabe intégré",rules:"Katana ancestral de jade et d’acier, lié au Clan du Crabe. Ses pouvoirs sont orientés contre l’Outremonde et la protection face à la corruption. L’appartenance Crabe est conservée explicitement dans la bibliothèque."},
+{id:"l5r_crab_yama",name:"Yama",category:"Nemuranai",subtype:"Wakizashi ancestral",clan:"Crabe",family:"Patrimoine du Clan du Crabe",price:"Inestimable",damage:"2g2",originEdition:"1e",status:"canon-1e",source:"La Voie du Crabe — appendice Nemuranai / corpus Crabe intégré",rules:"Wakizashi ancestral du Clan du Crabe. Favorise la stabilité du porteur et sa résistance aux chutes ou au désarçonnement."},
+{id:"l5r_crab_ketsuen",name:"Ketsuen",category:"Nemuranai",subtype:"Armure du Guerrier de l’Ombre",clan:"Crabe",family:"Patrimoine du Clan du Crabe",price:"Inestimable",damage:"—",originEdition:"1e",status:"canon-1e",source:"La Voie du Crabe — appendice Nemuranai / corpus Crabe intégré",rules:"Armure nemuranai du corpus Crabe : protection exceptionnelle, réduction des effets des blessures et résistance à la magie. Les détails complets restent rattachés à la fiche source du corpus Crabe."},
+{id:"l5r_crab_yasuki_purse",name:"Bourse merveilleuse de Yasuki Hohiro",category:"Objet magique",subtype:"Objet Yasuki",clan:"Crabe",family:"Yasuki",price:"Inestimable",damage:"—",originEdition:"1e",status:"canon-1e",source:"La Voie du Crabe — appendice Nemuranai / corpus Crabe intégré",rules:"Objet magique Yasuki procurant les petites sommes nécessaires aux dépenses courantes de son porteur, dans les limites fixées par sa description source."},
+{id:"l5r_crab_kaiu_forge",name:"Forge ancestrale de Kaiu",category:"Objet magique",subtype:"Forge sacrée",clan:"Crabe",family:"Kaiu",price:"Inestimable",damage:"—",originEdition:"1e",status:"canon-1e",source:"La Voie du Crabe — appendice Nemuranai / corpus Crabe intégré",rules:"Forge sacrée du patrimoine Kaiu permettant la création de katana Kaiu exceptionnels (3g3), réputés pratiquement inaltérables."},
+{id:"l5r_crab_inherited_nemuranai",name:"Nemuranai hérité — Crabe",category:"Nemuranai",subtype:"Héritage de clan",clan:"Crabe",price:"Inestimable",damage:"Variable",originEdition:"1e",status:"gabarit-1e",source:"Référentiel maître L5R 1e v5.0 — tables d’héritage Crabe",rules:"Résultat d’héritage explicitement Crabe : un nemuranai mineur peut appartenir à la lignée. Nature et pouvoirs sont déterminés par le MJ à partir de son histoire familiale."},
+{id:"l5r_dragon_inherited_nemuranai",name:"Nemuranai hérité — Dragon",category:"Nemuranai",subtype:"Héritage de clan",clan:"Dragon",price:"Inestimable",damage:"Variable",originEdition:"1e",status:"gabarit-1e",source:"Référentiel maître L5R 1e v5.0 — tables d’héritage Dragon",rules:"Nemuranai conservé par la famille depuis plusieurs générations ; le personnage est censé le porter sur lui. Nature et pouvoirs restent à définir par le MJ."},
+{id:"l5r_crane_inherited_nemuranai",name:"Nemuranai hérité — Grue",category:"Nemuranai",subtype:"Héritage de clan",clan:"Grue",price:"Inestimable",damage:"Variable",originEdition:"1e",status:"gabarit-1e",source:"Référentiel maître L5R 1e v5.0 — tables d’héritage Grue",rules:"Nemuranai de famille Grue dont les pouvoirs peuvent être initialement inconnus du porteur ; la tradition familiale exige qu’il soit conservé avec soin et gardé sur soi."},
+{id:"l5r_nemuranai_minor",name:"Nemuranai mineur",category:"Nemuranai",subtype:"Objet éveillé",clan:"Variable",price:"Inestimable",damage:"Variable",originEdition:"1e",status:"gabarit-1e",source:"Référentiel maître L5R 1e v5.0 — tables d’héritage Crabe/Dragon/Grue",rules:"Gabarit narratif : pouvoirs, histoire, obligations et éventuelles conséquences sont déterminés par le MJ. Un objet de grande qualité n’est jamais automatiquement un nemuranai."},
+{id:"l5r_nemuranai_major",name:"Nemuranai majeur",category:"Nemuranai",subtype:"Objet éveillé majeur",clan:"Variable",price:"Inestimable",damage:"Variable",originEdition:"1e",status:"gabarit-1e",source:"Référentiel maître L5R 1e v5.0 — faveurs et héritages",rules:"Gabarit d’objet exceptionnel. Doit avoir une provenance, un esprit ou une histoire significative et des effets explicitement validés par le MJ ; ne doit pas être généré comme simple bonus de qualité."}
+];
+L5R1_ITEM_CORPUS.push(...L5R1_MAGIC_ITEMS);
+const L5R1_MAGIC_RULES=["Les objets de qualité supérieure ne sont pas automatiquement magiques.","Un nemuranai exige une décision explicite du MJ.","Les fétiches Asahina et autres petits objets magiques peuvent être à usage unique selon leur entrée.","Les artefacts Kagaku utilisent Intelligence + Kagaku contre le ND de création indiqué.","Les mizugusuri utilisent Intelligence + Mizugusuri ; un personnage ne peut absorber plus de types d’élixirs différents par jour que son rang d’Eau."];
+const L5R_ADAPTATION_POLICY={label:"Conversion d’éditions ultérieures vers L5R 1e",principles:["Une entrée 1e existante reste prioritaire : aucune adaptation ne l’écrase.","Une idée provenant d’une édition ultérieure est marquée Adapté et conserve l’édition/source d’origine.","Les mécaniques sont réécrites en vocabulaire 1e : Traits/Anneaux, ND, XgY, augmentations, Honneur/Gloire et blessures.","On conserve l’identité et la fonction de l’objet, pas ses chiffres d’une autre édition.","Une conversion incertaine reste Proposition MJ et n’est jamais présentée comme canon 1e."]};
+
+const L5R1_CLAN_TREASURES=[
+/* Lion — 1e */
+{id:"lion_ancestral_armor",name:"Armure ancestrale du Clan du Lion",category:"Nemuranai",subtype:"Armure ancestrale",clan:"Lion",family:"Akodo / Champion du Clan",originClan:"Crabe / Hida",custodianClan:"Lion",sourceEdition:"1e",status:"canon-1e",source:"Corpus 1e / Livre des Nemuranai — Junsui",rules:"Junsui : le porteur peut dépenser jusqu’à 3 points de Vide sur une même attaque. Tant qu’il est le propriétaire légitime, il peut acheter des compétences jusqu’au rang 6 ; elles retombent à 5 s’il perd l’armure. L’objet est maudit et d’autres pouvoirs restent inconnus."},
+{id:"lion_bell_heavens",name:"Cloche des Cieux",category:"Nemuranai",subtype:"Relique spirituelle",clan:"Lion",family:"Kitsu",originClan:"Lion",custodianClan:"Lion",sourceEdition:"1e",status:"canon-1e",source:"The Way of the Lion — Appendix 4: The Spiritual World",rules:"Présence confirmée dans la section Nemuranai 1e du Lion. Mécanique laissée non chiffrée tant que la page primaire n’est pas transcrite."},
+{id:"lion_mempo_matsu_hitomi",name:"Mempo de Matsu Hitomi",category:"Nemuranai",subtype:"Mempo",clan:"Lion",family:"Matsu",originClan:"Lion",custodianClan:"Lion",sourceEdition:"1e",status:"canon-1e",source:"The Way of the Lion — Appendix 4: The Spiritual World",rules:"En bataille de plus de 20 combattants, retranche 1g0 (1d10) aux dommages reçus via la Table de Combats de Masse et accorde une augmentation gratuite aux jets d’Art de la Guerre, Kenjutsu et Athlétisme. Un comportement déshonorant expose la porteuse à la vengeance de Matsu Hitomi."},
+
+/* Phoenix — 1e */
+{id:"phoenix_ofushikai",name:"Ofushikai — Épée ancestrale du Phénix",category:"Nemuranai",subtype:"Katana ancestral",clan:"Phénix",family:"Shiba",originClan:"Phénix",custodianClan:"Phénix",sourceEdition:"1e",status:"canon-1e",source:"The Way of the Phoenix — Appendix 4",rules:"Seul le Champion du Phénix peut la brandir. Elle rejoint instantanément sa main à sa demande, permet de respirer sous l’eau lorsqu’elle est brandie et, pour 1 point de Vide, peut imposer l’arrêt immédiat d’un combat dans un rayon d’environ 6 m."},
+{id:"phoenix_ancestral_armor",name:"Armure ancestrale du Clan du Phénix",category:"Nemuranai",subtype:"Armure ancestrale",clan:"Phénix",family:"Shiba / Conseil des Cinq",originClan:"Dragon",custodianClan:"Phénix",sourceEdition:"1e",status:"canon-1e",source:"The Way of the Phoenix — Appendix 2",rules:"Forgée par un ancien Champion Dragon mais conservée par le Phénix : l’origine et l’appartenance actuelle sont donc distinctes. Produit une protection liée au Vide contre la magie ; détails chiffrés conservés pour validation primaire."},
+
+/* Scorpion — 1e */
+{id:"scorpion_itsuwari",name:"Itsuwari — Épée ancestrale du Scorpion",category:"Nemuranai",subtype:"Katana ancestral",clan:"Scorpion",family:"Bayushi",originClan:"Scorpion",custodianClan:"Scorpion",sourceEdition:"1e",status:"canon-1e",source:"The Way of the Scorpion — Appendix III",rules:"Au premier tour où un adversaire attaque personnellement le porteur, son ND pour être touché vaut Réflexes × 10. Ensuite l’adversaire peut tenter Intuition + Kenjutsu ND 30 ; une réussite annule définitivement l’illusion contre lui et ramène le ND à Réflexes × 5."},
+{id:"scorpion_bayushi_mask",name:"Masque de Bayushi",category:"Nemuranai",subtype:"Masque",clan:"Scorpion",family:"Bayushi",originClan:"Scorpion",custodianClan:"Scorpion",sourceEdition:"1e",status:"canon-1e",source:"The Way of the Scorpion — Appendix III",rules:"Porté exclusivement par le Champion du Scorpion : les mensonges du porteur paraissent sincères et ne peuvent être démasqués par avantage, magie, technique d’école ou autre nemuranai, sans rendre crédible une impossibilité manifeste."},
+{id:"scorpion_shosuro_cloak",name:"Cape de Shosuro",category:"Nemuranai",subtype:"Vêtement",clan:"Scorpion",family:"Shosuro",originClan:"Scorpion",custodianClan:"Scorpion",sourceEdition:"1e",status:"canon-1e",source:"The Way of the Scorpion — Appendix III",rules:"Nemuranai Shosuro confirmé ; effets détaillés à transcrire depuis la source primaire."},
+{id:"scorpion_yashin",name:"Yashin — Ambition",category:"Nemuranai",subtype:"Lame d’Iuchiban",clan:"Scorpion",family:"—",originClan:"Iuchiban / origine externe",custodianClan:"Scorpion",sourceEdition:"1e",status:"canon-1e",source:"The Way of the Scorpion — Appendix III",rules:"Troisième lame d’Iuchiban décrite dans le corpus magique du Scorpion. Ne pas la traiter comme fabrication Bayushi/Shosuro : conservation Scorpion ≠ origine Scorpion."},
+{id:"scorpion_meiwaku_fans",name:"Éventails Meiwaku",category:"Objet magique",subtype:"Éventails",clan:"Scorpion",family:"—",originClan:"Scorpion",custodianClan:"Scorpion",sourceEdition:"1e",status:"canon-1e",source:"The Way of the Scorpion — Appendix III",rules:"Objets magiques du corpus Scorpion 1e ; mécanique à transcrire depuis la source primaire."},
+{id:"scorpion_shosuro_hand_mirror",name:"Main et Miroir de Shosuro",category:"Nemuranai",subtype:"Artefacts",clan:"Scorpion",family:"Shosuro",originClan:"Scorpion",custodianClan:"Scorpion",sourceEdition:"1e",status:"canon-1e",source:"The Way of the Scorpion — Appendix III",rules:"Artefacts associés à Shosuro. Les versions historiques ultérieures ne doivent pas remplacer la présentation 1e."},
+
+/* Unicorn — 1e */
+{id:"unicorn_hayai",name:"Hayai — Katana ancestral de la Licorne",category:"Nemuranai",subtype:"Katana ancestral",clan:"Licorne",family:"Shinjo / Champion du Clan",originClan:"Licorne",custodianClan:"Licorne",sourceEdition:"1e",status:"canon-1e",source:"The Way of the Unicorn — Appendix 2: Treasures of the Unicorn",rules:"Ajoute le Rang de Maîtrise à l’initiative. Sur les jets d’attaque, les dés inférieurs à Rang de Maîtrise + Kenjutsu peuvent être relancés. Réduit le ND adverse du Rang de Maîtrise, ou de deux fois ce rang contre une armure lourde."},
+{id:"unicorn_daitan",name:"Daitan — Wakizashi ancestral de la Licorne",category:"Nemuranai",subtype:"Wakizashi ancestral",clan:"Licorne",family:"Shinjo / Champion du Clan",originClan:"Licorne",custodianClan:"Licorne",sourceEdition:"1e",status:"canon-1e",source:"The Way of the Unicorn — Appendix 2",rules:"Si Kenjutsu ≥ 2, le porteur peut neutraliser pour tout le combat les techniques d’école de bushi adverses dont le rang est inférieur ou égal à son Rang de Maîtrise ; les effets sont cumulatifs jusqu’à ce rang."},
+{id:"unicorn_yuki",name:"Yuki — Armure ancestrale de la Licorne",category:"Nemuranai",subtype:"Armure ancestrale",clan:"Licorne",family:"Shinjo",originClan:"Licorne",custodianClan:"Licorne",sourceEdition:"1e",status:"canon-1e",source:"The Way of the Unicorn — Appendix 2",rules:"Armure ancestrale portée par Shinjo. Le corpus secondaire 1e confirme son statut ; ses effets chiffrés restent à vérifier directement dans le supplément avant transcription définitive."},
+{id:"unicorn_ide_clothes",name:"Haori et Hakama Très Honorables de la famille Ide",category:"Nemuranai",subtype:"Vêtement",clan:"Licorne",family:"Ide",originClan:"Licorne",custodianClan:"Licorne",sourceEdition:"1e",status:"canon-1e",source:"The Way of the Unicorn — Appendix 2",rules:"Trésor de la famille Ide ; effets à transcrire depuis la source primaire."},
+{id:"unicorn_four_winds_arrows",name:"Flèches des Quatre Vents",category:"Nemuranai",subtype:"Flèches",clan:"Licorne",family:"—",originClan:"Licorne",custodianClan:"Licorne",sourceEdition:"1e",status:"canon-1e",source:"The Way of the Unicorn — Appendix 2",rules:"Après une prière réussie (Intuition + Théologie, ND 15), la flèche revient au daimyo dans la semaine. Nord : dés de dommages lancés + Rang de Maîtrise et dés gardés + Kyujutsu/Yomanri. Sud : dés d’attaque lancés + Rang de Maîtrise et dés gardés + Honneur. Ouest : indique la direction d’un lieu, utilisable Rang de Maîtrise fois avant retour. Est : pouvoir oublié."},
+{id:"unicorn_otaku_gong",name:"Gong de cuivre d’Otaku Maseru",category:"Nemuranai",subtype:"Gong",clan:"Licorne",family:"Otaku",originClan:"Gaijin",custodianClan:"Licorne",sourceEdition:"1e",status:"canon-1e",source:"The Way of the Unicorn / Livre des Nemuranai",rules:"Objet d’origine gaijin devenu trésor Licorne. Ceux qui méditent en entendant le gong réussissent automatiquement leur Méditation et récupèrent tous leurs points de Vide en environ 10 minutes. Le détenteur reçoit +1 rang de Méditation si son rang initial ne dépasse pas son Rang de Maîtrise."},
+
+/* Later-edition candidates — explicitly NOT 1e canon mechanics */
+{id:"adapt_isawas_helm",name:"Heaume d’Isawa",category:"Nemuranai",subtype:"Kabuto",clan:"Phénix",family:"Conseil des Cinq / Maître de l’Air",originClan:"Grue",custodianClan:"Phénix",sourceEdition:"édition ultérieure",status:"adapted-1e",source:"Magic of Rokugan / Prayers and Treasures — source ultérieure identifiée, page à confirmer ; adaptation vers 1e",rules:"Créé par des artisans Asahina puis confié au Phénix. Adaptation 1e proposée : immunité aux sorts affectant directement l’esprit, sauf magie des Maîtres Élémentaires ; aucune statistique d’édition ultérieure n’est importée."},
+{id:"adapt_yojiro_mask",name:"Masque de Bayushi Yojiro",category:"Nemuranai",subtype:"Mempo",clan:"Scorpion",family:"Bayushi",originClan:"Scorpion",custodianClan:"Scorpion",sourceEdition:"édition ultérieure",status:"adapted-1e",source:"Secrets of the Scorpion — source ultérieure identifiée, page à confirmer ; adaptation vers 1e",rules:"Adaptation 1e proposée (validation MJ) : objet lié à la cour et à la protection contre la divination. Pour les actions sociales appropriées, le MJ peut accorder une augmentation gratuite ; les effets de divination hostiles visant directement le porteur échouent sauf opposition exceptionnelle décidée par le MJ."},
+{id:"adapt_emmao_amulet",name:"Amulette d’Emma-O",category:"Nemuranai",subtype:"Netsuke",clan:"Lion",family:"—",originClan:"Emma-O / Fortune",custodianClan:"Lion",sourceEdition:"édition ultérieure",status:"adapted-1e",source:"Corpus historique ultérieur — provenance exacte à confirmer avant verrouillage ; adaptation vers 1e",rules:"Conservée par le Lion mais non créée par le Lion. Adaptation narrative 1e : les âmes des ennemis tués par le porteur sont vouées à Meido ; aucun bonus de combat automatique."}
+];
+L5R1_ITEM_CORPUS.push(...L5R1_CLAN_TREASURES);
+
+
+L5R1_ITEM_CORPUS.push(
+{id:"lion_shori",name:"Shori — Katana ancestral du Clan du Lion",category:"Nemuranai",subtype:"Katana ancestral",clan:"Lion",family:"Akodo / Champion du Clan",originClan:"Lion / Hantei",custodianClan:"Lion",sourceEdition:"1e",status:"canon-1e",source:"Corpus 1e / Livre des Nemuranai — Shori",rules:"Katana ancestral d’Akodo. L’entrée est désormais identifiée et rattachée au Lion ; ses effets chiffrés seront ajoutés uniquement après vérification complète de la description mécanique."},
+{id:"scorpion_meiwaku_mechanics",name:"Éventails de Meiwaku — règle détaillée",category:"Objet magique",subtype:"Éventail",clan:"Scorpion",family:"Soshi",originClan:"Scorpion / Soshi",custodianClan:"Scorpion",sourceEdition:"1e",status:"canon-1e",source:"Corpus 1e / Livre des Nemuranai — Éventails de Meiwaku",rules:"L’enchantement ne fonctionne que si l’éventail est offert et accepté selon l’étiquette. Le donateur peut activer le lien un nombre de fois par jour égal à son Vide ; chaque activation coûte 1 point de Vide et permet de lire les pensées du bénéficiaire pendant un nombre de tours égal au Vide du donateur, à condition que la cible porte ou tienne l’éventail."}
+);
+const L5R_SOURCE_LEVELS={
+"canon-1e":"Canon 1e — mécanique vérifiée ou entrée explicitement issue d’un ouvrage 1e",
+"adapted-1e":"Adaptation 1e — objet d’une édition ultérieure, mécanique reconstruite",
+"index-only":"Index — existence identifiée, effets encore à vérifier"
+};
+
+
+L5R1_ITEM_CORPUS.push(
+{id:"dragon_mirumoto_daisho",name:"Daisho de la famille Mirumoto",category:"Nemuranai",subtype:"Daisho ancestral",clan:"Dragon",family:"Mirumoto",originClan:"Dragon / Mirumoto",custodianClan:"Dragon",sourceEdition:"1e",status:"canon-1e",source:"Livre des Nemuranai — compilation de sources 1e, Armes ancestrales",rules:"Seul un Mirumoto peut dégainer ces lames. Porter l’une permet de connaître l’école et le Rang de Maîtrise d’un adversaire rencontré en duel. Le katana ajoute 1g1 aux dommages par Rang de Maîtrise du porteur ; le wakizashi augmente son ND pour être touché de 5 × Rang de Maîtrise lorsqu’il est dégainé."},
+{id:"crab_kuni_visten_staff",name:"Bâton de pèlerin de Kuni Visten",category:"Nemuranai",subtype:"Bâton lié à un kami",clan:"Crabe",family:"Kuni",originClan:"Crabe / Kuni",custodianClan:"Crabe",sourceEdition:"1e",status:"canon-1e",source:"Livre des Nemuranai — compilation de sources 1e, Armes uniques",rules:"Tant que le kami demeure lié au bâton : VD 2g2, ou 3g3 contre les créatures Souillées. Le porteur est protégé de la Souillure et le jade du bâton demeure incorruptible. À la mort du porteur, l’esprit doit être lié de nouveau sous peine de perdre les pouvoirs."},
+{id:"crab_thunderstrike",name:"Coup de Tonnerre",category:"Nemuranai",subtype:"Tetsubo",clan:"Crabe",family:"Kaiu",originClan:"Crabe / Kaiu",custodianClan:"Crabe / perdu dans l’Outremonde",sourceEdition:"1e",status:"canon-1e",source:"Livre des Nemuranai — compilation de sources 1e, Armes uniques",rules:"VD 1g2. Lance 1 dé supplémentaire pour l’initiative. Aux dommages, tout dé lancé obtenant 10 ou davantage peut être gardé, même au-delà du nombre normal de dés gardés. Deux 10 ou plus font retentir un coup de tonnerre."},
+{id:"lion_akodo_daggers",name:"Dagues de la famille Akodo",category:"Nemuranai",subtype:"Cinq tanto",clan:"Lion",family:"Akodo",originClan:"Grue / élèves de Kakita",custodianClan:"Lion / dispersées",sourceEdition:"1e",status:"canon-1e",source:"Livre des Nemuranai — compilation de sources 1e, Armes uniques",rules:"Cinq tanto offerts aux enfants d’Akodo. Ils symbolisent les lignées de sang direct du kami. Le texte leur attribue une sérénité permettant de rejeter les émotions contraires à l’honneur, sans fournir de procédure chiffrée : aucun bonus numérique n’est inventé."},
+{id:"crane_kakita_biwa",name:"Biwa de Kakita",category:"Nemuranai",subtype:"Instrument de musique",clan:"Grue",family:"Kakita",originClan:"Grue / Kakita",custodianClan:"Grue",sourceEdition:"1e",status:"canon-1e",source:"Livre des Nemuranai — compilation de sources 1e, Instruments de musique",rules:"Le porteur gagne +1 rang d’Honneur. Lorsqu’il joue du biwa, les jets correspondants bénéficient d’un bonus de 3g3. L’instrument est généralement confié aux maîtres musiciens Kakita pour les cérémonies importantes."},
+{id:"lion_heaven_bell_detail",name:"Cloche des Cieux — fiche détaillée",category:"Nemuranai",subtype:"Cloche monumentale",clan:"Lion",family:"Matsu / Ikoma",originClan:"Grue / provenance antérieure inconnue",custodianClan:"Lion",sourceEdition:"1e",status:"canon-1e",source:"Livre des Nemuranai — compilation de sources 1e, Instruments de musique",rules:"Offerte au Lion par la Grue et installée près de Shiro Matsu. Ses pouvoirs exacts sont explicitement inconnus : la tradition associe son son à la pureté du cœur. Aucune mécanique supplémentaire n’est inventée."},
+{id:"unicorn_iuchi_ramatsu_bonsai",name:"Bonsaï de Iuchi Ramatsu",category:"Nemuranai",subtype:"Bonsaï",clan:"Licorne",family:"Iuchi",originClan:"Licorne / Iuchi",custodianClan:"Licorne",sourceEdition:"1e",status:"canon-1e",source:"Livre des Nemuranai — compilation de sources 1e, Autres Nemuranai uniques",rules:"Un humain qui contemple le bonsaï en souhaitant ne faire qu’un avec lui est réduit proportionnellement jusqu’à pouvoir s’abriter sous l’arbre miniature ; son équipement est réduit avec lui, mais pas une monture vivante. Dire au revoir au bonsaï rend immédiatement la taille normale."},
+{id:"crab_yasuki_hohiro_purse_detail",name:"Bourse merveilleuse de Yasuki Hohiro — fiche détaillée",category:"Nemuranai",subtype:"Bourse",clan:"Crabe",family:"Yasuki",originClan:"Crabe / Yasuki",custodianClan:"Crabe / daimyo Yasuki",sourceEdition:"1e",status:"canon-1e",source:"Livre des Nemuranai — compilation de sources 1e, Autres Nemuranai uniques",rules:"Fournit au propriétaire la monnaie nécessaire à ses besoins immédiats (nourriture, nuitée, soins urgents), mais jamais davantage. Elle ne constitue donc pas une source de richesse ou de financement général."},
+{id:"scorpion_yogo_chrysanthemums",name:"Chrysanthèmes de Yogo Nagori",category:"Nemuranai",subtype:"Plantes magiques",clan:"Scorpion",family:"Yogo",originClan:"Scorpion / Yogo avec tradition Asahina",custodianClan:"Variable ; un plant confié aux Asahina",sourceEdition:"1e",status:"canon-1e",source:"Livre des Nemuranai — compilation de sources 1e, Autres Nemuranai uniques",rules:"Créés par Yogo Nagori en combinant l’enseignement Yogo et des secrets hérités d’une mère Asahina. Détectent la Souillure proche et peuvent produire des gardiens végétaux. L’origine reste Scorpion/Yogo même lorsqu’un exemplaire est conservé par la Grue."},
+{id:"crane_iron_crane_banner",name:"Étendard de la Grue de Fer",category:"Nemuranai",subtype:"Étendard de guerre",clan:"Grue",family:"Daidoji",originClan:"Grue / Asahina",custodianClan:"Grue / Daidoji",sourceEdition:"1e",status:"canon-1e",source:"Livre des Nemuranai — compilation de sources 1e, Autres Nemuranai uniques",rules:"Offert par Isawa Asahina aux Daidoji. Une armée combattant sous l’étendard reçoit +2 sur la Table des Combats de Masse après détermination du vainqueur du tour ; bonus +4 si elle est en infériorité d’au moins deux contre un."},
+{id:"crane_first_emperor_tears",name:"Larmes du Premier Empereur",category:"Nemuranai",subtype:"Reliques",clan:"Grue",family:"Doji",originClan:"Impérial",custodianClan:"Grue / épouse du daimyo Doji",sourceEdition:"1e",status:"canon-1e",source:"Livre des Nemuranai — compilation de sources 1e, Autres Nemuranai uniques",rules:"Environ trente larmes conservées dans une bourse de soie. Leur pouvoir connu est de purifier la Souillure de celui qui bénéficie de leur magie ; l’origine est impériale mais la garde traditionnelle est Doji."}
+);
+
+
+L5R1_ITEM_CORPUS.push(
+{id:"material_jade",name:"Jade",category:"Matériau surnaturel",subtype:"Protection contre la Souillure",clan:"Tous",family:"—",originClan:"Rokugan",custodianClan:"Variable",sourceEdition:"1e",status:"canon-1e",source:"Corpus L5R 1e — règles de la Souillure et équipement",rules:"Matériau sacré employé contre l’Outremonde et la Souillure. Son usage exact dépend de la forme de l’objet et de la règle 1e concernée ; une pièce de jade n’est pas automatiquement un Nemuranai."},
+{id:"material_crystal",name:"Cristal",category:"Matériau surnaturel",subtype:"Matériau pur",clan:"Tous",family:"—",originClan:"Rokugan / origine spirituelle",custodianClan:"Variable",sourceEdition:"1e",status:"canon-1e",source:"Corpus L5R 1e — matériaux surnaturels",rules:"Matériau surnaturel distinct du jade. Le catalogue le traite comme matériau et non comme objet magique autonome : les effets dépendent de l’objet ou de la règle qui l’emploie."},
+{id:"material_obsidian",name:"Obsidienne",category:"Matériau surnaturel",subtype:"Matériau dangereux",clan:"Tous",family:"—",originClan:"Rokugan / origine surnaturelle",custodianClan:"Variable",sourceEdition:"1e",status:"canon-1e",source:"Corpus L5R 1e — matériaux surnaturels",rules:"Matériau surnaturel potentiellement dangereux. Il ne doit jamais être assimilé automatiquement au jade ou au cristal ; ses effets sont enregistrés objet par objet."},
+{id:"imperial_banner",name:"Bannière impériale",category:"Nemuranai",subtype:"Bannière / symbole impérial",clan:"Impérial",family:"Miya / lignées impériales",originClan:"Impérial",custodianClan:"Impérial",sourceEdition:"1e",status:"canon-1e",source:"Référentiel maître L5R 1e — famille Miya et bannières impériales",rules:"Objet impérial réservé au contexte et à l’autorité appropriés. Les règles spécifiques sont liées au corpus Miya/impérial ; l’objet n’est pas rattaché artificiellement à un Grand Clan."},
+{id:"minor_clan_treasure_policy",name:"Trésors des Clans Mineurs",category:"Référentiel",subtype:"Règle de classement",clan:"Autre Clan Mineur",family:"Clans Mineurs",originClan:"Variable",custodianClan:"Variable",sourceEdition:"1e",status:"index-only",source:"Politique de corpus Assistant JDR",rules:"Les trésors Mante, Renard, Blaireau, Mille-Pattes et autres Clans Mineurs sont classés sous leur clan réel lorsqu’une source le confirme. Ils ne sont jamais rangés par défaut sous un Grand Clan voisin."},
+{id:"dark_nemuranai_policy",name:"Objets sombres et Nemuranai corrompus",category:"Référentiel",subtype:"Classement MJ",clan:"Outremonde",family:"—",originClan:"Variable / Outremonde / maho",custodianClan:"Variable",sourceEdition:"1e",status:"index-only",source:"Politique de corpus Assistant JDR",rules:"Un objet corrompu, maho ou lié à l’Outremonde conserve son origine réelle. Le fait qu’un clan le garde, l’étudie ou le combat ne transforme jamais son origine en appartenance de clan."}
+);
+
+const L5R_DARK_ITEM_POLICY={
+ label:"Objets sombres, maho et corrompus",
+ principles:[
+  "Ne jamais attribuer un objet à un clan parce qu’un membre de ce clan le détient, l’étudie ou le combat.",
+  "Séparer origine, détenteur actuel, corruption/Souillure et statut de connaissance MJ.",
+  "Un objet lié à l’Outremonde est classé Outremonde si son origine l’est ; un objet de maho ou de Sang reste Maho / Sang lorsque cette origine est établie.",
+  "Les objets dont seule l’existence est attestée restent index-only jusqu’à récupération d’une mécanique 1e suffisante.",
+  "Les informations secrètes ou rares restent MJ et ne deviennent jamais automatiquement des connaissances de PJ."
+ ]
+};
+const L5R_MINOR_CLAN_POLICY={
+ label:"Clans Mineurs",
+ principles:[
+  "Mante, Renard, Blaireau et Mille-Pattes disposent de catégories propres.",
+  "Un objet de Clan Mineur n’est jamais reclassé sous un Grand Clan par proximité géographique, alliance ou absorption ultérieure.",
+  "Si la source 1e ne donne pas d’objet précis, aucune relique n’est créée pour remplir artificiellement la catégorie.",
+  "Les changements historiques de statut sont conservés dans la provenance au lieu d’écraser l’appartenance de l’époque de la source."
+ ]
+};
+L5R1_ITEM_CORPUS.push(
+{id:"minor_clan_catalog_status",name:"Clans Mineurs — état du catalogue",category:"Référentiel",subtype:"Contrôle de provenance",clan:"Autre Clan Mineur",family:"—",originClan:"Variable",custodianClan:"Variable",sourceEdition:"1e",status:"index-only",source:"Référentiel maître L5R 1e — contrôle V0.20.03",rules:"Les sources locales actuellement indexées confirment l’existence des Clans Mineurs dans les tables 1e, mais ne fournissent pas encore un bloc mécanique suffisamment précis pour attribuer ici un Nemuranai nommé à la Mante, au Renard, au Blaireau ou au Mille-Pattes. Le catalogue reste donc volontairement vide plutôt que spéculatif."},
+{id:"dark_catalog_status",name:"Objets sombres — état du catalogue",category:"Référentiel",subtype:"Contrôle MJ",clan:"Outremonde",family:"—",originClan:"Variable",custodianClan:"Variable",sourceEdition:"1e",status:"index-only",source:"Politique de corpus Assistant JDR — contrôle V0.20.03",rules:"Les objets sombres, maho, Sang et Outremonde nécessitent une source primaire ou une entrée 1e suffisamment documentée avant intégration individuelle. Aucun objet n’est créé à partir du seul nom d’une famille d’artefacts."}
+);
+
+
+L5R1_ITEM_CORPUS.push(
+{id:"crab_kaiu_family_sword",name:"Épée de la famille Kaiu",category:"Nemuranai",subtype:"Katana familial / Héritage",clan:"Crabe",family:"Kaiu / famille du porteur",originClan:"Crabe / Kaiu",custodianClan:"Crabe",sourceEdition:"1e",status:"canon-1e",source:"Référentiel maître L5R 1e v5.0 — §20.14",rules:"Avantage à 5 PP. Katana légendaire forgé par les Kaiu et transmis depuis des générations. Garde un dé de dommages supplémentaire : un katana standard passe de 3g2 à 3g3. L’arme ne doit jamais quitter le personnage. Si une personne étrangère à sa famille touche la lame, il perd immédiatement 1 point d’Honneur. S’il perd l’arme, il perd définitivement 2 rangs de Gloire."}
+);
+const L5R_GREAT_CLAN_NEMURANAI_AUDIT=[
+ {clan:"Crabe",status:"complété",note:"Ajout de l’Épée de la famille Kaiu depuis le référentiel maître 1e ; Chikara, Yama, Ketsuen, Bourse Yasuki, Forge Kaiu et Bâton Kuni Visten déjà présents."},
+ {clan:"Grue",status:"contrôlé",note:"Fétiches Asahina, Biwa de Kakita, Étendard de la Grue de Fer et Larmes du Premier Empereur déjà catalogués ; aucun ajout mécanique non vérifié."},
+ {clan:"Dragon",status:"contrôlé",note:"Daisho Mirumoto et corpus Agasha déjà présents ; les nouvelles entrées éventuelles restent soumises à vérification primaire."},
+ {clan:"Lion",status:"contrôlé",note:"Junsui, Mempo de Matsu Hitomi, Cloche des Cieux et autres entrées déjà présentes ; Shori reste identifié sans mécanique complète."},
+ {clan:"Phénix",status:"contrôlé",note:"Ofushikai et armure ancestrale déjà présentes ; aucune mécanique manquante n’est inventée."},
+ {clan:"Scorpion",status:"contrôlé",note:"Itsuwari, Masque de Bayushi, Cape de Shosuro, Yashin, Éventails Meiwaku et autres trésors déjà présents ; poursuite sur source primaire nécessaire pour les blocs incomplets."},
+ {clan:"Licorne",status:"contrôlé",note:"Hayai, Daitan, Yuki, objets Ide, Flèches des Quatre Vents et Gong d’Otaku Maseru déjà présents ; pas d’ajout spéculatif."}
+];
+
+
+L5R1_ITEM_CORPUS.push(
+{id:"adapt4_yari_air",name:"Yari de l’Air",category:"Nemuranai",subtype:"Yari élémentaire",clan:"Autre / variable",family:"Asako / Iuchi",originClan:"Phénix + Licorne / Oracles élémentaires",custodianClan:"Variable",sourceEdition:"4e",status:"adapted-1e",source:"The Book of Air (4e), p.121 — adaptation vers 1e",rules:"Adaptation 1e validée : VD 3g3. Invisible pour tous sauf son propriétaire ; un personnage fortement lié à l’Air n’en distingue qu’une forme brumeuse. Pour déterminer le ND défensif contre cette arme, traiter les Réflexes de la cible comme inférieurs de 2 (minimum 1), ou de 1 si elle possède un lien fort avec l’Air. Le yari est anormalement léger ; en 1e, le MJ peut autoriser une attaque sans la contrainte d’action normalement associée à une arme d’hast. Les attaques à distance contre le porteur subissent +10 ND."},
+{id:"adapt4_tapestry_air",name:"Tapisserie de l’Air",category:"Nemuranai",subtype:"Tapisserie élémentaire",clan:"Grue",family:"Asahina",originClan:"Grue / Asahina",custodianClan:"Grue / temples Asahina",sourceEdition:"4e",status:"adapted-1e",source:"The Book of Air (4e), p.126 — adaptation vers 1e",rules:"Adaptation 1e validée : après sept jours de contemplation régulière, considérer l’Anneau d’Air du bénéficiaire comme supérieur de 1 uniquement pour lancer des sorts d’Air ; aucun emplacement/sort supplémentaire. Le lien est maintenu par une journée de méditation par mois. Si la tapisserie est détruite, +5 au ND des sorts d’Air pendant Feu × 2 jours."},
+{id:"adapt4_veil_deception",name:"Voile de Tromperie",category:"Nemuranai",subtype:"Masque d’illusion",clan:"Scorpion",family:"Soshi",originClan:"Scorpion / Soshi",custodianClan:"Scorpion",sourceEdition:"4e",status:"adapted-1e",source:"The Book of Air (4e), p.128 — adaptation vers 1e",rules:"Adaptation 1e validée : Air fois par jour, dépenser 1 point de Vide pour l’activer pendant Air minutes. Chaque observateur voit à la place du porteur la personne qu’il s’attend raisonnablement à trouver dans ce lieu ; le porteur sait quelle identité l’observateur perçoit. Les protections ou magies d’Air appropriées peuvent contrer l’illusion à la discrétion du MJ."},
+{id:"adapt4_mantis_battle_standard",name:"Étendard de bataille de la Mante",category:"Nemuranai",subtype:"Étendard ancestral",clan:"Mante",family:"Champion de la Mante",originClan:"Mante / Hotaka",custodianClan:"Mante",sourceEdition:"4e",status:"adapted-1e",source:"The Book of Air (4e), pp.124-125 — adaptation vers 1e",rules:"Adaptation 1e validée : lorsqu’il est déployé, les samouraïs Mante d’une armée menée par la Mante à portée visuelle gagnent +1g0 aux jets de Kyujutsu et Kenjutsu ; ceux qui n’ont aucun rang sont traités comme rang 1 pour la bataille. Ajouter aussi le Rang de Maîtrise au total des jets d’attaque. Le porteur peut le porter en sashimono sans pénalité de mouvement mais subit +5 ND à ses actions physiques."},
+{id:"adapt4_katana_fire",name:"Katana de Feu",category:"Nemuranai",subtype:"Katana élémentaire",clan:"Autre / variable",family:"Asako / Iuchi",originClan:"Phénix + Licorne / Oracles de Lumière",custodianClan:"Variable ; historiquement Shiba Tsukune",sourceEdition:"4e",status:"adapted-1e",source:"The Book of Fire (4e), p.132 — adaptation vers 1e",rules:"Adaptation 1e validée : katana éveillé VD 4g3. Lorsqu’il est dégainé, ses flammes infligent +1g1 dégâts de Feu. Contre une cible Souillée ou d’Honneur inférieur à 2, remplacer ce bonus par +2g2. Les détails de comportement volontaire de l’esprit restent sous contrôle du MJ."},
+{id:"adapt4_mantle_fire_aggressive",name:"Manteau de Feu — version agressive",category:"Nemuranai",subtype:"Vêtement élémentaire",clan:"Dragon",family:"Agasha / Tamori",originClan:"Dragon / Agasha",custodianClan:"Dragon / Tamori ; variantes Phénix Agasha",sourceEdition:"4e",status:"adapted-1e",source:"The Book of Fire (4e), p.132 — adaptation vers 1e",rules:"Adaptation 1e validée : si le porteur possède Feu X, il ajoute X dés lancés (+Xg0) à ses attaques de mêlée et aux jets d’incantation de sorts de Feu. Les premiers modèles sont Agasha du Dragon ; les Tamori recréent ensuite cette tradition."},
+{id:"adapt4_mantle_fire_peaceful",name:"Manteau de Feu — version pacifique",category:"Nemuranai",subtype:"Vêtement élémentaire",clan:"Phénix",family:"Agasha",originClan:"Phénix / Agasha, dérivé de la tradition Dragon",custodianClan:"Phénix",sourceEdition:"4e",status:"adapted-1e",source:"The Book of Fire (4e), p.132 — adaptation vers 1e",rules:"Adaptation 1e validée : lorsqu’un adversaire frappe le porteur en mêlée, le manteau riposte par Feu g Feu dégâts (XgX où X est le rang de Feu du porteur). Cette variante défensive est une évolution Phénix de la tradition Agasha."},
+{id:"adapt4_hojatsu_blade",name:"Lame de Hojatsu",category:"Nemuranai",subtype:"Katana",clan:"Dragon",family:"Mirumoto",originClan:"Dragon / Mirumoto Hojatsu",custodianClan:"Dragon / dojo de la Montagne de Fer",sourceEdition:"4e",status:"adapted-1e",source:"The Book of Fire (4e), p.132 — adaptation vers 1e",rules:"Adaptation 1e validée : katana VD 3g2, considéré comme Nemuranai contre les adversaires normalement immunisés aux armes ordinaires. Si le porteur possède au moins Iaijutsu 1, il bénéficie des spécialisations équivalentes à Évaluation et Concentration lorsque la règle 1e les emploie ; sinon le MJ accorde une augmentation gratuite sur les étapes correspondantes du duel."},
+{id:"adapt4_mirumoto_wakizashi",name:"Wakizashi de Mirumoto",category:"Nemuranai",subtype:"Wakizashi",clan:"Dragon",family:"Mirumoto",originClan:"Dragon / Togashi Nyoko",custodianClan:"Dragon",sourceEdition:"4e",status:"adapted-1e",source:"The Book of Fire (4e), p.131 — adaptation vers 1e",rules:"Adaptation 1e validée : wakizashi VD 2g2, Nemuranai. Lorsqu’il est utilisé avec le style Niten, katana dans une main et wakizashi dans l’autre, le porteur gagne +5 à son ND pour être touché."},
+{id:"adapt4_shamesword_guile",name:"Shamesword — Lame de Ruse",category:"Nemuranai",subtype:"Katana maudit",clan:"Maho / Sang",family:"Kokujin",originClan:"Maho / Kokujin / Enclume du Désespoir",custodianClan:"Variable",sourceEdition:"4e",status:"adapted-1e",source:"The Book of Fire (4e), pp.132-134 — adaptation vers 1e",rules:"Adaptation 1e validée / objet MJ : katana VD 3g3, indestructible et capable d’affecter les êtres immunisés aux armes ordinaires. Le porteur est poussé à mentir sur toute question importante ; pour dire volontairement la vérité, jet de Volonté ND 20. Sa possession par un Scorpion historique ne change pas son origine maho."},
+{id:"adapt4_shamesword_fury",name:"Shamesword — Lame de Fureur",category:"Nemuranai",subtype:"Katana maudit",clan:"Maho / Sang",family:"Kokujin",originClan:"Maho / Kokujin / Enclume du Désespoir",custodianClan:"Variable",sourceEdition:"4e",status:"adapted-1e",source:"The Book of Fire (4e), pp.132-134 — adaptation vers 1e",rules:"Adaptation 1e validée / objet MJ : katana VD 3g3, indestructible et Nemuranai. Le porteur acquiert le défaut correspondant à l’impulsivité/colère (Brash en 4e) ; s’il possède déjà un défaut équivalent, augmenter de 10 le ND pour lui résister. Employer le défaut 1e le plus proche validé par le MJ."}
+);
+
+const L5R_ITEM_EDITION_GROUPS=["Toutes","1e","2e","3e","4e","5e","édition ultérieure"];
+
+L5R1_ITEM_CORPUS.push(
+{id:"adapt4_imperial_standard",name:"Étendard impérial",category:"Nemuranai",subtype:"Étendard ancestral impérial",clan:"Impérial",family:"Hantei / lignées impériales",originClan:"Impérial / Hantei I",custodianClan:"Impérial",sourceEdition:"4e",status:"adapted-1e",source:"The Book of Air (4e), pp.122-123 — adaptation vers 1e",rules:"Adaptation 1e validée : le général d’une armée portant l’Étendard ajoute +10 au jet de Bataille destiné à déterminer le vainqueur d’un tour de bataille et gagne +2g2 aux autres jets de Bataille. Les samouraïs sincèrement loyaux à l’Empereur à portée gagnent +1g0 aux dégâts et doublent leur bonus d’Honneur contre la Peur. Le porteur traite son Eau comme inférieur de 1 pour le mouvement, combat à une main et subit +5 ND à ses actions physiques."},
+{id:"adapt4_crab_noroshi",name:"Noroshi — Étendard ancestral du Crabe",category:"Nemuranai",subtype:"Étendard ancestral",clan:"Crabe",family:"Hida",originClan:"Crabe / Hida",custodianClan:"Crabe",sourceEdition:"4e",status:"adapted-1e",source:"The Book of Air (4e), pp.123-124 — adaptation vers 1e",rules:"Adaptation 1e validée : les Crabe ayant vue sur Noroshi gagnent une protection équivalente à +3 de réduction si la règle utilisée la gère, sinon le MJ traduit cet effet par une réduction appropriée des dommages ; +1g0 aux jets d’armes contre les ennemis du Crabe, +1g1 contre l’Outremonde. Deux porteurs sont nécessaires et subissent +10 ND aux actions physiques."},
+{id:"adapt4_dragon_standard",name:"Étendard ancestral du Dragon",category:"Nemuranai",subtype:"Étendard ancestral",clan:"Dragon",family:"Champion du Dragon",originClan:"Dragon",custodianClan:"Dragon",sourceEdition:"4e",status:"adapted-1e",source:"The Book of Air (4e), p.124 — adaptation vers 1e",rules:"Adaptation 1e validée : les Dragon à portée et en vue peuvent ajouter ou soustraire leur Rang de Maîtrise au résultat d’un jet sur la table de bataille et gagnent +1g0 aux attaques. Les moines et shugenja Dragon peuvent ignorer les effets nuisibles produits par leurs propres kiho dans les cas où la règle 1e en prévoit."},
+{id:"adapt4_lion_roaring_tempest",name:"Bannière de la Tempête Rugissante",category:"Nemuranai",subtype:"Étendard ancestral",clan:"Lion",family:"Matsu / Champion du Lion",originClan:"Lion",custodianClan:"Lion",sourceEdition:"4e",status:"adapted-1e",source:"The Book of Air (4e), p.124 — adaptation vers 1e",rules:"Adaptation 1e (après la Bataille de la Rivière Endormie) : les Lion à portée gagnent +1g0 aux jets de compétence et de dégâts ; leurs ennemis subissent -1g0 aux mêmes jets, et les adversaires non humains également aux attaques. Les ennemis entrant dans la zone affrontent Peur 3 ; les Lion dans la zone sont immunisés à la Peur."},
+{id:"adapt4_phoenix_standard",name:"Étendard ancestral du Phénix",category:"Nemuranai",subtype:"Étendard ancestral",clan:"Phénix",family:"Shiba / Champion du Phénix",originClan:"Phénix",custodianClan:"Phénix / Shiro Shiba",sourceEdition:"4e",status:"adapted-1e",source:"The Book of Air (4e), p.125 — adaptation vers 1e",rules:"Adaptation 1e validée : les bushi Phénix à portée ajoutent leur Rang de Maîtrise au total de leurs dégâts. Les shugenja Phénix gagnent +1g0 aux jets d’incantation. Les moines Phénix peuvent ignorer les effets nuisibles de leurs propres kiho lorsqu’une règle 1e correspondante existe."},
+{id:"adapt4_scorpion_standard",name:"Étendard ancestral du Scorpion",category:"Nemuranai",subtype:"Étendard ancestral",clan:"Scorpion",family:"Champion du Scorpion",originClan:"Scorpion",custodianClan:"Scorpion",sourceEdition:"4e",status:"adapted-1e",source:"The Book of Air (4e), p.125 — adaptation vers 1e",rules:"Adaptation 1e validée : les Scorpion d’une armée menée par le clan et ayant vue sur l’étendard gagnent +1g0 aux attaques et dégâts. Les ennemis à portée subissent Peur 2 ; cette Peur provient de la réputation de l’étendard et non d’un effet magique."},
+{id:"adapt4_unicorn_kirin_standard",name:"Étendard ancestral du Ki-Rin / Licorne",category:"Nemuranai",subtype:"Sashimono ancestral",clan:"Licorne",family:"Champion de la Licorne",originClan:"Ki-Rin / Licorne",custodianClan:"Licorne",sourceEdition:"4e",status:"adapted-1e",source:"The Book of Air (4e), p.125 — adaptation vers 1e",rules:"Adaptation 1e validée : porté comme sashimono par un cavalier ; pas de pénalité de mouvement et les deux mains restent libres, mais +5 ND aux actions physiques. Les Licorne à portée gagnent +1g0 en Équitation ainsi qu’aux attaques et dégâts. Tant que le porteur est monté, les ennemis à pied à portée subissent Peur 3."},
+{id:"adapt4_agasha_mirror",name:"Miroir d’Agasha",category:"Nemuranai",subtype:"Miroir élémentaire",clan:"Phénix",family:"Agasha",originClan:"Dragon / Dame Agasha",custodianClan:"Phénix / Agasha après 1131",sourceEdition:"4e",status:"adapted-1e",source:"The Book of Water (4e), p.128 — adaptation vers 1e",rules:"Adaptation 1e validée : révèle immédiatement la composition élémentaire d’un objet, d’un sort ou d’un être. Après au moins une heure d’observation, permet de percevoir les kami élémentaires présents. À la discrétion du MJ, +2g0 aux jets d’Investigation pertinents. L’origine reste Dragon/Agasha malgré sa conservation ultérieure par le Phénix."},
+{id:"adapt4_drum_water",name:"Tambour d’Eau",category:"Nemuranai",subtype:"Instrument élémentaire",clan:"Licorne",family:"Iuchi",originClan:"Licorne / Iuchi",custodianClan:"Variable",sourceEdition:"4e",status:"adapted-1e",source:"The Book of Water (4e), pp.128-129 — adaptation vers 1e",rules:"Adaptation 1e validée : une fois par jour, un shugenja récite les prières appropriées puis joue du tambour. Les alliés proches se déplacent comme si leur Anneau d’Eau était doublé pendant un nombre de rounds égal au Rang de Maîtrise du joueur. Les Tambours d’Eau ne sont pas uniques."},
+{id:"adapt4_fan_command",name:"Éventail de Commandement",category:"Nemuranai",subtype:"Gunsen / tessen",clan:"Rōnin",family:"Variable",originClan:"Origine inconnue",custodianClan:"Variable ; historiquement Toturi le Noir",sourceEdition:"4e",status:"adapted-1e",source:"The Book of Water (4e), p.129 — adaptation vers 1e",rules:"Adaptation 1e validée : le porteur reçoit l’avantage Tacticien. S’il le possède déjà, il reçoit l’avantage de commandement/leadership 1e équivalent ; s’il possède les deux, le MJ peut lui accorder un avantage de destinée approprié. Si toutes ces capacités sont déjà présentes, +3g3 aux jets de Bataille."},
+{id:"adapt4_gunsen_water",name:"Gunsen d’Eau",category:"Nemuranai",subtype:"Tessen élémentaire",clan:"Autre / variable",family:"Asako / Iuchi",originClan:"Phénix + Licorne / Oracles de Lumière",custodianClan:"Variable ; premier porteur Bayushi Goshiu",sourceEdition:"4e",status:"adapted-1e",source:"The Book of Water (4e), pp.129-130 — adaptation vers 1e",rules:"Adaptation 1e validée : en combat, tessen VD 1g3 ; en société, prend l’apparence d’un éventail adapté. Ajoute deux fois l’Anneau d’Eau au ND pour être touché. Le porteur sait immédiatement s’il est ciblé par un sort d’Eau et peut imposer +20 au ND de son incantation. +1g1 aux jets de Bataille et d’Éventail de guerre."},
+{id:"adapt4_heavenly_kobune",name:"Kobune céleste de Suitengu",category:"Artefact",subtype:"Navire céleste miniature",clan:"Autre / variable",family:"—",originClan:"Tengoku / Suitengu",custodianClan:"Variable ; découvert par Moto Chen",sourceEdition:"4e",status:"adapted-1e",source:"The Book of Water (4e), pp.130-131 — adaptation vers 1e",rules:"Adaptation 1e validée : placé sur un navire, garantit vents favorables, mer calme, absence d’attaque des créatures marines et arrivée sûre au port. Les shugenja les plus puissants peuvent apprendre à le transformer en navire capable de voyager dans les Royaumes Spirituels. L’artefact céleste ne peut être Souillé et protège également les voyageurs lorsqu’il est sous sa forme céleste."},
+{id:"adapt4_hunters_kabuto",name:"Kabuto du Chasseur",category:"Nemuranai",subtype:"Kabuto",clan:"Licorne",family:"Iuchi / Champion de la Licorne",originClan:"Licorne / Iuchi",custodianClan:"Licorne",sourceEdition:"4e",status:"adapted-1e",source:"The Book of Water (4e), p.130 — adaptation vers 1e",rules:"Adaptation 1e validée : augmente la Perception du porteur de 1 rang tant qu’il est porté et accorde +1g0 aux jets de Chasse."}
+);
+
+
+L5R1_ITEM_CORPUS.push(
+{id:"yasuki_merchant_coins_1e",name:"Pièces marchandes des Yasuki",category:"Nemuranai",subtype:"Pièces commerciales",clan:"Grue",family:"Yasuki / Doji",originClan:"Grue / tradition Asahina-Yasuki",custodianClan:"Grue / Doji ; exemplaires dispersés, certains revenus aux Yasuki",sourceEdition:"1e",status:"canon-1e",source:"Way of the Crane 1e, p.118 ; repris dans Book of Water 4e pp.131-132",rules:"Canon 1e confirmé par provenance. Ensemble originel de 24 pièces associées aux douze heures animales. La reprise 4e précise qu’au contact de la peau, une pièce accorde +2g2 aux jets de Commerce ou Courtisan concernant un accord commercial pendant l’heure correspondant à son symbole, et +1g0 hors de cette heure. Conserver la mécanique détaillée comme reprise ultérieure si la formulation exacte 1e n’est pas disponible."},
+{id:"adapt4_ikoma_tessen",name:"Tessen d’Ikoma",category:"Nemuranai",subtype:"Éventail de guerre",clan:"Lion",family:"Ikoma / daimyo",originClan:"Lion / Akodo",custodianClan:"Lion / Ikoma",sourceEdition:"4e",status:"adapted-1e",source:"The Book of Water (4e), p.130 — adaptation vers 1e",rules:"Adaptation 1e validée : tessen VD 1g1 ; +4 au ND pour être touché. En cour ou situation sociale, lorsqu’il est ostensiblement porté, +Xg0 à Courtisan, Étiquette et Art : conteur/récit, X étant le rang d’Eau du porteur."},
+{id:"adapt4_jade_mirror",name:"Miroir de Jade",category:"Artefact",subtype:"Miroir de vérité",clan:"Dragon",family:"Kitsuki / Tamori / Togashi",originClan:"Tombeau des Sept Tonnerres / origine antérieure inconnue",custodianClan:"Dragon / Togashi",sourceEdition:"4e",status:"adapted-1e",source:"The Book of Water (4e), pp.130-131 — adaptation vers 1e",rules:"Adaptation 1e validée : miroir de jade béni lié à l’Eau et la Terre. Les sorts de maho lancés dans un rayon d’environ 30 m voient leur ND augmenté de +40. Le reflet révèle la nature morale/spirituelle : la Souillure apparaît monstrueuse et l’observateur apprend immédiatement si la personne reflétée possède un Sombre Secret, sans en connaître la nature."},
+{id:"adapt4_kitsuki_coin",name:"Pièce de Kitsuki",category:"Nemuranai",subtype:"Pièce révélatrice",clan:"Dragon",family:"Kitsuki",originClan:"Dragon / Agasha Kitsuki",custodianClan:"Dragon / Kitsuki",sourceEdition:"4e",status:"adapted-1e",source:"The Book of Water (4e), p.131 — adaptation vers 1e",rules:"Adaptation 1e validée : lorsqu’une personne portant ou tenant la pièce tente de mentir ou d’obscurcir volontairement la vérité, une faible aura rouge devient visible pour tous les autres observateurs. Le porteur lui-même ne peut pas voir cette aura."},
+{id:"adapt4_rioshida_kusarigama",name:"Kusarigama de Rioshida",category:"Nemuranai",subtype:"Kusarigama",clan:"Mante",family:"Gusai / héritage maudit",originClan:"Mante / Gusai Rioshida",custodianClan:"Mante / sanctuaire gardé par l’Ordre d’Osano-Wo",sourceEdition:"4e",status:"adapted-1e",source:"The Book of Water (4e), p.132 — adaptation vers 1e",rules:"Adaptation 1e validée : fonctionne comme un kusarigama normal mais peut blesser les adversaires immunisés aux armes ordinaires. Contre une cible dont le rang de Statut est supérieur au rang du porteur, ajouter +Xg0 aux jets d’attaque, X étant la différence entre les deux rangs de Statut."},
+{id:"adapt4_yogo_jitte",name:"Jitte Yogo",category:"Nemuranai",subtype:"Jitte de fonction",clan:"Scorpion",family:"Yogo / Kuroiban",originClan:"Scorpion / fondateur du Kuroiban",custodianClan:"Scorpion / Kuroiban",sourceEdition:"4e",status:"adapted-1e",source:"The Book of Water (4e), p.132 — adaptation vers 1e",rules:"Adaptation 1e validée : badge de fonction du chef du Kuroiban ; plusieurs copies existent. Dans les mains d’un shugenja, peut affecter les êtres immunisés aux armes ordinaires et accorde +1g1 aux jets d’attaque et de dégâts. Peut stocker un sort selon un principe analogue à Eaux Silencieuses ; libération par une action simple/appropriée en 1e."},
+{id:"adapt4_yoritomo_kama",name:"Kama de Yoritomo",category:"Nemuranai",subtype:"Paire de kama",clan:"Mante",family:"Yoritomo",originClan:"Mante / Yoritomo",custodianClan:"Mante / lignée Yoritomo ; historiquement perdus puis retrouvés",sourceEdition:"4e",status:"adapted-1e",source:"The Book of Water (4e), p.132 — adaptation vers 1e",rules:"Adaptation 1e validée : pour un Mante, les deux kama affectent les êtres immunisés aux armes ordinaires, donnent +1g1 aux attaques et annulent les pénalités de combat à deux armes. Pour un descendant de sang de Yoritomo, VD 3g3 ; si un seul jet inflige plus de 30 Blessures, la cible fait Terre ND20 ou meurt. Un kama lâché ou perdu à moins d’environ 6 m revient en main comme action gratuite."},
+{id:"adapt4_kaiu_otoge_sparrow",name:"Moineau de Kaiu Otoge",category:"Nemuranai",subtype:"Automate détecteur",clan:"Crabe",family:"Kaiu",originClan:"Crabe / Kaiu Otoge ; créé à Suigeki Toshi",custodianClan:"Dragon / Grande Forge de la Cité du Marteau d’Eau",sourceEdition:"4e",status:"adapted-1e",source:"The Book of Water (4e), pp.133-134 — adaptation vers 1e",rules:"Adaptation 1e validée : petit moineau mécanique métallique. Lorsqu’une créature porteuse de la Souillure approche à environ 3 m, l’automate s’anime et chante spontanément. Sa provenance de création reste Kaiu/Crabe même s’il demeure dans une forge Dragon."},
+{id:"adapt4_thunders_taiko",name:"Taiko du Tonnerre",category:"Nemuranai",subtype:"Tambour rituel",clan:"Grue",family:"Asahina",originClan:"Grue / Asahina Kimita ; créé à Suigeki Toshi",custodianClan:"Dragon / Cité du Marteau d’Eau",sourceEdition:"4e",status:"adapted-1e",source:"The Book of Water (4e), p.133 — adaptation vers 1e",rules:"Adaptation 1e validée : le musicien ajoute +Xg0 à son jet d’Art : musique/percussion, X étant son Eau. Les personnes qui entendent le Taiko peuvent ajouter le même bonus à leurs propres jets d’Artisan ou d’Art/Performance appropriés."},
+{id:"adapt4_masters_go_set",name:"Jeu de Go du Maître",category:"Nemuranai",subtype:"Jeu de stratégie",clan:"Lion",family:"Matsu",originClan:"Lion / Matsu Watako ; créé à Suigeki Toshi",custodianClan:"Dragon / Cité du Marteau d’Eau",sourceEdition:"4e",status:"adapted-1e",source:"The Book of Water (4e), pp.133-134 — adaptation vers 1e",rules:"Adaptation 1e validée : chaque personnage ne peut recevoir sa bénédiction qu’une fois. Après avoir joué une partie avec le jeu, il ajoute pendant un mois à ses jets de Bataille de masse un bonus fixe égal à son rang d’Honneur + son rang d’Eau."},
+{id:"adapt4_amulet_amaterasu",name:"Amulette d’Amaterasu",category:"Nemuranai",subtype:"Amulette sacrée",clan:"Mante",family:"Moshi / Mille-Pattes",originClan:"Mille-Pattes / Moshi Jukio ; créée à Suigeki Toshi",custodianClan:"Mante / héritage Moshi",sourceEdition:"4e",status:"adapted-1e",source:"The Book of Water (4e), p.134 — adaptation vers 1e",rules:"Adaptation 1e validée : ne fonctionne que lorsque le Soleil est dans le ciel et pour un porteur d’Honneur au moins 6. Aucun être de Jigoku ni kansen ne peut volontairement s’approcher à moins d’une douzaine de pas. Les êtres marqués par la Souillure ou le Néant ne peuvent volontairement toucher l’amulette, sans subir de dégâts directs."},
+{id:"adapt4_atsuke_hammer",name:"Marteau d’Atsuke",category:"Nemuranai",subtype:"Outil d’artisan",clan:"Phénix",family:"Shiba",originClan:"Phénix / Shiba Atsuke ; créé à Suigeki Toshi",custodianClan:"Phénix",sourceEdition:"4e",status:"adapted-1e",source:"The Book of Water (4e), p.134 — adaptation vers 1e",rules:"Adaptation 1e validée : +2g0 aux jets d’Artisan servant à fabriquer une armure ou un objet artistique ; -2g0 si le marteau sert à fabriquer une arme. S’il est lui-même utilisé pour frapper un être vivant, il se brise et est détruit définitivement."},
+{id:"adapt4_saddle_water",name:"Selle d’Eau",category:"Nemuranai",subtype:"Selle élémentaire",clan:"Licorne",family:"Moto / Iuchi",originClan:"Licorne / Moto Vordu ; créée à Suigeki Toshi",custodianClan:"Dragon / Cité du Marteau d’Eau",sourceEdition:"4e",status:"adapted-1e",source:"The Book of Water (4e), pp.134-135 — adaptation vers 1e",rules:"Adaptation 1e validée : une fois par jour, invoque un puissant kami d’Eau en forme de cheval pour un nombre d’heures égal à l’Eau du propriétaire. Peut transporter deux cavaliers, dont le propriétaire ; se déplace comme Eau 5 avec une rapidité surnaturelle équivalente. Il ne peut ni attaquer ni être blessé, mais une puissante magie de Feu peut le disperser jusqu’au lendemain."}
+);
+
+
+L5R1_ITEM_CORPUS.push(
+{id:"crane_sasageru_1e",name:"Sasageru — Armure ancestrale de la Grue",category:"Nemuranai",subtype:"Armure ancestrale",clan:"Grue",family:"Doji / Champion du Clan",originClan:"Grue / Doji",custodianClan:"Grue",sourceEdition:"1e",status:"canon-1e",source:"Way of the Crane 1e, p.116 ; repris Book of Earth 4e p.148",rules:"Canon 1e : armure ancestrale offerte par Doji à ses héritiers, transmise au Champion ou à son général lorsque le Champion occupe une autre charge. Indestructible et demeurant intacte au fil des siècles. Les éventuelles mécaniques chiffrées ajoutées dans une édition ultérieure doivent rester séparées de cette fiche canon 1e."},
+{id:"adapt4_agasha_kitsuki_armor",name:"Armure d’Agasha Kitsuki",category:"Nemuranai",subtype:"Armure de magistrat",clan:"Dragon",family:"Kitsuki",originClan:"Dragon / commande Mirumoto pour Agasha Kitsuki",custodianClan:"Dragon / Kitsuki",sourceEdition:"4e",status:"adapted-1e",source:"The Book of Earth (4e), p.137 — adaptation vers 1e",rules:"Adaptation 1e prudente : armure exceptionnelle liée au fondateur Kitsuki et à sa méthode d’observation. La source historique confirme qu’une armure exceptionnelle fut commandée par les Mirumoto pour Kitsuki. Les bonus chiffrés exacts ne sont pas inventés tant que le bloc mécanique complet n’est pas récupéré."},
+{id:"adapt4_armor_earth",name:"Armure de Terre",category:"Nemuranai",subtype:"Armure élémentaire",clan:"Autre / variable",family:"Asako / Iuchi",originClan:"Phénix + Licorne / Oracles de Lumière",custodianClan:"Variable ; première porteuse Otaku Xieng Chi",sourceEdition:"4e",status:"adapted-1e",source:"The Book of Earth (4e), p.138 — adaptation vers 1e",rules:"Adaptation 1e : armure élémentaire créée par Iuchi Yogosha et Asako Shingon. Première porteuse connue : Otaku Xieng Chi. La mécanique détaillée est laissée en attente plutôt que reconstruite sans le bloc source complet ; elle reste néanmoins un Nemuranai élémentaire attesté."},
+{id:"adapt4_golden_samurai_armor",name:"Armure du Samouraï Doré",category:"Nemuranai",subtype:"Armure éveillée",clan:"Lion",family:"Matsu",originClan:"Phénix / artisan Shiba Kukinjin ; éveillée par Matsu Toriko",custodianClan:"Lion / lignée Matsu Toriko",sourceEdition:"4e",status:"adapted-1e",source:"The Book of Earth (4e), pp.140-141 — adaptation vers 1e",rules:"Adaptation 1e prudente : armure devenue Nemuranai au contact de l’esprit de son créateur et du dévouement de Matsu Toriko. Elle manifeste une aura aveuglante capable d’inspirer la Peur aux ennemis proches, mais son pouvoir est irrégulier et ne fonctionne pas pour tous les porteurs. Le niveau exact de Peur reste à fixer depuis le bloc mécanique complet."},
+{id:"adapt4_kaiu_smithing_tools",name:"Outils de forge de Kaiu",category:"Nemuranai",subtype:"Outils d’artisan",clan:"Crabe",family:"Kaiu",originClan:"Crabe / Kaiu",custodianClan:"Crabe",sourceEdition:"4e",status:"adapted-1e",source:"The Book of Earth (4e), p.145 — adaptation vers 1e",rules:"Adaptation 1e : ensemble de forge Nemuranai associé à la tradition Kaiu. Conserver comme outil surnaturel d’artisanat ; aucun bonus numérique n’est ajouté avant récupération du bloc mécanique intégral."},
+{id:"adapt4_daidoji_kote",name:"Kote du Daimyō Daidoji",category:"Nemuranai",subtype:"Kote / protection d’avant-bras",clan:"Grue",family:"Daidoji",originClan:"Grue / cadeau de la famille Doji",custodianClan:"Grue / Daimyō Daidoji",sourceEdition:"4e",status:"adapted-1e",source:"The Book of Earth (4e), p.146 — adaptation vers 1e",rules:"Adaptation 1e prudente : paire de kote offerte par les Doji au Daimyō Daidoji et transmise lors d’une cérémonie privée. Les deux pièces sont asymétriques afin de favoriser le maniement des armes d’hast et des arcs ; elles sont réversibles pour gaucher ou droitier. Aucun bonus chiffré n’est inventé sans le bloc mécanique complet."},
+{id:"adapt4_machimasu",name:"Machimasu — Armure ancestrale des Mirumoto",category:"Nemuranai",subtype:"Armure lourde ancestrale",clan:"Dragon",family:"Mirumoto",originClan:"Dragon / Agasha pour Mirumoto",custodianClan:"Dragon / Mirumoto",sourceEdition:"4e",status:"adapted-1e",source:"The Book of Earth (4e), pp.146-147 — adaptation vers 1e",rules:"Adaptation 1e prudente : armure lourde vert terne, plaques travaillées comme des écailles de dragon et conçue pour rester assez souple pour le Niten. Créée par Agasha pour Mirumoto avant le premier Jour du Tonnerre ; retrouvée plus tard par des éclaireurs Hiruma puis rendue au Dragon par les Kuni. Les effets chiffrés exacts restent en attente du bloc mécanique complet."},
+{id:"adapt4_shield_moto_gaheris",name:"Bouclier de Moto Gaheris",category:"Nemuranai",subtype:"Bouclier",clan:"Licorne",family:"Moto",originClan:"Licorne / Moto",custodianClan:"Licorne",sourceEdition:"4e",status:"adapted-1e",source:"The Book of Earth (4e), p.150 — adaptation vers 1e",rules:"Adaptation 1e : relique défensive Moto attestée dans le corpus Earth. Comme les boucliers ne constituent pas un standard samouraï ordinaire en 1e, son effet mécanique doit rester une exception propre à l’objet ; aucun bonus chiffré n’est fixé sans le texte complet."},
+{id:"adapt4_tsunetomo_dai_tsuchi",name:"Dai-tsuchi de Tsunetomo",category:"Nemuranai",subtype:"Dai-tsuchi",clan:"Crabe",family:"Hida",originClan:"Crabe",custodianClan:"Crabe",sourceEdition:"4e",status:"adapted-1e",source:"The Book of Earth (4e), p.151 — adaptation vers 1e",rules:"Adaptation 1e : dai-tsuchi Nemuranai lié à Tsunetomo et à la tradition des armes lourdes du Crabe. La fiche est créée avec provenance sûre, mais sa mécanique chiffrée reste volontairement en attente du bloc source intégral."}
+);
+
+L5R1_ITEM_CORPUS.push(
+{id:"ronin_sun_tao_armor_1e",name:"Armure de Sun Tao",category:"Nemuranai",subtype:"Armure lourde",clan:"Rōnin",family:"Sun Tao",originClan:"Rōnin / forgée dans la Forge de Kaiu",custodianClan:"Dragon / Grande Étude ; auparavant Moineau",sourceEdition:"1e",status:"canon-1e",source:"Way of the Wolf 1e, p.116 ; reprise Book of Earth 4e p.107",rules:"Canon 1e : armure lourde associée au grand tacticien ronin Sun Tao. Elle porte sa bénédiction et favorise les batailles auxquelles participe son porteur. La conservation ultérieure sous Shiro Mirumoto ne change ni son origine ronin ni son antériorité 1e."},
+{id:"adapt4_armor_five",name:"Armure des Cinq",category:"Nemuranai",subtype:"Armure liée aux cinq éléments",clan:"Autre / variable",family:"—",originClan:"Variable / tradition élémentaire",custodianClan:"Variable",sourceEdition:"4e",status:"adapted-1e",source:"The Book of Earth (4e), p.139 — adaptation vers 1e",rules:"Objet attesté dans Earth Awakened. La fiche reste volontairement sans chiffres : le bloc mécanique complet n’a pas été récupéré avec une fiabilité suffisante. Ne pas confondre cette armure avec l’Armure de Terre des Nemuranai élémentaires."},
+{id:"adapt4_chousen",name:"Chousen — Armure ancestrale des Gusai",category:"Nemuranai",subtype:"Armure légère ancestrale",clan:"Mante",family:"Gusai",originClan:"Mante / Gusai",custodianClan:"Mante / Kyuden Gotei",sourceEdition:"4e",status:"adapted-1e",source:"The Book of Earth (4e), p.142 — adaptation vers 1e",rules:"Armure légère extrêmement souple, équipée de nombreuses attaches et poches pour petites armes. Une part de l’esprit de Gusai y demeure et pousse le porteur à rechercher des adversaires dignes d’être remarqués. Transmise durant trois générations de Champions Mante avant d’être exposée à Kyuden Gotei après la chute de Gusai Rioshida. Mécanique chiffrée à compléter depuis le bloc 4e intégral."},
+{id:"adapt4_destinys_anvil",name:"Enclume du Destin — Armure de Goju Kyoden",category:"Nemuranai",subtype:"Armure liée à l’Ombre",clan:"Outremonde",family:"Goju",originClan:"Goju / Dragon de l’Ombre",custodianClan:"Variable / forces de Daigotsu",sourceEdition:"4e",status:"adapted-1e",source:"The Book of Earth (4e), p.142 — adaptation vers 1e",rules:"Objet MJ. Armure incrustée d’obsidienne utilisée comme ancrage physique par le Dragon de l’Ombre pour rappeler Goju Kyoden à l’existence. Son origine est Goju/Ombre : sa relation avec Daigotsu ne la transforme pas en objet d’un Grand Clan. Aucun bonus chiffré n’est ajouté sans le bloc mécanique complet."},
+{id:"adapt4_ikoma_anvil",name:"Enclume d’Ikoma",category:"Nemuranai",subtype:"Relique de Terre",clan:"Lion",family:"Ikoma",originClan:"Lion / Ikoma",custodianClan:"Lion",sourceEdition:"4e",status:"adapted-1e",source:"The Book of Earth (4e), p.143 — adaptation vers 1e",rules:"Nemuranai Ikoma attesté dans le corpus Earth. Provenance Lion/Ikoma conservée. Mécanique volontairement laissée à compléter : aucune valeur chiffrée n’est extrapolée du seul nom ou de la seule présence dans l’index."},
+{id:"adapt4_indomitable_mutsuhito",name:"Indomptable — Armure de Mutsuhito",category:"Nemuranai",subtype:"Armure",clan:"Autre / variable",family:"Mutsuhito",originClan:"À confirmer depuis le bloc Earth",custodianClan:"Variable",sourceEdition:"4e",status:"adapted-1e",source:"The Book of Earth (4e), p.144 — adaptation vers 1e",rules:"Objet attesté comme Indomitable, Mutsuhito’s Armor. La source accessible ne suffit pas à établir sans risque son clan d’origine ni ses pouvoirs détaillés. L’entrée reste donc explicitement incomplète plutôt que de fabriquer une attribution ou une mécanique."},
+{id:"adapt4_ounos_heart",name:"Cœur d’Ouno",category:"Nemuranai",subtype:"Relique de Terre",clan:"Autre / variable",family:"Ouno",originClan:"À confirmer depuis le bloc Earth",custodianClan:"Variable",sourceEdition:"4e",status:"adapted-1e",source:"The Book of Earth (4e), p.147 — adaptation vers 1e",rules:"Nemuranai attesté dans Earth Awakened. Provenance et mécanique détaillées laissées à vérifier sur le texte intégral ; aucune association de clan n’est déduite du nom seul."},
+{id:"adapt4_shosuro_blackened_armor",name:"Armure noircie de Shosuro",category:"Nemuranai",subtype:"Armure",clan:"Scorpion",family:"Shosuro",originClan:"Scorpion / Shosuro",custodianClan:"Scorpion",sourceEdition:"4e",status:"adapted-1e",source:"The Book of Earth (4e), p.149 — adaptation vers 1e",rules:"Armure Shosuro attestée parmi les Nemuranai de Terre et répertoriée comme Nemuranai du Clan du Scorpion. Le bloc chiffré n’étant pas suffisamment établi dans les sources contrôlées, aucun bonus de discrétion, défense ou illusion n’est inventé."},
+{id:"adapt4_sting_tsuruchi_kabuto",name:"Sting — Kabuto de Tsuruchi",category:"Nemuranai",subtype:"Kabuto",clan:"Mante",family:"Tsuruchi / Guêpe",originClan:"Guêpe / Tsuruchi",custodianClan:"Mante / Tsuruchi",sourceEdition:"4e",status:"adapted-1e",source:"The Book of Earth (4e), p.149 — adaptation vers 1e",rules:"Kabuto associé à Tsuruchi, fondateur de la Guêpe, puis à la tradition Tsuruchi au sein de la Mante. La fiche conserve donc l’origine historique Guêpe/Tsuruchi et la conservation Mante/Tsuruchi. Mécanique chiffrée à compléter depuis le bloc Earth intégral."},
+{id:"adapt4_toturi_armor",name:"Armure de Toturi",category:"Nemuranai",subtype:"Armure impériale issue d’une armure de rōnin",clan:"Impérial",family:"Toturi",originClan:"Rōnin / Akodo Toturi déchu",custodianClan:"Impérial / Palais impérial",sourceEdition:"4e",status:"adapted-1e",source:"The Book of Earth (4e), pp.150-151 — adaptation vers 1e",rules:"Vieille armure presque inutilisable remise à Akodo Toturi après sa disgrâce, réparée durant sa vie de rōnin puis portée lorsqu’il devint Empereur. Après sa mort, elle devint un héritage impérial. Elle est réputée transmettre la finesse d’esprit de Toturi, supprimer la peur du porteur et inspirer le courage de ses compagnons. Les valeurs chiffrées exactes restent à compléter depuis le bloc mécanique intégral."}
+);
+L5R1_ITEM_CORPUS.push(
+{id:"adapt4_void_mask",name:"Mempo du Vide",category:"Nemuranai",subtype:"Mempo élémentaire",clan:"Autre / variable",family:"Asako / Iuchi",originClan:"Phénix + Licorne / Oracles de Lumière",custodianClan:"Variable",sourceEdition:"4e",status:"adapted-1e",source:"The Book of Void (4e) — page à confirmer ; adaptation vers 1e",rules:"Adaptation 1e prudente : cinquième pièce de la série élémentaire créée par Iuchi Yogosha et Asako Shingon. Il complète Yari de l’Air, Armure de Terre, Katana de Feu et Gunsen d’Eau. Pouvoirs chiffrés laissés en attente du bloc source complet."},
+{id:"adapt4_void_crystal",name:"Cristal du Vide",category:"Artefact",subtype:"Cristal spirituel",clan:"Autre / variable",family:"—",originClan:"Vide / origine surnaturelle",custodianClan:"Variable",sourceEdition:"4e",status:"adapted-1e",source:"The Book of Void (4e) — page à confirmer ; adaptation vers 1e",rules:"Artefact lié au Vide, distinct du matériau surnaturel générique Cristal déjà référencé. Effets précis à vérifier avant conversion chiffrée."},
+{id:"adapt4_void_relic_index",name:"Reliques du Vide — index contrôlé",category:"Référentiel",subtype:"Index de conversion",clan:"Autre / variable",family:"—",originClan:"Variable",custodianClan:"Variable",sourceEdition:"4e",status:"index-only",source:"The Book of Void (4e)",rules:"Index de travail : une relique n’est promue en fiche jouable que lorsque identité, provenance et pouvoirs sont suffisamment documentés. Aucune mécanique n’est extrapolée depuis un simple index."}
+);
+
+
+// V0.20.03 — Référentiel temporel L5R.
+// Principe : la chronologie est une dimension de données, pas un filtre destructif.
+// Une entrée hors période reste consultable historiquement mais n'est pas proposée comme active.
+const L5R_TIMELINE_CONTINUITIES = [
+  {id:"aeg_original",label:"Chronologie AEG originale / Guerre des Clans",default:true},
+  {id:"ffg_reboot",label:"Chronologie FFG / continuité alternative",default:false},
+  {id:"mj_custom",label:"Chronologie personnalisée MJ",default:false}
+];
+const L5R_TIMELINE_PERIODS = [
+  {id:"pre_coup",label:"Avant le Coup du Scorpion",from:null,to:1122,continuity:"aeg_original"},
+  {id:"scorpion_coup",label:"Coup du Clan du Scorpion",from:1123,to:1123,continuity:"aeg_original"},
+  {id:"inter_coup_clanwar",label:"Après le Coup / montée vers la Guerre des Clans",from:1124,to:1125,continuity:"aeg_original"},
+  {id:"clan_war",label:"Guerre des Clans",from:1126,to:1128,continuity:"aeg_original"},
+  {id:"post_thunder",label:"Après le Second Jour du Tonnerre",from:1129,to:1130,continuity:"aeg_original"},
+  {id:"hidden_emperor",label:"Période de l'Empereur caché",from:1131,to:null,continuity:"aeg_original"}
+];
+const L5R_TIMELINE_EVENTS = [
+  {year:1123,id:"scorpion_coup",label:"Coup du Clan du Scorpion",continuity:"aeg_original",effects:["mort de Hantei XXXVIII","défaite de Bayushi Shoju","dissolution du Clan du Scorpion","dissolution du nom Akodo"]},
+  {year:1126,id:"clan_war_start",label:"Début de la Guerre des Clans",continuity:"aeg_original"},
+  {year:1128,id:"second_day_thunder",label:"Second Jour du Tonnerre",continuity:"aeg_original",effects:["défaite de Fu Leng","fin de la Guerre des Clans","Mante reconnue Grand Clan","Scorpion restauré","Hitomi devient Champion du Dragon","Shiba Tsukune devient Champion du Phénix"]},
+  {year:1131,id:"agasha_defection",label:"Défection de la majorité des Agasha vers le Phénix",continuity:"aeg_original",effects:["branche Agasha du Phénix disponible","minorité Agasha reste Dragon"]}
+];
+const L5R_HISTORICAL_AVAILABILITY = [
+  {key:"clan_scorpion",type:"faction",continuity:"aeg_original",intervals:[{from:null,to:1123,state:"active"},{from:1124,to:1127,state:"dissolved"},{from:1128,to:null,state:"active"}]},
+  {key:"family_akodo",type:"family",continuity:"aeg_original",intervals:[{from:null,to:1123,state:"active"},{from:1124,to:1128,state:"dissolved"}]},
+  {key:"clan_mantis_great",type:"faction-status",continuity:"aeg_original",intervals:[{from:null,to:1127,state:"minor"},{from:1128,to:null,state:"great"}]},
+  {key:"agasha_dragon_majority",type:"family",continuity:"aeg_original",intervals:[{from:null,to:1130,state:"active"},{from:1131,to:null,state:"remnant"}]},
+  {key:"agasha_phoenix",type:"family",continuity:"aeg_original",intervals:[{from:1131,to:null,state:"active"}]},
+  {key:"togashi_yokuni",type:"npc",continuity:"aeg_original",intervals:[{from:null,to:1128,state:"alive"}]},
+  {key:"mirumoto_hitomi_dragon_champion",type:"title",continuity:"aeg_original",intervals:[{from:1128,to:null,state:"active"}]},
+  {key:"shiba_tsukune_phoenix_champion",type:"title",continuity:"aeg_original",intervals:[{from:1128,to:null,state:"active"}]},
+  {key:"matsu_tsuko_lion_champion",type:"title",continuity:"aeg_original",intervals:[{from:1123,to:1128,state:"active"}]},
+  {key:"doji_hoturi_crane_champion",type:"title",continuity:"aeg_original",intervals:[{from:null,to:1128,state:"active"}]},
+  {key:"hida_kisada_crab_champion",type:"title",continuity:"aeg_original",intervals:[{from:null,to:1127,state:"active"}]},
+  {key:"hida_yakamo_crab_champion",type:"title",continuity:"aeg_original",intervals:[{from:1128,to:null,state:"active"}]}
+];
+
+// V0.20.03 — Registre nominatif historique L5R.
+// Les bornes inconnues restent nulles : aucune date n'est inventée.
+const L5R_HISTORICAL_NPCS = [
+ {key:"mirumoto_hitomi",name:"Mirumoto Hitomi",clan:"Dragon",born:1105,died:null,activeFrom:1105,activeTo:1132,endState:"ascended",continuity:"aeg_original",
+  roles:[{from:null,to:1127,label:"Daimyō Mirumoto"},{from:1128,to:1132,label:"Champion du Clan du Dragon / Tonnerre du Dragon"}]},
+ {key:"matsu_tsuko",name:"Matsu Tsuko",clan:"Lion",born:1090,died:1128,activeFrom:1090,activeTo:1128,endState:"dead",continuity:"aeg_original",
+  roles:[{from:1122,to:1128,label:"Daimyō Matsu"},{from:1123,to:1128,label:"Champion du Clan du Lion"}]},
+ {key:"doji_hoturi",name:"Doji Hoturi",clan:"Grue",born:null,bornBefore:1099,died:1128,activeFrom:null,activeTo:1128,endState:"dead",continuity:"aeg_original",
+  roles:[{from:null,to:1128,label:"Champion du Clan de la Grue"},{from:1128,to:1128,label:"Tonnerre de la Grue"}]},
+ {key:"isawa_tadaka",name:"Isawa Tadaka",clan:"Phénix",born:null,died:1128,activeFrom:null,activeTo:1128,endState:"dead",continuity:"aeg_original",
+  roles:[{from:null,to:1128,label:"Maître de la Terre"},{from:1128,to:1128,label:"Tonnerre du Phénix"}]},
+ {key:"hida_kisada",name:"Hida Kisada",clan:"Crabe",born:null,died:1130,activeFrom:null,activeTo:1130,endState:"dead",continuity:"aeg_original",
+  roles:[{from:null,to:1127,label:"Champion du Clan du Crabe"},{from:1128,to:1130,label:"Ancien Champion / conseiller de Hida Yakamo"}]},
+ {key:"bayushi_kachiko",name:"Bayushi Kachiko",clan:"Scorpion",born:null,bornBefore:1101,died:1133,activeFrom:null,activeTo:1133,endState:"dead",continuity:"aeg_original",
+  roles:[{from:null,to:1123,label:"Haute figure du Clan du Scorpion / épouse de Bayushi Shoju"},{from:1128,to:1128,label:"Tonnerre du Scorpion"},{from:1128,to:1133,label:"Figure majeure du Clan du Scorpion"}]},
+ {key:"togashi_yokuni",name:"Togashi Yokuni",clan:"Dragon",born:null,died:1128,activeFrom:null,activeTo:1128,endState:"dead",continuity:"aeg_original",
+  roles:[{from:null,to:1128,label:"Champion du Clan du Dragon / Togashi"}]},
+ {key:"hida_yakamo",name:"Hida Yakamo",clan:"Crabe",born:null,died:null,activeFrom:null,activeTo:null,endState:null,continuity:"aeg_original",
+  roles:[{from:null,to:1127,label:"Héritier Hida / fils de Hida Kisada"},{from:1128,to:null,label:"Champion du Clan du Crabe"}]},
+ {key:"shiba_tsukune",name:"Shiba Tsukune",clan:"Phénix",born:null,died:null,activeFrom:null,activeTo:null,endState:null,continuity:"aeg_original",
+  roles:[{from:null,to:1127,label:"Bushi Shiba"},{from:1128,to:null,label:"Championne du Clan du Phénix"}]},
+ {key:"toturi",name:"Toturi",aliases:["Akodo Toturi","Toturi le Rōnin"],clan:"Lion / Rōnin / Impérial",born:null,died:null,activeFrom:null,activeTo:null,endState:null,continuity:"aeg_original",
+  roles:[{from:null,to:1123,label:"Champion du Clan du Lion / Akodo"},{from:1124,to:1127,label:"Toturi le Rōnin"},{from:1128,to:null,label:"Empereur Toturi"}]},
+ {key:"yoritomo",name:"Yoritomo",clan:"Mante",born:null,died:null,activeFrom:null,activeTo:null,endState:null,continuity:"aeg_original",
+  roles:[{from:null,to:1127,label:"Champion de la Mante / chef de l'Alliance de Yoritomo"},{from:1128,to:null,label:"Champion du Grand Clan de la Mante"}]},
+ {key:"bayushi_aramoro",name:"Bayushi Aramoro",clan:"Scorpion",born:null,died:null,activeFrom:null,activeTo:null,endState:null,continuity:"aeg_original",
+  roles:[{from:null,to:1123,label:"Bushi / assassin du Clan du Scorpion"},{from:1124,to:1127,label:"Scorpion en exil / clandestinité"},{from:1128,to:null,label:"Bushi du Clan du Scorpion restauré"}]},
+ {key:"isawa_kaede",name:"Isawa Kaede",clan:"Phénix",born:null,died:null,activeFrom:null,activeTo:null,endState:null,continuity:"aeg_original",
+  roles:[{from:null,to:1127,label:"Shugenja Isawa"},{from:1128,to:1128,label:"Tonnerre du Vide"},{from:1129,to:null,label:"Figure majeure du Phénix / épouse de Toturi selon période"}]},
+ {key:"daidoji_uji",name:"Daidoji Uji",clan:"Grue",born:null,died:null,activeFrom:null,activeTo:null,endState:null,continuity:"aeg_original",
+  roles:[{from:null,to:null,label:"Daimyō Daidoji / commandant Grue"}]},
+ {key:"agasha_tamori",name:"Agasha Tamori",clan:"Dragon",born:null,died:null,activeFrom:null,activeTo:null,endState:null,continuity:"aeg_original",
+  roles:[{from:null,to:1130,label:"Shugenja Agasha du Dragon"},{from:1131,to:null,label:"Figure de la branche Agasha restée Dragon"}]},
+ {key:"toku",name:"Toku",clan:"Rōnin / Singe",born:null,died:null,activeFrom:null,activeTo:null,endState:null,continuity:"aeg_original",
+  roles:[{from:null,to:1127,label:"Rōnin"},{from:1128,to:null,label:"Samouraï au service de Toturi / trajectoire vers le Clan du Singe"}]},
+ {key:"kuni_tansho",name:"Kuni Tansho",clan:"Crabe",born:null,died:null,activeFrom:null,activeTo:null,endState:null,continuity:"aeg_original",roles:[{from:null,to:null,label:"Personnalité Kuni / Crabe — datation fine à compléter"}]},
+ {key:"asahina_takako",name:"Asahina Takako",clan:"Grue",born:null,died:null,activeFrom:null,activeTo:null,endState:null,continuity:"aeg_original",roles:[{from:null,to:null,label:"Personnalité Asahina / Grue — datation fine à compléter"}]},
+ {key:"togashi_mitsu",name:"Togashi Mitsu",clan:"Dragon",born:null,died:null,activeFrom:null,activeTo:null,endState:null,continuity:"aeg_original",roles:[{from:null,to:null,label:"Personnalité Togashi / Dragon — datation fine à compléter"}]},
+ {key:"kitsu_okura",name:"Kitsu Okura",clan:"Lion",born:null,died:null,activeFrom:null,activeTo:null,endState:null,continuity:"aeg_original",roles:[{from:null,to:null,label:"Personnalité Kitsu / Lion — datation fine à compléter"}]},
+ {key:"akodo_kage",name:"Akodo Kage",clan:"Lion",born:null,died:null,activeFrom:null,activeTo:null,endState:null,continuity:"aeg_original",roles:[{from:null,to:1123,label:"Personnalité Akodo / Lion"},{from:1124,to:null,label:"Ancien Akodo — statut individuel à documenter"}]},
+ {key:"yogo_kikuyo",name:"Yogo Kikuyo",clan:"Scorpion",born:null,died:null,activeFrom:null,activeTo:null,endState:null,continuity:"aeg_original",roles:[{from:null,to:1123,label:"Personnalité Yogo / Scorpion"},{from:1124,to:1127,label:"Scorpion dissous — statut individuel à documenter"},{from:1128,to:null,label:"Clan du Scorpion restauré"}]},
+ {key:"utaku_kamoko",name:"Utaku Kamoko",clan:"Licorne",born:null,died:null,activeFrom:null,activeTo:null,endState:null,continuity:"aeg_original",roles:[{from:null,to:null,label:"Personnalité Utaku / Licorne — datation fine à compléter"}]},
+ {key:"iuchi_shahai",name:"Iuchi Shahai",clan:"Licorne",born:null,died:null,activeFrom:null,activeTo:null,endState:null,continuity:"aeg_original",roles:[{from:null,to:null,label:"Personnalité Iuchi / Licorne — datation fine à compléter"}]},
+ {key:"moto_chagatai",name:"Moto Chagatai",clan:"Licorne",born:null,died:null,activeFrom:null,activeTo:null,endState:null,continuity:"aeg_original",roles:[{from:null,to:null,label:"Personnalité Moto / Licorne — datation fine à compléter"}]},
+ {key:"isha",name:"L’Isha",aliases:["Isha","L'Isha"],clan:"Naga",born:null,died:null,activeFrom:null,activeTo:null,endState:null,continuity:"aeg_original",roles:[{from:null,to:null,label:"Naga — datation fine à compléter"}]},
+ {key:"tchickchuk",name:"Tchickchuk",clan:"Nezumi",born:null,died:null,activeFrom:null,activeTo:null,endState:null,continuity:"aeg_original",roles:[{from:null,to:null,label:"Nezumi — datation fine à compléter"}]}
+];
+
+
+// V0.20.03 — États institutionnels et disponibilité historique élargie.
+// Les entrées "reference-only" servent de repères sans inventer de dates manquantes.
+const L5R_HISTORICAL_INSTITUTIONS = [
+ {key:"scorpion_clan",type:"clan",name:"Clan du Scorpion",continuity:"aeg_original",
+  states:[{from:null,to:1123,state:"great_clan",label:"Grand Clan"},{from:1124,to:1127,state:"dissolved",label:"Clan dissous / membres en exil ou clandestinité"},{from:1128,to:null,state:"great_clan",label:"Grand Clan restauré"}]},
+ {key:"akodo_family",type:"family",name:"Famille Akodo",continuity:"aeg_original",
+  states:[{from:null,to:1123,state:"active",label:"Famille majeure du Lion"},{from:1124,to:1128,state:"dissolved",label:"Nom Akodo dissous"},{from:1129,to:null,state:"reference-only",label:"Évolution postérieure à documenter — consultation autorisée, aucun filtrage forcé"}]},
+ {key:"mantis_clan",type:"clan",name:"Clan de la Mante",continuity:"aeg_original",
+  states:[{from:null,to:1127,state:"minor_clan",label:"Clan mineur / Alliance de Yoritomo selon phase"},{from:1128,to:null,state:"great_clan",label:"Grand Clan de la Mante"}]},
+ {key:"fox_clan",type:"clan",name:"Clan du Renard",continuity:"aeg_original",states:[{from:null,to:null,state:"reference-only",label:"Clan Mineur attesté ; bornes fines à documenter"}]},
+ {key:"badger_clan",type:"clan",name:"Clan du Blaireau",continuity:"aeg_original",states:[{from:null,to:null,state:"reference-only",label:"Clan Mineur attesté ; bornes fines à documenter"}]},
+ {key:"centipede_clan",type:"clan",name:"Clan de la Mille-Pattes",continuity:"aeg_original",states:[{from:null,to:null,state:"reference-only",label:"Clan Mineur attesté ; bornes fines à documenter"}]},
+ {key:"agasha_family_dragon",type:"family",name:"Agasha — branche Dragon",continuity:"aeg_original",
+  states:[{from:null,to:1130,state:"active",label:"Famille du Dragon"},{from:1131,to:null,state:"remnant",label:"Minorité Agasha restée au Dragon"}]},
+ {key:"agasha_family_phoenix",type:"family",name:"Agasha — branche Phénix",continuity:"aeg_original",
+  states:[{from:1131,to:null,state:"active",label:"Majorité Agasha passée au Phénix"}]},
+ {key:"naga",type:"people",name:"Naga",continuity:"aeg_original",states:[{from:null,to:null,state:"reference-only",label:"Présence historique suivie ; bornes à documenter"}]},
+ {key:"nezumi",type:"people",name:"Nezumi",continuity:"aeg_original",states:[{from:null,to:null,state:"reference-only",label:"Présence historique suivie ; bornes à documenter"}]}
+];
+
+// V0.20.04 — Structure temporelle des objets / Nemuranai.
+// Aucun intervalle précis n'est créé sans source datée : les entrées ci-dessous sont des repères documentaires.
+const L5R_HISTORICAL_ITEMS = [
+ {key:"adapt4_katana_fire",name:"Katana de Feu",continuity:"aeg_original",events:[{from:null,to:null,state:"reference-only",holder:"Shiba Tsukune",location:null,corruption:"non documentée",label:"Détention historique signalée ; date précise à documenter"}]},
+ {key:"adapt4_mantle_fire_aggressive",name:"Manteau de Feu — version agressive",continuity:"aeg_original",events:[{from:null,to:null,state:"reference-only",holder:"Agasha / Tamori",location:null,corruption:"non documentée",label:"Tradition Agasha du Dragon puis Tamori ; chronologie précise à documenter"}]},
+ {key:"adapt4_mantle_fire_peaceful",name:"Manteau de Feu — version pacifique",continuity:"aeg_original",events:[{from:null,to:null,state:"reference-only",holder:"Agasha du Phénix",location:null,corruption:"non documentée",label:"Variante Phénix dérivée de la tradition Agasha ; chronologie précise à documenter"}]},
+ // V0.20.06 — premiers Nemuranai dont la provenance et/ou la conservation sont explicitement documentées dans le corpus.
+ // Les bornes inconnues restent volontairement ouvertes : aucune date n'est créée à partir d'une simple appartenance.
+ {key:"lion_ancestral_armor",name:"Armure ancestrale du Clan du Lion",continuity:"aeg_original",events:[{from:null,to:null,state:"reference-only",holder:"Clan du Lion / lignée Akodo",location:null,corruption:"maudite",label:"Origine Crabe/Hida distincte de la conservation Lion ; changement de détenteur non daté dans le corpus local"}]},
+ {key:"phoenix_ancestral_armor",name:"Armure ancestrale du Clan du Phénix",continuity:"aeg_original",events:[{from:null,to:null,state:"reference-only",holder:"Clan du Phénix / Shiba",location:null,corruption:"non documentée",label:"Forgée par un ancien Champion Dragon mais conservée par le Phénix ; transfert non daté"}]},
+ {key:"unicorn_otaku_gong",name:"Gong de cuivre d’Otaku Maseru",continuity:"aeg_original",events:[{from:null,to:null,state:"reference-only",holder:"Clan de la Licorne / Otaku",location:null,corruption:"non documentée",label:"Objet d'origine gaijin devenu trésor de la Licorne ; acquisition non datée"}]},
+ {key:"adapt4_agasha_mirror",name:"Miroir d’Agasha",continuity:"aeg_original",events:[{from:null,to:1130,state:"reference-only",holder:"Agasha / Dragon",location:null,corruption:"non documentée",label:"Origine Dragon / Dame Agasha ; conservation précise à documenter"},{from:1131,to:null,state:"reference-only",holder:"Agasha / Phénix",location:null,corruption:"non documentée",label:"Conservation par la branche Agasha du Phénix après la défection documentée"}]},
+ {key:"adapt4_phoenix_standard",name:"Étendard ancestral du Phénix",continuity:"aeg_original",events:[{from:null,to:null,state:"reference-only",holder:"Shiba / Champion du Phénix",location:"Shiro Shiba",corruption:"non documentée",label:"Conservation à Shiro Shiba indiquée par le corpus adapté ; date précise non fournie"}]},
+ {key:"adapt4_rioshida_kusarigama",name:"Kusarigama de Rioshida",continuity:"aeg_original",events:[{from:null,to:null,state:"reference-only",holder:"Clan de la Mante / héritage Gusai",location:"Sanctuaire gardé par l’Ordre d’Osano-Wo",corruption:"maudit",label:"Héritage maudit de la Mante ; sanctuaire documenté, chronologie fine à compléter"}]},
+ // V0.20.07 — extension aux trésors déjà présents dans le corpus.
+ // Sans date sourcée, l'entrée reste reference-only et n'impose aucune borne chronologique.
+ {key:"l5r_crab_chikara",name:"Chikara",continuity:"aeg_original",events:[{from:null,to:null,state:"reference-only",holder:"Clan du Crabe",location:null,corruption:"protection contre la corruption",label:"Katana ancestral Crabe ; conservation fine non datée dans le corpus local"}]},
+ {key:"l5r_crab_yama",name:"Yama",continuity:"aeg_original",events:[{from:null,to:null,state:"reference-only",holder:"Clan du Crabe",location:null,corruption:"non documentée",label:"Wakizashi ancestral Crabe ; détenteur individuel et localisation à documenter"}]},
+ {key:"l5r_crab_ketsuen",name:"Ketsuen",continuity:"aeg_original",events:[{from:null,to:null,state:"reference-only",holder:"Clan du Crabe",location:null,corruption:"état particulier à vérifier",label:"Armure du Guerrier de l’Ombre ; chronologie fine laissée ouverte"}]},
+ {key:"crab_kuni_visten_staff",name:"Bâton de pèlerin de Kuni Visten",continuity:"aeg_original",events:[{from:null,to:null,state:"reference-only",holder:"Tradition Kuni / porteur lié au kami",location:null,corruption:"protège de la Souillure",label:"Le pouvoir dépend du lien du kami au bâton ; succession des porteurs non datée"}]},
+ {key:"crab_thunderstrike",name:"Coup de Tonnerre",continuity:"aeg_original",events:[{from:null,to:null,state:"lost",holder:"perdu",location:"Outremonde",corruption:"non documentée",label:"Le corpus l'indique perdu dans l’Outremonde ; date de la perte à documenter"}]},
+ {key:"dragon_mirumoto_daisho",name:"Daisho de la famille Mirumoto",continuity:"aeg_original",events:[{from:null,to:null,state:"reference-only",holder:"Famille Mirumoto / Clan du Dragon",location:null,corruption:"non documentée",label:"Daisho ancestral Mirumoto ; porteur individuel selon période à documenter"}]},
+ {key:"crane_sasageru_1e",name:"Sasageru — Armure ancestrale de la Grue",continuity:"aeg_original",events:[{from:null,to:null,state:"reference-only",holder:"Champion de la Grue ou son général",location:null,corruption:"non documentée",label:"Transmission institutionnelle documentée ; identité du porteur à une année donnée reste à sourcer"}]},
+ {key:"crane_kakita_biwa",name:"Biwa de Kakita",continuity:"aeg_original",events:[{from:null,to:null,state:"reference-only",holder:"Maîtres musiciens Kakita",location:null,corruption:"non documentée",label:"Confié aux maîtres musiciens Kakita pour les cérémonies importantes ; pas de détenteur annuel imposé"}]},
+ {key:"crane_iron_crane_banner",name:"Étendard de la Grue de Fer",continuity:"aeg_original",events:[{from:null,to:null,state:"reference-only",holder:"Daidoji / Clan de la Grue",location:null,corruption:"non documentée",label:"Origine Asahina, garde Daidoji ; chronologie de campagne à préciser par source"}]},
+ {key:"lion_shori",name:"Shori — Katana ancestral du Clan du Lion",continuity:"aeg_original",events:[{from:null,to:null,state:"reference-only",holder:"Champion du Clan du Lion / tradition Akodo",location:null,corruption:"non documentée",label:"Katana ancestral d’Akodo ; porteur précis selon année à documenter"}]},
+ {key:"lion_akodo_daggers",name:"Dagues de la famille Akodo",continuity:"aeg_original",events:[{from:null,to:null,state:"dispersed",holder:"Lignées Akodo / détenteurs dispersés",location:null,corruption:"non documentée",label:"Cinq tanto dispersés ; aucune réunion artificielle n'est supposée"}]},
+ {key:"lion_heaven_bell_detail",name:"Cloche des Cieux — fiche détaillée",continuity:"aeg_original",events:[{from:null,to:null,state:"reference-only",holder:"Clan du Lion",location:"près de Shiro Matsu",corruption:"non documentée",label:"Offerte par la Grue au Lion et installée près de Shiro Matsu ; date du don non forcée"}]},
+ {key:"phoenix_ofushikai",name:"Ofushikai — Épée ancestrale du Phénix",continuity:"aeg_original",events:[{from:null,to:null,state:"reference-only",holder:"Champion du Clan du Phénix",location:null,corruption:"non documentée",label:"Réservée au Champion du Phénix ; l'identité du Champion reste déterminée séparément par la chronologie des fonctions"}]},
+ {key:"scorpion_itsuwari",name:"Itsuwari — Épée ancestrale du Scorpion",continuity:"aeg_original",events:[{from:null,to:1123,state:"reference-only",holder:"Clan du Scorpion / Bayushi",location:null,corruption:"non documentée",label:"Trésor Bayushi avant la dissolution du Clan"},{from:1124,to:1127,state:"custody-uncertain",holder:"Scorpion en exil / détenteur à documenter",location:null,corruption:"non documentée",label:"Le Clan est dissous : ne pas supposer une garde institutionnelle normale"},{from:1128,to:null,state:"reference-only",holder:"Clan du Scorpion restauré / Bayushi",location:null,corruption:"non documentée",label:"Garde institutionnelle de nouveau possible après restauration ; porteur précis à documenter"}]},
+ {key:"scorpion_yogo_chrysanthemums",name:"Chrysanthèmes de Yogo Nagori",continuity:"aeg_original",events:[{from:null,to:null,state:"distributed",holder:"Variable ; un plant confié aux Asahina",location:null,corruption:"détection de la Souillure",label:"Origine Yogo conservée malgré la présence d'un exemplaire chez les Asahina"}]},
+ {key:"unicorn_iuchi_ramatsu_bonsai",name:"Bonsaï de Iuchi Ramatsu",continuity:"aeg_original",events:[{from:null,to:null,state:"reference-only",holder:"Clan de la Licorne / Iuchi",location:null,corruption:"non documentée",label:"Trésor Iuchi ; détenteur et lieu précis non datés"}]},
+ {key:"imperial_banner",name:"Bannière impériale",continuity:"aeg_original",events:[{from:null,to:null,state:"reference-only",holder:"Autorité impériale / Miya selon contexte",location:null,corruption:"non documentée",label:"Objet impérial : ne pas le rattacher artificiellement à un Grand Clan"}]},
+ {key:"ronin_sun_tao_armor_1e",name:"Armure de Sun Tao",continuity:"aeg_original",events:[{from:null,to:null,state:"reference-only",holder:"Dragon / Grande Étude ; auparavant Moineau",location:"Grande Étude / Shiro Mirumoto selon période documentée",corruption:"non documentée",label:"Origine ronin distincte de la conservation ultérieure ; dates de transfert à documenter"}]}
+];
+// V0.20.08 — Registre temporel des lieux L5R.
+// La structure accepte destruction, reconstruction, occupation, changement de nom et changement de contrôle.
+// Quand le corpus local ne fournit pas de borne datée fiable, le lieu reste consultable en reference-only.
+const L5R_HISTORICAL_LOCATIONS = [
+ {key:"otosan_uchi",name:"Otosan Uchi",continuity:"aeg_original",events:[{from:null,to:null,state:"reference-only",nameAtDate:"Otosan Uchi",controller:"Autorité impériale",occupation:null,label:"Capitale impériale attestée dans le corpus cartographique ; changements historiques fins à documenter avant filtrage."}]},
+ {key:"shiro_kitsuki",name:"Shiro Kitsuki",continuity:"aeg_original",events:[{from:null,to:null,state:"reference-only",nameAtDate:"Shiro Kitsuki",controller:"Clan du Dragon / famille Kitsuki",occupation:null,label:"Lieu Dragon attesté ; aucune destruction, occupation ou reconstruction datée n'est imposée sans source locale suffisante."}]},
+ {key:"shiro_mirumoto",name:"Shiro Mirumoto",continuity:"aeg_original",events:[{from:null,to:null,state:"reference-only",nameAtDate:"Shiro Mirumoto",controller:"Clan du Dragon / famille Mirumoto",occupation:null,label:"Château Mirumoto documenté par le corpus 1e et le plan officiel ; chronologie événementielle fine à compléter."}]},
+ {key:"kyuden_togashi",name:"Kyuden Togashi / Château des Togashi",continuity:"aeg_original",events:[{from:null,to:null,state:"reference-only",nameAtDate:"Château des Togashi / Kyuden Togashi",controller:"Clan du Dragon / Togashi",occupation:null,label:"Existence documentée ; géographie volontairement incertaine dans la source 1e, donc aucune implantation précise n'est figée."}]},
+ {key:"shiro_matsu",name:"Shiro Matsu",continuity:"aeg_original",events:[{from:null,to:null,state:"reference-only",nameAtDate:"Shiro Matsu",controller:"Clan du Lion / famille Matsu",occupation:null,label:"Lieu attesté notamment par la conservation de la Cloche des Cieux à proximité ; chronologie militaire fine à documenter."}]},
+ {key:"shiro_shiba",name:"Shiro Shiba",continuity:"aeg_original",events:[{from:null,to:null,state:"reference-only",nameAtDate:"Shiro Shiba",controller:"Clan du Phénix / famille Shiba",occupation:null,label:"Lieu de conservation attesté dans le corpus adapté pour l'Étendard ancestral du Phénix ; dates de changements éventuels non forcées."}]},
+ {key:"ryoko_owari",name:"Ryoko Owari",continuity:"aeg_original",events:[{from:null,to:null,state:"reference-only",nameAtDate:"Ryoko Owari",controller:"à documenter selon la période",occupation:null,label:"Grande cité attestée dans le référentiel des agglomérations ; contrôle politique annuel non déduit sans source chronologique."}]}
+];
+function l5rLocationHistoricalState(key,year,continuity="aeg_original"){
+ const e=L5R_HISTORICAL_LOCATIONS.find(x=>x.key===key&&x.continuity===continuity);
+ if(!e) return {known:false,available:true,state:"unknown",events:[]};
+ const y=Number(year);
+ const events=(e.events||[]).filter(x=>(x.from==null||y>=x.from)&&(x.to==null||y<=x.to));
+ if(!events.length) return {known:true,available:false,state:"outside_interval",events:[],record:e,label:"Lieu hors de son intervalle documenté"};
+ const current=events[0];
+ const available=!["destroyed","not_founded","inaccessible"].includes(current.state);
+ return {known:true,available,state:current.state||"reference-only",events,current,nameAtDate:current.nameAtDate||e.name,controller:current.controller||null,occupation:current.occupation||null,label:current.label||"",record:e};
+}
+function l5rLocationTimelineKey(location){
+ if(!location) return null;
+ if(location.timelineKey||location.historicalKey) return location.timelineKey||location.historicalKey;
+ const n=String(location.name||"").trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");
+ const aliases={
+  "otosan uchi":"otosan_uchi","shiro kitsuki":"shiro_kitsuki","shiro mirumoto":"shiro_mirumoto",
+  "kyuden togashi":"kyuden_togashi","chateau des togashi":"kyuden_togashi","château des togashi":"kyuden_togashi",
+  "shiro matsu":"shiro_matsu","shiro shiba":"shiro_shiba","ryoko owari":"ryoko_owari"
+ };
+ return aliases[n]||null;
+}
+function l5rCampaignLocationState(location,campaign=state.campaign){
+ const ctx=l5rCampaignHistoricalContext(campaign);
+ if(!ctx.enabled) return {known:false,available:true,state:"no-date"};
+ const key=l5rLocationTimelineKey(location);
+ return key?l5rLocationHistoricalState(key,ctx.year,ctx.continuity):{known:false,available:true,state:"unknown"};
+}
+function l5rItemHistoricalState(key,year,continuity="aeg_original"){
+ const e=L5R_HISTORICAL_ITEMS.find(x=>x.key===key&&x.continuity===continuity);
+ if(!e) return {known:false,available:true,state:"unknown",events:[]};
+ const y=Number(year);
+ const events=(e.events||[]).filter(x=>(x.from==null||y>=x.from)&&(x.to==null||y<=x.to));
+ if(!events.length) return {known:true,available:true,state:"undated",events:[],record:e};
+ const current=events[0];
+ return {known:true,available:true,state:current.state||"reference-only",events,current,holder:current.holder||null,location:current.location||null,corruption:current.corruption||null,label:current.label||"",record:e};
+}
+function l5rInstitutionState(key,year,continuity="aeg_original"){
+ const e=L5R_HISTORICAL_INSTITUTIONS.find(x=>x.key===key&&x.continuity===continuity);
+ if(!e) return {known:false,available:true,state:"unknown",label:"Non daté"};
+ const y=Number(year);
+ const st=(e.states||[]).find(x=>(x.from==null||y>=x.from)&&(x.to==null||y<=x.to));
+ if(!st) return {known:true,available:false,state:"outside_interval",label:"Indisponible à cette date",record:e};
+ const available=!["dissolved","destroyed","not_founded"].includes(st.state);
+ return {known:true,available,state:st.state,label:st.label,record:e};
+}
+function l5rEntityHistoricalState(entity,year,continuity="aeg_original"){
+ if(!entity) return {known:false,available:true,state:"unknown"};
+ const key=entity.timelineKey||entity.historicalKey;
+ if(key){
+   const npc=l5rNpcHistoricalRecord(key);
+   if(npc) return l5rNpcState(key,year,continuity);
+   const inst=l5rInstitutionState(key,year,continuity);
+   if(inst.known) return inst;
+ }
+ const from=entity.availableFromYear, to=entity.availableToYear;
+ if(from!=null||to!=null){
+   const y=Number(year), available=(from==null||y>=from)&&(to==null||y<=to);
+   return {known:true,available,state:available?"active":"outside_interval"};
+ }
+ return {known:false,available:true,state:"unknown"};
+}
+function l5rFilterEntitiesForCampaign(list,campaign){
+ const ctx=l5rCampaignHistoricalContext(campaign);
+ if(!ctx.enabled) return Array.isArray(list)?list:[];
+ return (Array.isArray(list)?list:[]).filter(e=>l5rEntityHistoricalState(e,ctx.year,ctx.continuity).available);
+}
+
+function l5rNpcHistoricalRecord(nameOrKey){
+ const q=String(nameOrKey||"").trim().toLowerCase();
+ return L5R_HISTORICAL_NPCS.find(n=>n.key.toLowerCase()===q||n.name.toLowerCase()===q||(n.aliases||[]).some(a=>a.toLowerCase()===q))||null;
+}
+
+function l5rNpcState(nameOrKey,year,continuity="aeg_original"){
+ const n=l5rNpcHistoricalRecord(nameOrKey);
+ if(!n||n.continuity!==continuity) return {known:false,available:true,state:"unknown",roles:[]};
+ const y=Number(year);
+ const from=n.activeFrom ?? n.born ?? null;
+ const to=n.activeTo ?? n.died ?? null;
+ const available=(from==null||y>=from)&&(to==null||y<=to);
+ const roles=(n.roles||[]).filter(r=>(r.from==null||y>=r.from)&&(r.to==null||y<=r.to)).map(r=>r.label);
+ let state="active";
+ if(!available) state=(to!=null&&y>to)?(n.endState||"inactive"):"not_yet_available";
+ return {known:true,available,state,roles,record:n};
+}
+
+function l5rNpcCandidates(list,year,continuity="aeg_original"){
+ return (Array.isArray(list)?list:[]).filter(p=>{
+   const n=l5rNpcHistoricalRecord(p?.timelineKey||p?.name||p?.nom);
+   return !n||l5rNpcState(n.key,year,continuity).available;
+ });
+}
+
+function l5rCampaignHistoricalContext(campaign){
+ const c=campaign||{};
+ const rawYear=c.l5rYear ?? c.year ?? c.annee ?? c.calendarYear ?? c?.date?.year ?? null;
+ const year=(rawYear==null||rawYear==="")?null:Number(rawYear);
+ return {
+   enabled:Number.isFinite(year),
+   year:Number.isFinite(year)?year:null,
+   continuity:c.l5rContinuity||c.timelineContinuity||"aeg_original"
+ };
+}
+function l5rFilterNpcListForCampaign(list,campaign){
+ const ctx=l5rCampaignHistoricalContext(campaign);
+ return ctx.enabled?l5rNpcCandidates(list,ctx.year,ctx.continuity):(Array.isArray(list)?list:[]);
+}
+function l5rAnnotateNpcForCampaign(person,campaign){
+ const ctx=l5rCampaignHistoricalContext(campaign);
+ if(!ctx.enabled) return {...person,historicalAvailability:"unknown",historicalRoles:[]};
+ const st=l5rNpcState(person?.timelineKey||person?.name||person?.nom,ctx.year,ctx.continuity);
+ return {...person,historicalAvailability:st.known?(st.available?"available":st.state):"untracked",historicalRoles:st.roles||[]};
+}
+
+
+function l5rApplyTimelineFormData(campaign,formOrData){
+ const c={...(campaign||{})};
+ const get=(n)=>{
+   if(formOrData instanceof FormData) return formOrData.get(n);
+   if(formOrData?.querySelector) return formOrData.querySelector(`[name="${n}"]`)?.value;
+   return formOrData?.[n];
+ };
+ const yr=get("l5rYear"), co=get("l5rContinuity");
+ if(yr!==undefined&&yr!==null&&yr!=="") c.l5rYear=Number(yr); else delete c.l5rYear;
+ if(co) c.l5rContinuity=co;
+ return c;
+}
+function l5rPeriodAtYear(year,continuity="aeg_original"){
+ const y=Number(year);
+ if(!Number.isFinite(y)) return null;
+ return L5R_TIMELINE_PERIODS.find(p=>p.continuity===continuity&&(p.from==null||y>=p.from)&&(p.to==null||y<=p.to))||null;
+}
+function l5rHistoricalLabel(person,campaign){
+ const ctx=l5rCampaignHistoricalContext(campaign);
+ if(!ctx.enabled) return {kind:"neutral",label:"Période non définie",detail:"Aucun filtrage historique appliqué."};
+ const st=l5rNpcState(person?.timelineKey||person?.name||person?.nom,ctx.year,ctx.continuity);
+ if(!st.known) return {kind:"neutral",label:`Non daté — ${ctx.year}`,detail:"Ce PNJ n'est pas encore raccordé au référentiel historique."};
+ if(!st.available){
+   const end=st.record?.activeTo??st.record?.died;
+   const txt=st.state==="dead"?(end?`Mort en ${end}`:"Mort avant cette période"):st.state==="ascended"?(end?`Ascension/disparition en ${end}`:"Indisponible à cette période"):"Indisponible à cette période";
+   return {kind:"unavailable",label:txt,detail:`Non proposé comme PNJ actif en ${ctx.year}. La fiche historique reste consultable.`};
+ }
+ return {kind:"available",label:`Disponible en ${ctx.year}`,detail:(st.roles||[]).join(" · ")||"Présent à cette période ; fonction précise non datée."};
+}
+function l5rTimelineCampaignFieldsHtml(campaign={}){
+ const ctx=l5rCampaignHistoricalContext(campaign);
+ const y=ctx.year??"";
+ const cont=ctx.continuity||"aeg_original";
+ const opts=L5R_TIMELINE_CONTINUITIES.map(c=>`<option value="${c.id}" ${c.id===cont?"selected":""}>${c.label}</option>`).join("");
+ const period=ctx.enabled?l5rPeriodAtYear(ctx.year,cont):null;
+ return `<fieldset class="l5r-timeline-fields"><legend>Repères historiques L5R</legend>
+   <div class="l5r-timeline-grid">
+    <label>Année Rokugan<input type="number" name="l5rYear" min="1" step="1" value="${y}" placeholder="ex. 1123"></label>
+    <label>Continuité<select name="l5rContinuity">${opts}</select></label>
+   </div>
+   <div class="l5r-period-preview" data-l5r-period-preview>${period?`${period.label} (${ctx.year})`:"Année non définie : aucun filtrage historique."}</div>
+   ${ctx.enabled?`<div class="l5r-institution-summary">${["scorpion_clan","akodo_family","mantis_clan","agasha_family_dragon","agasha_family_phoenix"].map(k=>{const x=l5rInstitutionState(k,ctx.year,cont);return x.known?`<span class="l5r-history-badge">${x.record.name} : ${x.label}</span>`:"";}).join(" ")}</div>`:""}
+   <small>La date contrôle la disponibilité des PNJ et, progressivement, des titres, familles, écoles, factions, lieux et objets. Une fiche historique n'est jamais supprimée.</small>
+  </fieldset>`;
+}
+function l5rBindTimelineFields(container){
+ if(!container) return;
+ const year=container.querySelector('[name="l5rYear"]'), cont=container.querySelector('[name="l5rContinuity"]'), out=container.querySelector("[data-l5r-period-preview]");
+ const refresh=()=>{if(!out)return;const y=Number(year?.value),c=cont?.value||"aeg_original",p=Number.isFinite(y)&&year?.value!==""?l5rPeriodAtYear(y,c):null;out.textContent=p?`${p.label} (${y})`:(year?.value?"Période non répertoriée pour cette continuité.":"Année non définie : aucun filtrage historique.");};
+ year?.addEventListener("input",refresh);cont?.addEventListener("change",refresh);refresh();
+}
+
+function l5rHistoricalState(key,year,continuity="aeg_original"){
+  const e=L5R_HISTORICAL_AVAILABILITY.find(x=>x.key===key && x.continuity===continuity);
+  if(!e) return {known:false,available:true,state:"unknown"};
+  const i=e.intervals.find(x=>(x.from==null||year>=x.from)&&(x.to==null||year<=x.to));
+  return i?{known:true,available:!["dissolved","dead","not_founded","destroyed","missing"].includes(i.state),state:i.state}:{known:true,available:false,state:"outside_interval"};
+}
+function l5rIsHistoricallyAvailable(entity,year,continuity="aeg_original"){
+  if(!entity||year==null) return true;
+  if(entity.timelineKey) return l5rHistoricalState(entity.timelineKey,Number(year),continuity).available;
+  const from=entity.availableFromYear, to=entity.availableToYear;
+  return (from==null||Number(year)>=from)&&(to==null||Number(year)<=to);
+}
+function l5rHistoricalCandidates(list,year,continuity="aeg_original"){
+  return (Array.isArray(list)?list:[]).filter(e=>l5rIsHistoricallyAvailable(e,year,continuity));
+}
+
+const L5R_ITEM_CATEGORY_GROUPS=["Tous","Nemuranai","Objet magique","Artefact","Élixir magique","Matériau surnaturel","Arme","Armure","Équipement","Outil","Consommable","Référentiel"];
+
+
+L5R1_ITEM_CORPUS.push(
+{id:"miya_fukimki",name:"Fukimki",category:"Équipement",subtype:"Bannière",clan:"Impérial",family:"Miya / familles riches",originClan:"Impérial",custodianClan:"Variable",sourceEdition:"1e",status:"canon-1e",source:"Référentiel maître L5R 1e v5.0 — §33.7",rules:"Coût d’accès à la création : 3 PP via Héritage. Grande banderole cylindrique renforcée, fixée à une selle ou aux murs d’un château ; plus originale qu’un nobori et réservée aux familles riches."},
+{id:"miya_gihei",name:"Gihei",category:"Équipement",subtype:"Étendard cérémoniel",clan:"Impérial",family:"Shugenja / moines",originClan:"Impérial / religieux",custodianClan:"Variable",sourceEdition:"1e",status:"canon-1e",source:"Référentiel maître L5R 1e v5.0 — §33.7",rules:"Coût d’accès : 1 PP via Héritage. Baguette ou long bâton cérémoniel décoré de soie et papier mâché, béni pour porter chance. Réservé aux shugenja et moines ; remplit les mêmes fonctions que bannières et étendards."},
+{id:"miya_horo",name:"Horo des shisha",category:"Équipement",subtype:"Cape de protection",clan:"Impérial",family:"Miya / shisha",originClan:"Impérial / Miya",custodianClan:"Miya",sourceEdition:"1e",status:"canon-1e",source:"Référentiel maître L5R 1e v5.0 — §33.7",rules:"Réservé aux shisha. À pied : +5 au ND de tous les jets de compétences physiques en marchant ; aucun malus à cheval. Pour un shisha : +10 au ND pour être touché par des projectiles tirés dans le dos ; penché sur sa monture, la protection peut couvrir tous les côtés. Port interdit par l’Empereur aux non-shisha."},
+{id:"miya_juma_jirushi",name:"J’uma jirushi",category:"Équipement",subtype:"Grand étendard",clan:"Impérial",family:"Daimyō / armées",originClan:"Rokugan",custodianClan:"Variable",sourceEdition:"1e",status:"canon-1e",source:"Référentiel maître L5R 1e v5.0 — §33.7",rules:"Inestimable. Immense grand étendard réservé aux puissants daimyō. Son porteur se déplace très lentement et ne peut pas combattre. Le général ajoute +3 à Eau + Art de la guerre et reçoit 4 augmentations gratuites pour donner des ordres avec Art de la guerre. Les exemplaires antiques sont souvent des némuranai."},
+{id:"banner_general_rule",name:"Bannières et étendards — règle générale",category:"Référentiel",subtype:"Règle de bataille",clan:"Tous",family:"—",originClan:"Rokugan",custodianClan:"Variable",sourceEdition:"1e",status:"canon-1e",source:"Référentiel maître L5R 1e v5.0 — §33.7",rules:"Une armée dotée de sashimono, étendards et bannières peut permettre au général de déclarer l’engagement face à une force qui en est dépourvue. Un porteur de bannière reçoit une augmentation gratuite aux jets de bataille destinés à transmettre ordres ou messages à une autre partie de l’armée. Un mon personnel doit être enregistré par la famille Miya."}
+);
+
+const L5R_CLAN_LABELS=["Tous","Crabe","Grue","Dragon","Lion","Phénix","Scorpion","Licorne","Impérial","Mante","Renard","Blaireau","Mille-Pattes","Autre Clan Mineur","Rōnin","Outremonde","Maho / Sang","Gaijin","Naga","Nezumi","Autre / variable"];
+
+const L5R1_ITEM_QUALITY=[["Mauvaise","× 1/2","-1 point ou davantage selon le défaut"],["Moyenne","Prix normal","Aucun"],["Bonne","× 5","1 point"],["Excellente","× 10","2 à 3 points"],["Luxueuse","× 20","4 à 6 points"],["Légendaire","Inestimable","7 points ou plus"]];
+function renderL5rItemLibrary(){
+ const host=$("#placeholderView");if(!host)return;
+ const all=L5R1_ITEM_CORPUS;
+ const ctx=l5rCampaignHistoricalContext(state.campaign);
+ const card=x=>{const hs=ctx.enabled?l5rItemHistoricalState(x.id,ctx.year,ctx.continuity):{known:false}; const current=hs.current; const audit=l5rItemAdaptationAuditV02026(x); const evidence=typeof l5rItemEvidenceV02030==="function"?l5rItemEvidenceV02030(x):null; return `<article class="entity-card l5r-item-card" data-clan="${esc(x.clan||"Tous")}" data-category="${esc(x.category||"")}" data-edition="${esc(x.sourceEdition||"")}"><div class="card-kicker">${esc(x.category)} · ${esc(x.subtype)}</div><h3>${esc(x.name)}</h3><p>${x.price?`<b>Prix :</b> ${esc(x.price)} `:""}${x.damage&&x.damage!=="—"?`· <b>Dégâts :</b> ${esc(x.damage)}`:""}</p><p>${esc(x.rules)}</p><p><span class="sheet-chip">${esc(x.status==="canon-1e"?"Canon 1e":x.status==="adapted-1e"?"Adapté vers 1e":"1e")}</span>${x.clan?` <span class="sheet-chip">Clan : ${esc(x.clan)}</span>`:""}${x.family&&x.family!=="—"?` <span class="sheet-chip">Famille : ${esc(x.family)}</span>`:""}${hs.known?` <span class="sheet-chip">Historique ${ctx.year} : ${esc(hs.state)}</span>`:""}</p>${x.originClan?`<p class="muted"><b>Origine :</b> ${esc(x.originClan)} · <b>Conservation/appartenance :</b> ${esc(x.custodianClan||x.clan||"—")} · <b>Source :</b> ${esc(x.sourceEdition||"1e")}</p>`:""}${current?`<p class="muted"><b>À la date de campagne :</b> détenteur/gardien : ${esc(current.holder||"non documenté")}${current.location?` · lieu : ${esc(current.location)}`:""}${current.corruption?` · corruption : ${esc(current.corruption)}`:""}. ${esc(current.label||"")}</p>`:""}${audit.adapted?`<p class="adaptation-audit"><span class="sheet-chip">Source : ${esc(audit.sourceStatus)}</span> <span class="sheet-chip">Mécanique : ${esc(audit.mechanicsStatus)}</span></p>${evidence?`<p class="adaptation-audit"><span class="sheet-chip">Existence : ${esc(evidence.existence)}</span> <span class="sheet-chip">Pouvoir source : ${esc(evidence.power)}</span> <span class="sheet-chip">Conversion : ${esc(evidence.conversion)}</span></p>`:""}<p class="muted"><b>Attention :</b> ${esc(audit.warning)}</p>${x.verifiedSourceEffect?`<p class="muted"><b>Effet source vérifié :</b> ${esc(x.verifiedSourceEffect)}</p>`:""}${x.conversionBasis?`<p class="muted"><b>Base de conversion :</b> ${esc(x.conversionBasis)}</p>`:""}`:""}<small>Source : ${esc(x.source)}</small></article>`;};
+ host.innerHTML=`<div class="empty-state"><div class="workspace-head"><div><div class="card-kicker">L5R / L5A 1e</div><h1>Objets, trésors et Nemuranai</h1><p>Corpus global du JDR. L’origine d’un objet et le clan qui le conserve sont distingués afin d’éviter les fausses attributions.${ctx.enabled?` Contexte actif : année ${esc(ctx.year)}, continuité ${esc(ctx.continuity)}.`:""}</p></div></div>
+ <section class="rules-corpus"><div class="entity-card"><div class="filter-row"><label><b>Filtrer par clan</b><select id="l5rItemClanFilter">${L5R_CLAN_LABELS.map(x=>`<option value="${esc(x)}">${esc(x)}</option>`).join("")}</select></label><label><b>Type d’objet</b><select id="l5rItemCategoryFilter">${L5R_ITEM_CATEGORY_GROUPS.map(x=>`<option value="${esc(x)}">${esc(x)}</option>`).join("")}</select></label><label><b>Édition source</b><select id="l5rItemEditionFilter">${L5R_ITEM_EDITION_GROUPS.map(x=>`<option value="${esc(x)}">${esc(x)}</option>`).join("")}</select></label></div><p class="muted">« Clan » = rattachement principal dans le catalogue. « Origine » précise le créateur ou la tradition lorsque celle-ci diffère.</p></div>
+ <h2>Catalogue intégré</h2><div id="l5rItemGrid" class="workspace-list">${all.map(card).join("")}</div>
+ <h2>Qualité des objets</h2><div class="entity-card"><table class="data-table"><thead><tr><th>Qualité</th><th>Prix</th><th>Points de modificateur</th></tr></thead><tbody>${L5R1_ITEM_QUALITY.map(x=>`<tr><td>${x[0]}</td><td>${x[1]}</td><td>${x[2]}</td></tr>`).join("")}</tbody></table><p class="muted">La qualité ne transforme pas automatiquement un objet en nemuranai.</p></div>
+ <h2>${L5R_ADAPTATION_POLICY.label}</h2><div class="entity-card"><p>Les éditions ultérieures servent de réservoir d’idées, jamais de remplacement du canon 1e.</p><ul>${L5R_ADAPTATION_POLICY.principles.map(x=>`<li>${esc(x)}</li>`).join("")}</ul></div><h2>Audit Nemuranai — sept Grands Clans</h2><div class="entity-card"><table class="compact-table"><thead><tr><th>Clan</th><th>État</th><th>Contrôle</th></tr></thead><tbody>${L5R_GREAT_CLAN_NEMURANAI_AUDIT.map(x=>`<tr><td>${esc(x.clan)}</td><td>${esc(x.status)}</td><td>${esc(x.note)}</td></tr>`).join("")}</tbody></table></div><h2>${L5R_MINOR_CLAN_POLICY.label}</h2><div class="entity-card"><ul>${L5R_MINOR_CLAN_POLICY.principles.map(x=>`<li>${esc(x)}</li>`).join("")}</ul></div><h2>${L5R_DARK_ITEM_POLICY.label}</h2><div class="entity-card"><ul>${L5R_DARK_ITEM_POLICY.principles.map(x=>`<li>${esc(x)}</li>`).join("")}</ul></div></section></div>`;
+ const f=$("#l5rItemClanFilter"),c=$("#l5rItemCategoryFilter"),e=$("#l5rItemEditionFilter"); const apply=()=>{const v=f?.value||"Tous",k=c?.value||"Tous",ed=e?.value||"Toutes";$$(".l5r-item-card").forEach(el=>{const okClan=v==="Tous"||el.dataset.clan===v;const okCat=k==="Tous"||el.dataset.category===k;const okEd=ed==="Toutes"||el.dataset.edition===ed;el.style.display=(okClan&&okCat&&okEd)?"":"none";});}; if(f)f.addEventListener("change",apply);if(c)c.addEventListener("change",apply);if(e)e.addEventListener("change",apply);
+}
+
+const L5R1_CLAN_CORPORA = {
+ grue:{
+  name:"Clan de la Grue", source:"La Voie de la Grue — L5R 1re édition (FR)", status:"Passe livre complet — indexation structurée",
+  coverage:["L’honorable Clan de la Grue","Familles du Clan de la Grue","Création de personnages","Personnalités","Archétypes","Terres du Clan de la Grue","Mizu-do","Grimoires Asahina","Scénario : Le masque de la vengeance","Idées d’aventure"],
+  families:["Doji — cour, politique et culture","Kakita — duels, arts et artisanat","Asahina — tradition shugenja pacifiste et grimoires","Daidoji — branche militaire de la Grue","Yasuki — présence historique traitée dans l’histoire de la Grue"],
+  schools:["École des courtisans Doji","École des gardes du corps Daidoji","Académie des artisans Kakita","Tradition des duellistes Kakita","École de shugenja Asahina"],
+  rules:["Création de personnages spécifique Grue","Compétences et avantages/désavantages propres au supplément","Tables d’héritage","Mizu-do : art martial de la Grue","Grimoires de la famille Asahina","Fétiches et Nemuranai associés au clan"],
+  npcs:["Doji Satsume","Doji Hoturi","Doji Kuwanan","Doji Ameiko","Doji Shizue","Kakita Yoshi","Kakita Toshimoko","Asahina Tamako","Daidoji Uji"],
+  gm:["Territoires, côtes, cours et domaines de la Grue","Culture de cour, esthétique, duel et réputation","Scénario Le masque de la vengeance","Idées d’aventure réutilisables"]
+ },
+ dragon:{
+  name:"Clan du Dragon", source:"La Voie du Dragon — L5R 1re édition (FR)", status:"Passe livre complet — indexation structurée",
+  coverage:["Le Dragon énigmatique","Familles du Clan du Dragon","Personnages","Personnalités","Archétypes","Dragons de Rokugan","Kaze-do","Grimoire des Agasha","Recueil","Jouer un Ise Zumi"],
+  families:["Mirumoto — tradition bushi et niten","Togashi — ordre monastique et Ise Zumi","Agasha — shugenja et recherche élémentaire","Kitsuki — magistrats et enquêteurs"],
+  schools:["École bushi Mirumoto","Tradition shugenja Agasha","École/méthode Kitsuki","Voie des Ise Zumi Togashi"],
+  rules:["Création de personnages Dragon","Techniques et profils de familles","Kaze-do : art martial","Grimoire des Agasha","Règles et options pour jouer un Ise Zumi","Tatouages et capacités propres aux Ise Zumi","Dragons de Rokugan"],
+  npcs:["Personnalités du clan présentées avec fiches et historique dans le chapitre IV","Archétypes Dragon prêts à l’emploi dans le chapitre V"],
+  gm:["Mysticisme, isolement et recherche de l’illumination","Conflit entre perception, preuve et vérité au sein des traditions Dragon","Recueil d’éléments de campagne et ressources Dragon"]
+ },
+ lion:{
+  name:"Clan du Lion", source:"The Way of the Lion — L5R 1st edition (EN)", status:"Passe livre complet — indexation structurée",
+  coverage:["Heart of the Lion","The Noble Lion","Families of the Lion","Character","Who’s Who","Character Templates","The Art of War","The Wars of the Lion","The Lands of the Lion","The Spiritual World","Map of Shiro Akodo"],
+  families:["Akodo — commandement, stratégie et école militaire","Matsu — tradition guerrière agressive","Ikoma — histoire, mémoire et bardes","Kitsu — lignée spirituelle et ancêtres"],
+  schools:["Akodo War College","Ikoma Bard School","Kitsu Sodan-Senzo / tradition des ancêtres","Matsu Bushi School"],
+  rules:["Compétences, avantages et désavantages Lion","Écoles et techniques de clan","Tables d’héritage et Fortunes du Lion","Archétypes/Character Templates","Art de la guerre et doctrine militaire","Règles liées aux ancêtres et au monde spirituel"],
+  npcs:["Akodo Kage","Akodo","Akodo Toturi","Akodo Shinju","Ikoma Ryozo","Ikoma","Ikoma Tsanuri","Kitsu","Ikoma Ujiaki","Kitsu Motso","Kitsu Toju","Matsu Hitomi","Matsu Agetoki","Matsu Hiroru","Matsu Hokitare","Matsu Tsuko","Akodo Godaigo","Matsu Seijuro"],
+  gm:["Guerres du Lion et doctrine stratégique","Terres du Lion","Monde spirituel et ancêtres","Carte de Shiro Akodo"]
+ },
+ phenix:{
+  name:"Clan du Phénix", source:"La Voie du Phénix — L5R 1re édition (FR)", status:"Passe livre complet — indexation structurée",
+  coverage:["Le mystique Clan du Phénix","Familles du Clan du Phénix","Création de personnages","Personnalités","Archétypes","Les oracles","Terres du Clan du Phénix","Recherche en matière de sortilèges","Tao de Shinsei","Sorts de Walking the Way","Scénario : La nouvelle voie","Carte de Shiro Shiba"],
+  families:["Isawa — cœur shugenja et maîtrise élémentaire","Shiba — protection des shugenja et tradition bushi","Asako — érudition et traditions secrètes"],
+  schools:["École des Tensai de la famille Isawa","Écoles de shugenja Isawa et spécialisations élémentaires","École bushi Shiba","Traditions Asako","Ishi / adeptes du Vide et voies spécialisées présentées dans la création"],
+  rules:["Art de la magie (compétence)","Haute médecine / acupuncture","Affinités et déficiences élémentaires","Écoles spécialisées et apprentissage du Vide","Recherche de nouveaux sortilèges","Oracles","Tao de Shinsei"],
+  spells:["Terre : Appel des animaux, Énergie neutralisante, Essence de la Terre, Étreinte de Kenro-Ji-Jin, Main fatale du temps, Murmures de la Terre, Orage de roche, Poing de la Terre, Prison de bois, Protection contre les oni, Rempart de la Terre, Voie de la Terre","Eau : Bénédiction de Inari, Derrière le voile du sommeil, Don de Suikinjin, Échange d’énergie, Étreinte de Suitengu, Maître de la rivière furieuse, Malédiction du chacal, Mur de bambou, Ouvrir les flots, Roue de la fortune, Souffle de la brume, Vengeance karmique","Feu : Bénédiction de Osano-Wo, Courroux de feu, Courroux de Osano-Wo, Essence du Feu, Furie de l’élément, Lumière de Amaterasu, Pureté de Shinsei, Rempart de Feu, Les yeux du phénix","Air : Appel de l’oiseau, Champion de l’au-delà, Don du vent, Entrevoir l’ombre de l’âme, Marcher entre les étoiles, Miroir réfléchissant, Mugissement de Isora, Regarder dans l’âme, Rempart d’Air, Sagesse du vent, Souffle de Osano-Wo, Suivre la voie, Vol de la flèche","Vide : Contempler le Vide, Deviner le futur, Essence du Vide, Présence spirituelle, Profondeur du Vide, Vents du changement"],
+  npcs:["Isawa Kaede","Isawa Akuma","Isawa Uona","Naka Kaeteru","Isawa Tadaka","Isawa Ijime","Isawa Tomo","Isawa Takao","Shiba Toriiko","Shiba Tetsu","Shiba Kaigen","Shiba Tsukune","Asako","Shiba Ujimitsu","Asako Ingen","Asako Togama","Asako Hanasaku","Asako Oyo","Kitsu Taiko"],
+  gm:["Terres du Phénix et Shiro Shiba","Oracles et cosmologie","Recherche magique","Scénario La nouvelle voie"]
+ },
+ scorpion:{
+  name:"Clan du Scorpion", source:"La Voie du Scorpion — L5R 1re édition (FR)", status:"Passe livre complet — indexation structurée",
+  coverage:["Le subtil Scorpion","Histoire du Clan du Scorpion","Création de personnages","Personnalités","Archétypes","La voie de la trahison","Ninjutsu","Nemuranai, magie et poisons","Recueil","Scénario : L’enfant des ténèbres"],
+  families:["Bayushi — pouvoir politique, courtisans et bushi","Shosuro — acteurs, infiltration et traditions secrètes","Soshi — shugenja et magie subtile","Yogo — lignée marquée par sa malédiction"],
+  schools:["Écoles de combat Bayushi","École de courtisans Bayushi","École Shosuro Butei / acteurs","Traditions Soshi","Traditions Yogo"],
+  rules:["Création de personnages Scorpion","Compétences d’espionnage, imitation et manipulation","Avantages/désavantages propres au clan","Tables d’héritage","Voie de la trahison","Ninjutsu","Nemuranai","Magie Scorpion","Poisons"],
+  npcs:["Bayushi Aramoro","Bayushi Kachiko","Bayushi Shoju","Autres personnalités Bayushi, Shosuro, Soshi et Yogo du chapitre IV"],
+  gm:["Espionnage, secrets, loyauté et trahison","Réseaux de cour et infiltration","Recueil d’éléments Scorpion","Scénario L’enfant des ténèbres"]
+ },
+ licorne:{
+  name:"Clan de la Licorne", source:"La Voie de la Licorne — L5R 1re édition (FR)", status:"Passe livre complet — indexation structurée",
+  coverage:["L’héritier de Dame Otaku","Les enfants de Shinjo","Histoire du Clan de la Licorne","Personnages","Personnalités","Archétypes","Stratégie et tactique","Les trésors du Clan de la Licorne","Recueil","La voie des magistrats","Scénario : Le dernier voyage"],
+  families:["Shinjo — famille fondatrice et tradition cavalière","Otaku — tradition militaire et cavalerie d’élite","Ide — diplomatie et commerce","Iuchi — shugenja et magie du clan","Moto — héritage guerrier et traditions particulières"],
+  schools:["Écoles et voies de cavalerie de la Licorne","Tradition Otaku","École bushi Shinjo","Tradition shugenja Iuchi","Voies sociales Ide","Options Moto"],
+  rules:["Création de personnages Licorne","Règles et techniques liées à l’équitation et à la cavalerie","Stratégie et tactique","Trésors du Clan de la Licorne","Recueil de règles et matériel","Voie des magistrats"],
+  npcs:["Shinjo Yokatsu","Shinjo Yasamura","Shinjo Martera","Shinjo","Morito","Moto Chai","Moto Soro","Shinjo Hanari","Otaku Kamoko","Otaku","Otaku Shiko","Otaku Kojiro","Ide","Ide Tadaji","Iuchi","Iuchi Atesoro","Iuchi Karasu","Iuchi Daiyu","Moto Sanjo","Horiuchi Shoan"],
+  gm:["Histoire des voyages et retour à Rokugan","Doctrine de mobilité et cavalerie","Trésors et objets du clan","Scénario Le dernier voyage"]
+ }
+};
+
+/* === V0.20.40 — PNJ des livres de clan de nouveau consultables === */
+const L5R_BOOK_NPC_INDEX_V02032=[
+ {name:"Akodo Kage",clan:"Lion",book:"The Way of the Lion — L5R 1st edition",section:"Who’s Who, ch.4",historicalKey:"akodo_kage"},
+ {name:"Akodo",clan:"Lion",book:"The Way of the Lion — L5R 1st edition",section:"Who’s Who, ch.4",profile:"Ancêtre — profil du supplément."},
+ {name:"Akodo Toturi",clan:"Lion",book:"The Way of the Lion — L5R 1st edition",section:"Who’s Who, ch.4",historicalKey:"toturi"},
+ {name:"Akodo Shinju",clan:"Lion",book:"The Way of the Lion — L5R 1st edition",section:"Who’s Who, ch.4",profile:"Ancêtre — profil du supplément."},
+ {name:"Ikoma Ryozo",clan:"Lion",book:"The Way of the Lion — L5R 1st edition",section:"Who’s Who, ch.4"},
+ {name:"Ikoma",clan:"Lion",book:"The Way of the Lion — L5R 1st edition",section:"Who’s Who, ch.4",profile:"Ancêtre — profil du supplément."},
+ {name:"Ikoma Tsanuri",clan:"Lion",book:"The Way of the Lion — L5R 1st edition",section:"Who’s Who, ch.4"},
+ {name:"Kitsu",clan:"Lion",book:"The Way of the Lion — L5R 1st edition",section:"Who’s Who, ch.4",profile:"Ancêtre — profil du supplément."},
+ {name:"Ikoma Ujiaki",clan:"Lion",book:"The Way of the Lion — L5R 1st edition",section:"Who’s Who, ch.4"},
+ {name:"Kitsu Motso",clan:"Lion",book:"The Way of the Lion — L5R 1st edition",section:"Who’s Who, ch.4"},
+ {name:"Kitsu Toju",clan:"Lion",book:"The Way of the Lion — L5R 1st edition",section:"Who’s Who, ch.4"},
+ {name:"Matsu Hitomi",clan:"Lion",book:"The Way of the Lion — L5R 1st edition",section:"Who’s Who, ch.4",profile:"Ancêtre — profil du supplément."},
+ {name:"Matsu Agetoki",clan:"Lion",book:"The Way of the Lion — L5R 1st edition",section:"Who’s Who, ch.4"},
+ {name:"Matsu Hiroru",clan:"Lion",book:"The Way of the Lion — L5R 1st edition",section:"Who’s Who, ch.4"},
+ {name:"Matsu Hokitare",clan:"Lion",book:"The Way of the Lion — L5R 1st edition",section:"Who’s Who, ch.4"},
+ {name:"Matsu Tsuko",clan:"Lion",book:"The Way of the Lion — L5R 1st edition",section:"Who’s Who, ch.4",historicalKey:"matsu_tsuko"},
+ {name:"Akodo Godaigo",clan:"Lion",book:"The Way of the Lion — L5R 1st edition",section:"Who’s Who, ch.4",profile:"Ancêtre — profil du supplément."},
+ {name:"Matsu Seijuro",clan:"Lion",book:"The Way of the Lion — L5R 1st edition",section:"Who’s Who, ch.4"},
+ {name:"Isawa Kaede",clan:"Phénix",book:"La Voie du Phénix — L5R 1re édition",section:"Who’s Who, ch.4",historicalKey:"isawa_kaede"},
+ {name:"Isawa Akuma",clan:"Phénix",book:"La Voie du Phénix — L5R 1re édition",section:"Who’s Who, ch.4",profile:"Ancêtre — profil du supplément."},
+ {name:"Isawa Uona",clan:"Phénix",book:"La Voie du Phénix — L5R 1re édition",section:"Who’s Who, ch.4"},
+ {name:"Naka Kaeteru",clan:"Phénix",book:"La Voie du Phénix — L5R 1re édition",section:"Who’s Who, ch.4",profile:"Ancêtre — profil du supplément."},
+ {name:"Isawa Tadaka",clan:"Phénix",book:"La Voie du Phénix — L5R 1re édition",section:"Who’s Who, ch.4",historicalKey:"isawa_tadaka"},
+ {name:"Isawa Ijime",clan:"Phénix",book:"La Voie du Phénix — L5R 1re édition",section:"Who’s Who, ch.4",profile:"Ancêtre — profil du supplément."},
+ {name:"Isawa Tomo",clan:"Phénix",book:"La Voie du Phénix — L5R 1re édition",section:"Who’s Who, ch.4"},
+ {name:"Isawa Takao",clan:"Phénix",book:"La Voie du Phénix — L5R 1re édition",section:"Who’s Who, ch.4",profile:"Ancêtre — profil du supplément."},
+ {name:"Shiba Toriiko",clan:"Phénix",book:"La Voie du Phénix — L5R 1re édition",section:"Who’s Who, ch.4",profile:"Ancêtre — profil du supplément."},
+ {name:"Shiba Tetsu",clan:"Phénix",book:"La Voie du Phénix — L5R 1re édition",section:"Who’s Who, ch.4"},
+ {name:"Shiba Kaigen",clan:"Phénix",book:"La Voie du Phénix — L5R 1re édition",section:"Who’s Who, ch.4",profile:"Ancêtre — profil du supplément."},
+ {name:"Shiba Tsukune",clan:"Phénix",book:"La Voie du Phénix — L5R 1re édition",section:"Who’s Who, ch.4",historicalKey:"shiba_tsukune"},
+ {name:"Asako",clan:"Phénix",book:"La Voie du Phénix — L5R 1re édition",section:"Who’s Who, ch.4",profile:"Ancêtre — profil du supplément."},
+ {name:"Shiba Ujimitsu",clan:"Phénix",book:"La Voie du Phénix — L5R 1re édition",section:"Who’s Who, ch.4"},
+ {name:"Asako Ingen",clan:"Phénix",book:"La Voie du Phénix — L5R 1re édition",section:"Who’s Who, ch.4",profile:"Ancêtre — profil du supplément."},
+ {name:"Asako Togama",clan:"Phénix",book:"La Voie du Phénix — L5R 1re édition",section:"Who’s Who, ch.4"},
+ {name:"Asako Hanasaku",clan:"Phénix",book:"La Voie du Phénix — L5R 1re édition",section:"Who’s Who, ch.4",profile:"Ancêtre — profil du supplément."},
+ {name:"Asako Oyo",clan:"Phénix",book:"La Voie du Phénix — L5R 1re édition",section:"Who’s Who, ch.4"},
+ {name:"Kitsu Taiko",clan:"Phénix",book:"La Voie du Phénix — L5R 1re édition",section:"Who’s Who, ch.4",profile:"Ancêtre — profil du supplément."},
+ {name:"Shinjo Yokatsu",clan:"Licorne",book:"La Voie de la Licorne — L5R 1re édition",section:"Who’s Who, ch.4"},
+ {name:"Shinjo Yasamura",clan:"Licorne",book:"La Voie de la Licorne — L5R 1re édition",section:"Who’s Who, ch.4"},
+ {name:"Shinjo Martera",clan:"Licorne",book:"La Voie de la Licorne — L5R 1re édition",section:"Who’s Who, ch.4",profile:"Ancêtre — profil du supplément."},
+ {name:"Shinjo",clan:"Licorne",book:"La Voie de la Licorne — L5R 1re édition",section:"Who’s Who, ch.4",profile:"Ancêtre — profil du supplément."},
+ {name:"Morito",clan:"Licorne",book:"La Voie de la Licorne — L5R 1re édition",section:"Who’s Who, ch.4"},
+ {name:"Moto Chai",clan:"Licorne",book:"La Voie de la Licorne — L5R 1re édition",section:"Who’s Who, ch.4",profile:"Ancêtre — profil du supplément."},
+ {name:"Moto Soro",clan:"Licorne",book:"La Voie de la Licorne — L5R 1re édition",section:"Who’s Who, ch.4",profile:"Ancêtre — profil du supplément."},
+ {name:"Shinjo Hanari",clan:"Licorne",book:"La Voie de la Licorne — L5R 1re édition",section:"Who’s Who, ch.4"},
+ {name:"Otaku Kamoko",clan:"Licorne",book:"La Voie de la Licorne — L5R 1re édition",section:"Who’s Who, ch.4",historicalKey:"utaku_kamoko"},
+ {name:"Otaku",clan:"Licorne",book:"La Voie de la Licorne — L5R 1re édition",section:"Who’s Who, ch.4",profile:"Ancêtre — profil du supplément."},
+ {name:"Otaku Shiko",clan:"Licorne",book:"La Voie de la Licorne — L5R 1re édition",section:"Who’s Who, ch.4",profile:"Ancêtre — profil du supplément."},
+ {name:"Otaku Kojiro",clan:"Licorne",book:"La Voie de la Licorne — L5R 1re édition",section:"Who’s Who, ch.4"},
+ {name:"Ide",clan:"Licorne",book:"La Voie de la Licorne — L5R 1re édition",section:"Who’s Who, ch.4",profile:"Ancêtre — profil du supplément."},
+ {name:"Ide Tadaji",clan:"Licorne",book:"La Voie de la Licorne — L5R 1re édition",section:"Who’s Who, ch.4"},
+ {name:"Iuchi",clan:"Licorne",book:"La Voie de la Licorne — L5R 1re édition",section:"Who’s Who, ch.4",profile:"Ancêtre — profil du supplément."},
+ {name:"Iuchi Atesoro",clan:"Licorne",book:"La Voie de la Licorne — L5R 1re édition",section:"Who’s Who, ch.4",profile:"Ancêtre — profil du supplément."},
+ {name:"Iuchi Karasu",clan:"Licorne",book:"La Voie de la Licorne — L5R 1re édition",section:"Who’s Who, ch.4"},
+ {name:"Iuchi Daiyu",clan:"Licorne",book:"La Voie de la Licorne — L5R 1re édition",section:"Who’s Who, ch.4"},
+ {name:"Moto Sanjo",clan:"Licorne",book:"La Voie de la Licorne — L5R 1re édition",section:"Who’s Who, ch.4",profile:"Ancêtre — profil du supplément."},
+ {name:"Horiuchi Shoan",clan:"Licorne",book:"La Voie de la Licorne — L5R 1re édition",section:"Who’s Who, ch.4"},
+
+ {name:"Doji Satsume",clan:"Grue",book:"La Voie de la Grue — L5R 1re édition",section:"Personnalités",profile:"Profil présent dans le supplément ; valeurs détaillées à relier depuis la source."},
+ {name:"Doji Hoturi",clan:"Grue",book:"La Voie de la Grue — L5R 1re édition",section:"Personnalités",historicalKey:"doji_hoturi"},
+ {name:"Doji Kuwanan",clan:"Grue",book:"La Voie de la Grue — L5R 1re édition",section:"Personnalités"},
+ {name:"Doji Ameiko",clan:"Grue",book:"La Voie de la Grue — L5R 1re édition",section:"Personnalités"},
+ {name:"Doji Shizue",clan:"Grue",book:"La Voie de la Grue — L5R 1re édition",section:"Personnalités"},
+ {name:"Kakita Yoshi",clan:"Grue",book:"La Voie de la Grue — L5R 1re édition",section:"Personnalités"},
+ {name:"Kakita Toshimoko",clan:"Grue",book:"La Voie de la Grue — L5R 1re édition",section:"Personnalités"},
+ {name:"Asahina Tamako",clan:"Grue",book:"La Voie de la Grue — L5R 1re édition",section:"Personnalités"},
+ {name:"Daidoji Uji",clan:"Grue",book:"La Voie de la Grue — L5R 1re édition",section:"Personnalités",historicalKey:"daidoji_uji"},
+ {name:"Bayushi Aramoro",clan:"Scorpion",book:"La Voie du Scorpion — L5R 1re édition",section:"Personnalités",historicalKey:"bayushi_aramoro"},
+ {name:"Bayushi Kachiko",clan:"Scorpion",book:"La Voie du Scorpion — L5R 1re édition",section:"Personnalités",historicalKey:"bayushi_kachiko"},
+ {name:"Bayushi Shoju",clan:"Scorpion",book:"La Voie du Scorpion — L5R 1re édition",section:"Personnalités",historicalKey:"bayushi_shoju"}
+];
+
+/* === V0.20.40 — Profils mécaniques PNJ 1e vérifiés === */
+const L5R_BOOK_NPC_PROFILES_V02034={
+ "Doji Satsume":{source:"The Way of the Crane, p.76",school:"Kakita Iaijutsu",rank:5,honor:5,glory:9.5,rings:{Air:5,Earth:5,Fire:8,Water:3,Void:5},traits:{Reflexes:5,Stamina:5,Agility:8,Strength:3,Awareness:5,Willpower:5,Intelligence:8,Perception:3},advantages:["Allies (Hantei XXXVIII)","Cadence","Clear Thinker","Social Position (Crane Clan Champion)","Social Position (Emerald Champion)","Inheritance (Shukujo)"],disadvantages:["Driven (strengthen Crane political power)","Lost Love (Doji Teinko)"],skills:{"Archery":2,"Battle":4,"Courtier":5,"Defense":5,"Etiquette":5,"Heraldry":5,"Horsemanship":2,"Hunting":5,"Iaijutsu":5,"Kenjutsu":4,"Meditation":5,"Painting":3,"Shintao":4,"Sincerity":4,"Tessen":2}},
+ "Kakita Toshimoko":{source:"The Way of the Crane, p.87",school:"Kakita Iaijutsu",rank:5,honor:3.6,glory:7.0,rings:{Air:4,Earth:4,Fire:7,Water:4,Void:8},traits:{Reflexes:6,Stamina:4,Agility:7,Strength:4,Awareness:4,Willpower:4,Intelligence:7,Perception:4},advantages:["Ancestor (Kakita)","Strength of the Earth (2)","True Friend (Doji Hoturi)","Quick","Kakita Blade (Kandaisa)","Cadence"],disadvantages:["Sworn Enemy (Fox Clan)","Bad Reputation (Hedonist)"],skills:{"Acrobatics":3,"Archery":2,"Athletics":4,"Courtier":4,"Etiquette":5,"Heraldry":3,"Iaijutsu":6,"Kenjutsu":4,"Lore: Bushido":5,"Meditation":5,"Naginata":4,"Oratory":1,"Shintao":5,"Sincerity":2,"Tea Ceremony":2}},
+ "Matsu Tsuko":{source:"The Way of the Lion, pp.76-77",school:"Matsu Bushi",rank:5,honor:4.3,glory:8.5,rings:{Air:3,Earth:4,Fire:4,Water:3,Void:3},traits:{Reflexes:6,Stamina:4,Agility:6,Strength:5,Awareness:3,Willpower:4,Intelligence:4,Perception:3},advantages:["Death Trance","Strength of the Earth","Great Destiny","Natural Leader"],disadvantages:["Brash","Driven (Reveal Akodo Toturi as a coward)","Lost Love (Akodo Arasou)"],skills:{"Archery":3,"Athletics":3,"Battle":5,"Hand to Hand":5,"Heraldry":3,"History":3,"Iaijutsu":2,"Intimidation":5,"Kenjutsu":5,"Knife":2,"Lore: Bushido":4,"Shintao":1,"Sincerity":1,"Wrestling":2}},
+ "Isawa Tadaka":{source:"The Way of the Phoenix, p.75",school:"Isawa Tensai (Earth)",rank:5,honor:4.5,glory:7.7,taint:0.2,rings:{Air:4,Earth:7,Fire:5,Water:4,Void:4},traits:{Reflexes:6,Stamina:7,Agility:5,Strength:5,Awareness:4,Willpower:7,Intelligence:5,Perception:4},advantages:["Ancestor (Isawa Akuma)","Social Position (Master of Earth)"],disadvantages:["Fascination (Akuma no Oni)","Driven (free ancestor's soul)","Powerful Enemy (Isawa Rujo)"],skills:{"Calligraphy":3,"Defense":4,"Etiquette":1,"History":5,"Kenjutsu":4,"Maho-Tsukai Lore":2,"Lore: Shadowlands":5,"Maho-tsukai":1,"Meditation":3,"Shintao":4,"Siege":3,"Theology":2},spells:["All Earth spells"]},
+ "Otaku Kamoko":{source:"The Way of the Unicorn, pp.67-68",school:"Otaku Battle Maiden",rank:4,honor:3.7,glory:8.4,rings:{Air:3,Earth:3,Fire:2,Water:3,Void:4},traits:{Reflexes:4,Stamina:4,Agility:4,Strength:3,Awareness:3,Willpower:3,Intelligence:2,Perception:3},advantages:["Ancestor (Otaku)","Great Destiny (One of the Seven Thunders)","Quick","Social Position (Family Daimyo/Leader of Battle Maidens)"],disadvantages:["Bad Reputation (Reckless)","Brash","Lost Love (Mother/Sensei)"],skills:{"Animal Husbandry (Horses)":5,"Battle":3,"Defense":4,"Etiquette":1,"History (Unicorn Clan)":4,"Horse Archery":4,"Horsemanship":5,"Hunting":4,"Kenjutsu":5,"Lance":3,"Lore (Horse Family)":4,"Poetry":3,"Singing":5,"War Fan":3}}
+
+,
+ "Akodo Toturi":{source:"The Way of the Lion, p.64",school:"Akodo Bushi",rank:4,honor:3.1,glory:9,rings:{Air:4,Earth:4,Fire:3,Water:4,Void:5},traits:{Reflexes:4,Stamina:4,Agility:3,Strength:4,Awareness:5,Willpower:4,Intelligence:7,Perception:5},advantages:["Allies (many)","Ear of the Emperor","Great Destiny","Sensei (Suana, Akodo Kage)","Tactician","Natural Leader"],disadvantages:["Obligation (Akodo Kage)","True Love (Hatsuko)"],skills:{"Athletics":2,"Battle":5,"Courtier":5,"Defense":3,"Etiquette":4,"Hand to Hand":4,"Heraldry":3,"History":5,"Iaijutsu":2,"Kenjutsu":4,"Law":3,"Lore (many)":4,"Meditation":4,"Oratory":4,"Rhetoric":3,"Shintao":5,"Theology":3}},
+ "Ikoma Tsanuri":{source:"The Way of the Lion, p.67",school:"Akodo Bushi",rank:1,honor:2.8,glory:4.9,rings:{Air:2,Earth:3,Fire:2,Water:3,Void:3},traits:{Reflexes:3,Stamina:3,Agility:2,Strength:3,Awareness:2,Willpower:3,Intelligence:3,Perception:3},advantages:["Combat Reflexes","Death Trance","Luck","Proud","Sensei (Akodo Toturi)","Natural Leader"],disadvantages:["Brash","Obligation (to become Daimyo)"],skills:{"Athletics":2,"Battle":3,"Courtier":1,"Defense":2,"Hand to Hand":1,"History":2,"Iaijutsu":1,"Kenjutsu":3,"Sincerity":2}},
+ "Kitsu Motso":{source:"The Way of the Lion, p.70",school:"Matsu Bushi",rank:4,honor:2.3,glory:6,rings:{Air:2,Earth:2,Fire:3,Water:2,Void:2},traits:{Reflexes:4,Stamina:4,Agility:3,Strength:4,Awareness:2,Willpower:2,Intelligence:3,Perception:2},advantages:["Balance","Heart of Vengeance (Kitsu family)","Kaiu Sword","Tactician"],disadvantages:["Forsaken","Vanity"],skills:{"Archery":2,"Athletics":2,"Battle":5,"Defense":1,"Hand to Hand":2,"Iaijutsu":3,"Intimidation":2,"Kenjutsu":5}},
+ "Shiba Tsukune":{source:"The Way of the Phoenix, p.84",school:"Akodo Bushi 2 / Shiba Bushi",rank:3,honor:4.2,glory:6.0,rings:{Air:3,Earth:5,Fire:2,Water:3,Void:5},traits:{Reflexes:3,Stamina:5,Agility:2,Strength:3,Awareness:3,Willpower:5,Intelligence:4,Perception:3},advantages:["Inner Gift (Empathic)","Multiple Schools (Akodo Bushi / Shiba Bushi)","True Love (Isawa Tadaka)"],disadvantages:["Lost Love (Shiba Norihatsu)"],skills:{"Calligraphy":1,"Archery":2,"Cipher":1,"Defense":4,"Kenjutsu":2,"Lore: Shugenja":4,"Meditation":2,"Naginata":4,"Shintao":3,"Tea Ceremony":2}},
+ "Ide Tadaji":{source:"The Way of the Unicorn, p.70",school:"Ide Emissary",rank:4,honor:2,glory:5,rings:{Air:2,Earth:2,Fire:4,Water:3,Void:4},traits:{Reflexes:2,Stamina:2,Agility:4,Strength:3,Awareness:2,Willpower:3,Intelligence:4,Perception:3},advantages:["Allies (Shosuro Taberu, Iuchi Daiyu)","Clear Thinker","Social Position (Ambassador to the Imperial Court)","Voice"],disadvantages:["Bad Fortune (Born under a bad sign)","Lame"],skills:{"Commerce":3,"Courtier":4,"Etiquette":4,"History: Rokugan":2,"History: Unicorn Clan":2,"Knife":2,"Law":4,"Lore: Dragon Clan":2,"Lore: Political":4,"Lore: Shugenja":2,"Oratory/Rhetoric":3,"Shintao":3,"Theology":2}}
+
+,
+ "Doji Hoturi":{source:"The Way of the Crane, p.78",school:"Kakita Iaijutsu",rank:5,honor:4.1,glory:7.6,rings:{Air:4,Earth:4,Fire:4,Water:3,Void:4},traits:{Reflexes:4,Stamina:4,Agility:4,Strength:3,Awareness:4,Willpower:4,Intelligence:4,Perception:3},advantages:["Great Destiny (Seven Thunders)","Benten's Blessing","Luck","Kharmic Tie (Bayushi Kachiko)","Cadence","True Friend (Kakita Toshimoko)","Ally (Akodo Toturi)"],disadvantages:["Dark Secret (Bayushi Dairu)","Compulsion (Love of Women, TN 15)"],skills:{"Archery":3,"Battle":2,"Courtier":5,"Defense":3,"Etiquette":5,"Heraldry":3,"History (Rokugan)":3,"Iaijutsu":4,"Kenjutsu":2,"Lore: Lion Clan":2,"Meditation":2,"Poetry":5,"Political Maneuvering":3,"Shintao":3,"Sincerity":5,"Tea Ceremony":4}},
+ "Doji Kuwanan":{source:"The Way of the Crane, p.80",school:"Akodo Bushi 1 / Daidoji Bushi 2 / Hida Bushi 1",rank:4,honor:3.6,glory:7.2,rings:{Air:3,Earth:3,Fire:2,Water:4,Void:3},traits:{Reflexes:4,Stamina:3,Agility:2,Strength:4,Awareness:3,Willpower:3,Intelligence:2,Perception:4},advantages:["Clear Thinker","Sensei (Akodo Toturi)","Different School (Akodo Bushi)","Multiple Schools (Daidoji Bushi, Hida Bushi)","Kakita Blade (Omeka)"],disadvantages:["Driven (avenge Shiba Nosuriko)","Sworn Enemy (Matsu Hiroru)","Lost Love (Shiba Nosuriko)"],skills:{"Archery":2,"Athletics":3,"Battle":3,"Courtier":1,"Defense":5,"Etiquette":3,"Horsemanship":1,"Iaijutsu":2,"Kenjutsu":4,"Oratory":1,"Shintao":2,"Sincerity":2,"Tetsubo":3,"Weaponsmith":2}},
+ "Kakita Yoshi":{source:"The Way of the Crane, p.85",school:"Doji Courtier",rank:5,honor:4.7,glory:9.1,rings:{Air:6,Earth:3,Fire:3,Water:4,Void:5},traits:{Reflexes:6,Stamina:3,Agility:3,Strength:4,Awareness:6,Willpower:3,Intelligence:3,Perception:6},advantages:["Social Position (Imperial Advisor)","Major Allies (many clans)","Voice","Benten's Blessing","Cadence"],disadvantages:["Curse (Kyuden Kakita — never touch steel)","Small"],skills:{"Bard":3,"Commerce":4,"Courtier":5,"Etiquette":5,"Heraldry":4,"Investigation":4,"Law":4,"Lore: Political History":5,"Manipulation":5,"Oratory":5,"Political Maneuvering":5,"Shintao":4,"Sincerity":5,"Tea Ceremony":4}},
+ "Asahina Tamako":{source:"The Way of the Crane, pp.88-89",school:"Asahina Shugenja",rank:5,honor:3,glory:7,rings:{Air:6,Earth:2,Fire:3,Water:4,Void:4},traits:{Reflexes:6,Stamina:2,Agility:3,Strength:4,Awareness:6,Willpower:2,Intelligence:3,Perception:4},advantages:["Inner Gift (Precognition)"],disadvantages:["Bad Health","Low Pain Threshold"],skills:{"Astrology":5,"Calligraphy":2,"History":4,"Maho-Tsukai Lore":4,"Lore: Shugenja":4,"Meditation":4,"Shintao":5,"Tsangusuri":5},spells:["Sensation","Communion","Invocation","Protection bienveillante de Shinsei","Glyphe de protection élémentaire","Récits de Shorihotsu","Toucher de Benten","Connaître l'esprit","Toucher de la nature","Vents murmurants","Bénédiction de la pureté","Pluie torrentielle","Bassin réfléchissant","Reflets de Pan Ku","Bourrasque","Éveiller l'esprit"]},
+ "Daidoji Uji":{source:"The Way of the Crane, p.90",school:"Daidoji Bodyguard",rank:4,honor:2.5,glory:6.5,rings:{Air:4,Earth:4,Fire:2,Water:3,Void:3},traits:{Reflexes:4,Stamina:4,Agility:2,Strength:5,Awareness:4,Willpower:4,Intelligence:2,Perception:3},advantages:["Way of the Land","Quick Healer"],disadvantages:["Fascination (Gaijin)"],skills:{"Archery":3,"Appraisal":3,"Battle":4,"Commerce":4,"Defense":5,"Etiquette":2,"Hunting":2,"Iaijutsu":3,"Kenjutsu":5,"Lore: Gaijin Culture":2,"Lore: Gaijin Warfare":3,"Sai-bore Technique":2}},
+ "Bayushi Aramoro":{source:"The Way of the Scorpion, p.52",school:"Shosuro Assassin",rank:5,honor:1.8,glory:7.8,rings:{Air:5,Earth:3,Fire:4,Water:3,Void:4},traits:{Reflexes:5,Stamina:3,Agility:4,Strength:3,Awareness:5,Willpower:3,Intelligence:4,Perception:4},advantages:["Kharmic Tie (Bayushi Kachiko)","Greater Destiny","Shadow brand"],disadvantages:["Dark Secret (in love with brother's wife)","Yogo Curse"],skills:{"Athletics":4,"Defense":4,"Explosives":5,"Kenjutsu":5,"Locksmith":4,"Ninjutsu":4,"Poison":4,"Sleight of Hand":4,"Stealth":5}},
+ "Bayushi Kachiko":{source:"The Way of the Scorpion, p.53",school:"Bayushi Courtier",rank:5,honor:1.2,glory:8.7,rings:{Air:4,Earth:2,Fire:3,Water:2,Void:3},traits:{Reflexes:4,Stamina:2,Agility:3,Strength:2,Awareness:7,Willpower:4,Intelligence:4,Perception:4},advantages:["Blackmail","Benten's Blessing","Clear Thinker","Dangerous Beauty","Great Destiny (Seven Thunders)","Kharmic Tie (Doji Hoturi)","Luck"],disadvantages:["Dark Secret","True Love (Doji Hoturi)","Vanity"],skills:{"Acting":5,"Courtier":5,"Etiquette":5,"Knife":3,"Poison":4,"Seduction":5,"Shintao":3,"Sincerity":5,"Sleight of Hand":3,"Stealth":4,"Tea Ceremony":4}},
+ "Bayushi Shoju":{source:"The Way of the Scorpion, p.56",school:"Bayushi Bushi",rank:5,honor:2.5,glory:9.5,rings:{Air:5,Earth:3,Fire:3,Water:2,Void:6},traits:{Reflexes:5,Stamina:3,Agility:3,Strength:2,Awareness:6,Willpower:5,Intelligence:5,Perception:5},advantages:["Blackmail","Clear Thinker","Great Destiny"],disadvantages:["Benten's Curse","Nemesis (Doji Hoturi)","Lame (Left arm)","Soft-Hearted","True Love (Bayushi Kachiko)","Unluck","Weakness (Strength)"],skills:{"Acting":4,"Archery":3,"Battle":2,"Courtier":3,"Defense":5,"History":4,"Iaijutsu":5,"Kenjutsu":5,"Law":5,"Poison":5,"Sincerity":5,"Shintao":4,"Stealth":5}},
+ "Isawa Tomo":{source:"The Way of the Phoenix, p.76",school:"Isawa Tensai (Water)",rank:5,honor:2.1,glory:4.1,rings:{Air:3,Earth:4,Fire:3,Water:6,Void:5},traits:{Reflexes:5,Stamina:4,Agility:3,Strength:6,Awareness:3,Willpower:4,Intelligence:3,Perception:6},advantages:["Crafty","Luck (2)","Social Position (Master of Water)"],disadvantages:["Obligation (owes life to Yogo Shidachi)"],skills:{"Calligraphy":5,"Craft: Sailing":2,"Cipher":3,"Dance":3,"Defense":2,"History":3,"Lore: Scorpion Clan":2,"Mizu-do":1,"Poison":4,"Meditation":4,"Shintao":5,"Theology":2},spells:["All Water spells"]},
+ "Shiba Ujimitsu":{source:"The Way of the Phoenix, p.86",school:"Shiba Bushi",rank:5,honor:4.9,glory:8.3,rings:{Air:6,Earth:5,Fire:4,Water:5,Void:5},traits:{Reflexes:6,Stamina:5,Agility:4,Strength:3,Awareness:6,Willpower:5,Intelligence:4,Perception:5},advantages:["Ally (Doji Satsume)","Ancestor (all Shiba ancestors)","Irreproachable","Soul of the Kami"],disadvantages:["Dark Secret (wife and daughter's deaths)","Small"],skills:{"Calligraphy":3,"Archery":5,"Defense":4,"Etiquette":4,"Horse Archery":2,"Kenjutsu":5,"Manipulation":2,"Meditation":4,"Naginata":4,"Shintao":4,"Tea Ceremony":3}}
+};
+
+const L5R_BOOK_NPC_VERSION_NOTES_V02037={
+ "Doji Shizue":"Profil Storyteller de The Way of the Crane p.84 ; le profil Clan War/Time of the Void reste distinct.",
+ "Matsu Agetoki":"Profil Lion Warden de The Way of the Lion p.72 ; le profil postérieur Chased by Kamoko reste distinct.",
+ "Ikoma Ujiaki":"Profil Lion Diplomat de The Way of the Lion pp.68-69 ; le profil Hantei Loyalist de Time of the Void reste distinct.",
+ "Shinjo Hanari":"Profil de The Way of the Unicorn p.66 ; les valeurs Clan War ne sont pas utilisées.",
+
+ "Doji Kuwanan":"La fiche affichée est celle de The Way of the Crane p.80. Des profils ultérieurs existent (Time of the Void, Hidden Emperor, Imperial Histories) et ne sont pas fusionnés.",
+ "Doji Hoturi":"La fiche affichée est celle de The Way of the Crane p.78. Les versions Clan War/Thunder ultérieures restent distinctes.",
+ "Bayushi Kachiko":"La fiche affichée est celle de The Way of the Scorpion p.53. Les versions Empress/Clan Champion ultérieures restent distinctes.",
+ "Bayushi Aramoro":"La fiche affichée est celle de The Way of the Scorpion p.52. Les versions Ronin/Hidden Emperor restent distinctes.",
+ "Bayushi Shoju":"La fiche affichée est celle de The Way of the Scorpion p.56. Les versions Usurper/Undead restent distinctes.",
+ "Daidoji Uji":"La fiche affichée est celle de The Way of the Crane p.90. Les versions Hidden Emperor/Jade Crane restent distinctes.",
+ "Shiba Ujimitsu":"La fiche affichée est celle de The Way of the Phoenix p.86. Les versions Clan War/Imperial Histories restent distinctes."
+
+,
+ "Doji Shizue":{source:"The Way of the Crane, p.84",school:"Kakita Artisan",rank:3,honor:2.5,glory:3.0,rings:{Air:3,Earth:2,Fire:4,Water:2,Void:4},traits:{Reflexes:3,Stamina:2,Agility:4,Strength:2,Awareness:3,Willpower:2,Intelligence:5,Perception:4},advantages:["Precise Memory","Voice","Benten's Blessing","Kharmic Tie (Matsu Hiroru, unknown to her)","Luck (2)"],disadvantages:["Lame (Right Leg)","Soft-Hearted","Small"],skills:{"Calligraphy":3,"Courtier":3,"Etiquette":3,"Investigation":5,"Knife":2,"Lore: Myth and Legend":4,"Manipulation":4,"Meditation":3,"Oratory":3,"Poetry":3,"Political Maneuvering":2,"Shintao":3,"Storytelling":5},special:["Artisan: Storytelling Rank 2","Artisan: Poetry Rank 1"]},
+ "Matsu Agetoki":{source:"The Way of the Lion, p.72",school:"Matsu Bushi",rank:4,honor:2.6,glory:4.5,rings:{Air:4,Earth:5,Fire:3,Water:2,Void:3},traits:{Reflexes:4,Stamina:5,Agility:5,Strength:3,Awareness:4,Willpower:5,Intelligence:3,Perception:2},advantages:["Absolute Direction","Large","Perfect Balance"],disadvantages:["Benten's Curse","Overconfident","Proud"],skills:{"Animal Husbandry":3,"Archery":4,"Athletics":3,"Battle":3,"Etiquette":1,"Hand to Hand":1,"History":1,"Horsemanship":5,"Hunting":2,"Kenjutsu":2,"Lore: Horses":4}},
+ "Ikoma Ujiaki":{source:"The Way of the Lion, pp.68-69",school:"Ikoma Bard",rank:5,honor:1.3,glory:6.4,rings:{Air:4,Earth:4,Fire:3,Water:4,Void:3},traits:{Reflexes:4,Stamina:4,Agility:3,Strength:4,Awareness:6,Willpower:5,Intelligence:6,Perception:4},advantages:["Major Allies (many)","Ancestor (Ikoma)","Ear of the Emperor","Heart of Vengeance (Crane)","Read Lips"],disadvantages:["Bad Reputation (Temper)","Brash","Nemesis (Kakita Yoshi)","Overconfident","Permanent Wound","Vanity"],skills:{"Bard":2,"Bo Stick":3,"Courtier":5,"Defense":2,"Gambling":2,"Heraldry":3,"Intimidation":5,"Investigation":3,"Kenjutsu":2,"Law":4,"Lore: Underworld":4,"Manipulation":5,"Oratory":3,"Rhetoric":3,"Sincerity":4}},
+ "Shinjo Hanari":{source:"The Way of the Unicorn, p.66",school:"Shinjo Bushi",rank:4,honor:2.4,glory:6.9,rings:{Air:3,Earth:4,Fire:3,Water:3,Void:3},traits:{Reflexes:4,Stamina:4,Agility:4,Strength:4,Awareness:3,Willpower:4,Intelligence:3,Perception:3},advantages:["Quick","Way of the Land (Unicorn)","Social Position (Sensei)"],disadvantages:["Sworn Enemy (Hida Tsuru)"],skills:{"Heraldry":3,"History: Rokugan":3,"Horse Archery":4,"Horsemanship":4,"Hunting":4,"Iaijutsu":3,"Kenjutsu":3,"Naginata":2,"Weaponsmith (Bowyer/Fletcher)":4}}
+};
+function l5rBookNpcProfileV02034(name){return L5R_BOOK_NPC_PROFILES_V02034[name]||null;}
+window.L5R_BOOK_NPC_PROFILES_V02034=L5R_BOOK_NPC_PROFILES_V02034;
+
+
+function l5rBookNpcSourceStateV02038(n){
+ const p=l5rBookNpcProfileV02034(n?.name);
+ if(p)return {key:"full",label:"Profil mécanique 1e récupéré"};
+ if(/Ancêtre/i.test(n?.profile||""))return {key:"ancestor",label:"Ancêtre / profil spécial"};
+ return {key:"named",label:"Entrée nominative — bloc mécanique à récupérer"};
+}
+window.l5rBookNpcSourceStateV02038=l5rBookNpcSourceStateV02038;
+function l5rBookNpcFindV02032(name){
+ const exact=L5R_BOOK_NPC_INDEX_V02032.find(x=>x.name===name);
+ if(exact)return exact;
+ const hist=(typeof L5R_HISTORICAL_NPCS!=="undefined"?L5R_HISTORICAL_NPCS:[]).find(x=>x.name===name);
+ return hist?{name:hist.name,clan:hist.clan||"",book:"Registre historique L5R",section:"Personnage historique",historicalKey:hist.key}:null;
+}
+function l5rBookNpcHistoricalV02032(npc){
+ if(!npc?.historicalKey||typeof L5R_HISTORICAL_NPCS==="undefined")return null;
+ return L5R_HISTORICAL_NPCS.find(x=>x.key===npc.historicalKey)||null;
+}
+function l5rBookNpcAvailabilityV02032(npc){
+ const h=l5rBookNpcHistoricalV02032(npc),ctx=typeof getL5rCampaignHistoricalContext==="function"?getL5rCampaignHistoricalContext():{enabled:false};
+ if(!h||!ctx?.enabled)return {label:"Consultable — chronologie non appliquée",warning:false};
+ const y=Number(ctx.year); if(!Number.isFinite(y))return {label:"Consultable — année non définie",warning:false};
+ const before=h.activeFrom!=null&&y<h.activeFrom, after=h.activeTo!=null&&y>h.activeTo;
+ return before||after?{label:`Indisponible en ${y} — fiche historique consultable`,warning:true}:{label:`Disponible en ${y}`,warning:false};
+}
+function l5rBookNpcCardV02032(name){
+ const n=l5rBookNpcFindV02032(name)||{name,book:"Livre de clan L5R 1e",section:"Personnalités"};
+ const h=l5rBookNpcHistoricalV02032(n),a=l5rBookNpcAvailabilityV02032(n),p=l5rBookNpcProfileV02034(name);
+ const roles=h?.roles?.map(r=>r.label).filter(Boolean)||[];
+ const kv=o=>o?Object.entries(o).map(([k,v])=>`<span class="sheet-chip">${esc(k)} ${esc(v)}</span>`).join(" "):"";
+ const skills=p?.skills?Object.entries(p.skills).sort((a,b)=>a[0].localeCompare(b[0])).map(([k,v])=>`<span class="sheet-chip">${esc(k)} ${esc(v)}</span>`).join(" "):"";
+ return `<article class="entity-card"><div class="entity-head"><div><div class="card-kicker">${esc(n.clan||h?.clan||"L5R 1e")} · ${esc(n.section||"Personnalité")}</div><h3 class="entity-title">${esc(n.name)}</h3></div><span class="mini-badge">${p?"FICHE 1e":a.warning?"HISTORIQUE":"PNJ"}</span></div>
+ <p><b>Source :</b> ${esc(p?.source||n.book||"Livre de clan L5R 1e")}</p><p class="${a.warning?"warning-note":"muted"}"><b>Chronologie :</b> ${esc(a.label)}</p>
+ ${roles.length?`<p><b>Fonctions documentées :</b> ${roles.map(esc).join(" · ")}</p>`:""}
+ ${L5R_BOOK_NPC_VERSION_NOTES_V02037[name]?`<p class="system-note"><b>Versions :</b> ${esc(L5R_BOOK_NPC_VERSION_NOTES_V02037[name])}</p>`:""}
+ ${p?`<h4>Profil</h4><p><b>École / Rang :</b> ${esc(p.school)} / ${esc(p.rank)} · <b>Honneur :</b> ${esc(p.honor??"—")} · <b>Gloire :</b> ${esc(p.glory??"—")}${p.status!=null?` · <b>Statut :</b> ${esc(p.status)}`:""}${p.taint!=null?` · <b>Souillure :</b> ${esc(p.taint)}`:""}</p>
+ <h4>Anneaux</h4><p>${kv(p.rings)}</p><h4>Traits</h4><p>${kv(p.traits)}</p>
+ <h4>Compétences</h4><p>${skills}</p>
+ ${p.advantages?.length?`<h4>Avantages</h4><p>${p.advantages.map(x=>`<span class="sheet-chip">${esc(x)}</span>`).join(" ")}</p>`:""}
+ ${p.disadvantages?.length?`<h4>Désavantages</h4><p>${p.disadvantages.map(x=>`<span class="sheet-chip">${esc(x)}</span>`).join(" ")}</p>`:""}
+ ${p.spells?.length?`<h4>Sorts</h4><p>${p.spells.map(x=>`<span class="sheet-chip">${esc(x)}</span>`).join(" ")}</p>`:""}${p.special?.length?`<h4>Spécial</h4><p>${p.special.map(x=>`<span class="sheet-chip">${esc(x)}</span>`).join(" ")}</p>`:""}`
+ :`<p class="muted">${esc(n.profile||"Le PNJ est indexé dans le supplément, mais son bloc mécanique complet n’a pas encore été récupéré. Aucune caractéristique n’est inventée.")}</p>`}
+ <div class="entity-actions"><button class="btn secondary l5r-book-npc-back">Retour au livre</button></div></article>`;
+}
+function l5rBookNpcListHtmlV02032(items){
+ if(!items?.length)return "";
+ return `<article class="entity-card"><h3 class="entity-title">Personnalités / PNJ</h3><div class="workspace-list">${items.map(name=>{
+   const n=l5rBookNpcFindV02032(name);
+   if(!n)return `<div class="system-note">${esc(name)}</div>`;
+   const a=l5rBookNpcAvailabilityV02032(n);
+   return `<button class="btn secondary l5r-book-npc-open" data-npc="${esc(name)}">${esc(name)}${a.warning?" — hors période":""}</button>`;
+ }).join("")}</div><p class="muted">Les PNJ restent consultables même lorsqu’ils sont indisponibles à l’année de campagne. Le filtre chronologique signale l’anachronisme sans masquer la fiche.</p></article>`;
+}
+window.L5R_BOOK_NPC_INDEX_V02032=L5R_BOOK_NPC_INDEX_V02032;
+
+function l5rClanCorpusHtml(key){
+ const c=L5R1_CLAN_CORPORA[key]; if(!c)return "";
+ const group=(title,items)=>items?.length?`<article class="entity-card"><h3 class="entity-title">${esc(title)}</h3><div class="system-note">${items.map(x=>`• ${esc(x)}`).join("<br>")}</div></article>`:"";
+ return `<div class="workspace-head"><div><div class="eyebrow">${esc(c.status)}</div><h2>${esc(c.name)}</h2><p>${esc(c.source)}. Indexation structurée du livre pour la bibliothèque L5R 1e.</p></div></div><div class="workspace-list">${group("Couverture du supplément",c.coverage)}${group("Familles",c.families)}${group("Écoles et voies",c.schools)}${group("Règles et matériel de jeu",c.rules)}${group("Sorts",c.spells)}${l5rBookNpcListHtmlV02032(c.npcs)}${group("Univers et ressources MJ",c.gm)}</div>`;
+}
+function renderL5rRulesLibrary(){
+ const host=$("#placeholderView .empty-state"); if(!host)return;
+ const cards=Object.entries(L5R1_CLAN_CORPORA).map(([key,c])=>`<article class="entity-card"><div class="entity-head"><div><div class="card-kicker">LIVRE DE CLAN</div><h3 class="entity-title">${esc(c.name)}</h3></div><span class="mini-badge">${esc(c.source.includes("(EN)")?"EN":"FR")}</span></div><div class="entity-description">${esc(c.coverage.slice(0,5).join(" · "))}</div><div class="entity-actions"><button class="btn primary l5r-clan-open" data-clan="${key}">Ouvrir le corpus</button></div></article>`).join("");
+ host.innerHTML=`<div class="workspace-head"><div><div class="eyebrow">L5R / L5A — 1re édition</div><h1>▥ Règles et corpus</h1><p>Bibliothèque globale accessible sans campagne. Les livres de clan sont séparés du contenu propre aux campagnes.</p></div></div>
+ <div class="workspace-list"><article class="entity-card"><div class="entity-head"><div><div class="card-kicker">BIBLIOTHÈQUE PERMANENTE</div><h3 class="entity-title">PNJ des livres L5R 1e</h3></div><span class="mini-badge">${L5R_BOOK_NPC_INDEX_V02032.length} entrées</span></div><div class="entity-description">Personnalités nominatives indexées depuis les suppléments. Les fiches restent consultables même hors période.</div><div class="entity-actions"><button class="btn primary" id="l5r-book-npcs-open">Ouvrir les PNJ</button></div></article><article class="entity-card"><div class="entity-head"><div><div class="card-kicker">BIBLIOTHÈQUE PERMANENTE</div><h3 class="entity-title">Sorts L5R 1e</h3></div><span class="mini-badge">${L5R_SPELL_CATALOG.length} entrées</span></div><div class="entity-description">Catalogue consultable et filtrable + console de résolution destinée au MJ. Les deux vues utilisent la même base structurée.</div><div class="entity-actions"><button class="btn primary" id="l5r-spells-open">Ouvrir la bibliothèque</button><button class="btn secondary" id="l5r-spells-mj-open">Console MJ</button></div></article><article class="entity-card"><div class="entity-head"><div><div class="card-kicker">LIVRE DE CLAN</div><h3 class="entity-title">Clan du Crabe</h3></div><span class="mini-badge">FR</span></div><div class="entity-description">Corpus Crabe détaillé : création, écoles, magie, Nemuranai, PNJ, histoire, lieux, stratégie et scénario.</div><div class="entity-actions"><button class="btn primary" id="l5r-crab-open">Ouvrir le corpus</button></div></article>${cards}</div>`;
+ $("#l5r-book-npcs-open")?.addEventListener("click",()=>{
+   const clans=["Tous",...Array.from(new Set(L5R_BOOK_NPC_INDEX_V02032.map(x=>x.clan).filter(Boolean))).sort()];
+   host.innerHTML=`<div class="workspace-head"><div><div class="eyebrow">L5R 1e</div><h2>PNJ des livres</h2><p>Fiches mécaniques issues des suppléments 1e lorsqu’elles ont été vérifiées.</p></div></div>
+   <div class="entity-card"><div class="filter-row"><label><b>Clan</b><select id="l5rNpcClanFilter">${clans.map(x=>`<option>${esc(x)}</option>`).join("")}</select></label><label><b>Profil</b><select id="l5rNpcProfileFilter"><option value="all">Tous</option><option value="full">Profil 1e récupéré</option><option value="ancestor">Ancêtres / profils spéciaux</option><option value="missing">À extraire</option></select></label><label><b>Nom</b><input id="l5rNpcNameFilter" placeholder="Rechercher un PNJ"></label></div><p class="muted"><b>${L5R_BOOK_NPC_INDEX_V02032.filter(n=>l5rBookNpcProfileV02034(n.name)).length}</b> profils mécaniques 1e récupérés sur <b>${L5R_BOOK_NPC_INDEX_V02032.length}</b> entrées nominatives.</p></div>
+   <div id="l5rGlobalNpcGrid" class="workspace-list"></div><p><button class="btn secondary" id="l5r-rules-back">Retour aux règles</button></p>`;
+   const draw=()=>{const clan=$("#l5rNpcClanFilter")?.value||"Tous",pf=$("#l5rNpcProfileFilter")?.value||"all",q=($("#l5rNpcNameFilter")?.value||"").trim().toLowerCase();const rows=L5R_BOOK_NPC_INDEX_V02032.filter(n=>(clan==="Tous"||n.clan===clan)&&(pf==="all"||l5rBookNpcSourceStateV02038(n).key===pf||(pf==="missing"&&l5rBookNpcSourceStateV02038(n).key==="named"))&&(!q||n.name.toLowerCase().includes(q))).sort((a,b)=>(a.clan||"").localeCompare(b.clan||"")||a.name.localeCompare(b.name));$("#l5rGlobalNpcGrid").innerHTML=rows.map(n=>{const a=l5rBookNpcAvailabilityV02032(n),p=l5rBookNpcProfileV02034(n.name);return `<button class="btn secondary l5r-global-npc-open" data-npc="${esc(n.name)}"><b>${esc(n.name)}</b> — ${esc(n.clan)}${p?` · ${esc(p.school)} ${esc(p.rank)}`:" · profil à extraire"}${a.warning?" · hors période":""}</button>`;}).join("")||`<p class="muted">Aucun PNJ.</p>`;$$(".l5r-global-npc-open").forEach(b=>b.addEventListener("click",()=>{const name=b.dataset.npc;host.innerHTML=l5rBookNpcCardV02032(name)+`<p><button class="btn secondary" id="l5r-global-npcs-back">Retour aux PNJ</button></p>`;$("#l5r-global-npcs-back")?.addEventListener("click",()=>renderL5rRulesLibrary());}));};
+   $("#l5rNpcClanFilter")?.addEventListener("change",draw);$("#l5rNpcProfileFilter")?.addEventListener("change",draw);$("#l5rNpcNameFilter")?.addEventListener("input",draw);$("#l5r-rules-back")?.addEventListener("click",renderL5rRulesLibrary);draw();
+ });
+ $("#l5r-spells-open")?.addEventListener("click",renderL5rSpellLibrary);
+ $("#l5r-spells-mj-open")?.addEventListener("click",()=>renderL5rSpellMjConsole());
+ $("#l5r-crab-open")?.addEventListener("click",()=>{host.innerHTML=renderL5rCrabCorpus()+`<p><button class="btn secondary" id="l5r-rules-back">Retour aux livres de clan</button></p>`;$("#l5r-rules-back")?.addEventListener("click",renderL5rRulesLibrary);});
+ const openClan=(key)=>{host.dataset.l5rClan=key||"";host.innerHTML=l5rClanCorpusHtml(key)+`<p><button class="btn secondary" id="l5r-rules-back">Retour aux livres de clan</button></p>`;
+   $("#l5r-rules-back")?.addEventListener("click",renderL5rRulesLibrary);
+   $$(".l5r-book-npc-open").forEach(n=>n.addEventListener("click",()=>{host.innerHTML=l5rBookNpcCardV02032(n.dataset.npc);$(".l5r-book-npc-back")?.addEventListener("click",()=>openClan(key));}));
+ };
+ $$(".l5r-clan-open").forEach(b=>b.addEventListener("click",()=>openClan(b.dataset.clan)));
+}
+
+const L5R1_CREATURES = [
+{id:"ordinary_goblin",name:"Gobelin ordinaire",family:"Gobelin (Bakemono)",earth:2,fire:2,water:1,air:1,attack:"3k2",damage:"4k2 (épée)",tn:10,armor:3,wounds:"6 / 12 / Mort",fear:3,summary:"Fantassin gobelin courant de l’Outremonde."},
+{id:"goblin_warmonger",name:"Chef de guerre gobelin",family:"Gobelin (Bakemono)",earth:3,fire:3,water:2,air:1,attack:"5k3",damage:"5k2 (épée)",tn:15,armor:5,wounds:"10 / 20 / Mort",fear:3,summary:"Gobelin plus grand et plus rusé, chef de bandes et d’unités."},
+{id:"gaki",name:"Gaki — esprit affamé",family:"Yorei (fantôme)",earth:5,fire:4,water:3,air:2,attack:"5k4",damage:"6k1 (mains)",tn:20,armor:5,wounds:"15 / 30 / 45 / Mort",fear:3,summary:"Esprit affamé attiré par le sang ; invisible à la lumière de la pleine lune.",abilities:["Mange le sang","Insubstantiel","Invisibilité"]},
+{id:"kitsune",name:"Kitsune",family:"Changeforme",earth:2,fire:3,water:3,air:2,attack:"2k2",damage:"4k2 (morsure)",tn:15,armor:2,wounds:"8 / 15 / Mort",summary:"Esprit-renard changeforme, intelligent et souvent trompeur.",abilities:["Charme","Industrie"]},
+{id:"kumo",name:"Kumo",family:"Changeforme",earth:1,fire:4,water:2,air:1,attack:"5k4",damage:"3k2 (morsure)",tn:20,armor:0,wounds:"6 / 14 / Mort",summary:"Esprit-araignée changeforme ; tisse des toiles extrêmement résistantes.",abilities:["Toiles","Poison"]},
+{id:"ratling_typical",name:"Nezumi typique",family:"Nezumi",earth:2,fire:3,water:2,air:1,attack:"4k3",damage:"4k2 (lance)",tn:15,armor:3,wounds:"9 / 18 / Mort",summary:"Éclaireur ou guerrier nezumi typique des terres proches de l’Outremonde."},
+{id:"ratling_shugenja",name:"Nezumi « shugenja »",family:"Nezumi",earth:2,fire:2,water:3,air:2,attack:"2k2",damage:"3k1 (couteau)",tn:10,armor:0,wounds:"7 / 15 / Mort",summary:"Chaman nezumi utilisant des rituels et parchemins rudimentaires.",abilities:["Lancement de sorts : rang 1 ; un sort par élément"]},
+{id:"ratling_bushi",name:"Nezumi bushi",family:"Nezumi",earth:4,fire:4,water:2,air:2,attack:"6k4",damage:"6k2 (épée)",tn:20,armor:"6 (parfois 7)",wounds:"10 / 20 / 30 / Mort",summary:"Combattant nezumi expérimenté ; certains portent des armes de qualité supérieure."},
+{id:"ogre",name:"Ogre",family:"Ogre",earth:"2 (Endurance 6)",fire:3,water:"1 (Force 6)",air:1,attack:"4k4",damage:"8k2 (gourdin)",tn:20,armor:7,wounds:"15 / 30 / 45 / 60 / Mort",fear:2,summary:"Brute massive de l’Outremonde, souvent mercenaire ou chasseur."},
+{id:"zombie_skeleton",name:"Zombie / Squelette",family:"Mort-vivant",earth:0,fire:"0 (Force 3)",water:1,air:0,attack:"1k1",damage:"5k2 (arme improvisée ou de faible qualité)",tn:5,armor:7,wounds:"60 / Mort",fear:4,summary:"Cadavre animé obéissant aux ordres de son maître.",abilities:["Immunisé à la douleur","Invulnérabilité","Démembrement"]},
+{id:"kenku",name:"Kenku",family:"Kenku",earth:2,fire:3,water:4,air:3,attack:"4k4",damage:"1k1 (bec ou griffes)",tn:15,armor:0,wounds:"8 / 24 / 30 / Mort",summary:"Homme-corbeau érudit et combattant ; certains maîtrisent magie et arts du sabre.",abilities:["Peut connaître des sorts","Peut enseigner des techniques de combat"]},
+{id:"kappa",name:"Kappa",family:"Kappa",earth:"1 (Endurance 2)",fire:1,water:3,air:"3 (Perception 3)",attack:"1k1",damage:"1k1",tn:15,armor:"10 (carapace dure)",wounds:"6 / 12 / Mort",summary:"Esprit aquatique malicieux dont la force dépend de l’eau contenue sur son crâne.",abilities:["Peut utiliser la magie d’illusion"]},
+{id:"pennaggolan",name:"Pennaggolan",family:"Mort-vivant",earth:3,fire:2,water:3,air:"2 (Réflexes 4)",attack:"2k2",damage:"2k1",tn:20,armor:0,wounds:"6 / 18 / 30 / Mort",fear:4,summary:"Prédateur nocturne : tête et entrailles se détachent du corps pour chasser.",abilities:["Étranglement","Invulnérabilité"]},
+{id:"kyoso",name:"Kyoso",family:"Oni",earth:"3 (Volonté 4)",fire:"3 (Intelligence 4)",water:3,air:"3 (Perception 4, Intuition 4)",attack:"5k3",damage:"HHTH 2k1 ; Feu impie 3k2",tn:15,armor:10,wounds:"12 / 24 / 36 / 60 / Mort",fear:3,summary:"Oni féminin à quatre bras, changeforme et lanceur de sorts.",abilities:["Peur","Invulnérabilité","Attaques multiples (3)","Sorts : 1 Terre, 4 Feu, 2 Eau, 1 Air","Feu impie"]},
+{id:"shikibu",name:"Shikibu",family:"Oni",earth:2,fire:"2 (Agilité 3)",water:"2 (Force 3)",air:"2 (Réflexes 5)",attack:"2k2",damage:"2k1",tn:15,armor:7,wounds:"8 / 24 / 36 / 50 / Mort",fear:3,summary:"Oni profanateur de tombes capable de transférer son essence dans un autre corps.",abilities:["Peur","Invulnérabilité","Transfert de corps"]},
+{id:"akuma",name:"Akuma",family:"Oni",earth:5,fire:"4 (Agilité 5)",water:5,air:"4 (Réflexes 5)",attack:"6k5",damage:"Corps à corps 5k3 ; langues brûlantes 2k2",tn:25,armor:8,wounds:"20 / 40 / 80 / Mort",fear:5,summary:"Oni extrêmement puissant, aux langues de feu et à la salive brûlante.",abilities:["Peur","Invulnérabilité","Attaques multiples (2)","Sorts : 5 Feu, 4 Terre, 5 Eau, 2 Air","Salive acide","Invulnérabilité au feu"]},
+{id:"tsuburu",name:"Tsuburu",family:"Oni",earth:"1 (Endurance 7)",fire:"1 (Intelligence 2)",water:"1 (Force 7)",air:1,attack:"1k1",damage:"Corps à corps 3k2 ; dents 3k1 ; acide 1k1",tn:5,armor:20,wounds:"28 / 56 / 150 / Mort",fear:1,summary:"Oni glouton presque immobile qui engloutit ses victimes.",abilities:["Peur","Invulnérabilité","Téléportation","Engloutissement"]}
+];
+function l5rBestiaryOptions(key){
+ const vals=[...new Set(L5R1_CREATURES.map(c=>c[key]).filter(v=>v!==undefined&&v!==null))].sort((a,b)=>String(a).localeCompare(String(b),"fr"));
+ return [["","Tous"],...vals.map(v=>[v,v])];
+}
+function renderL5rBestiaryModule(){
+ const host=$("#placeholderView .empty-state");if(!host)return;
+ const family=$("#l5rBestiaryFamily")?.value||"", fear=$("#l5rBestiaryFear")?.value||"", q=($("#l5rBestiarySearch")?.value||"").trim().toLowerCase();
+ const list=L5R1_CREATURES.filter(c=>(!family||c.family===family)&&(!fear||String(c.fear||"")===fear)&&(!q||`${c.name} ${c.family} ${c.summary||""} ${(c.abilities||[]).join(" ")}`.toLowerCase().includes(q)));
+ const opts=(id,key,label,val)=>`<div class="system-value-field"><label>${label}</label><select id="${id}">${l5rBestiaryOptions(key).map(([v,l])=>`<option value="${esc(v)}" ${String(v)===String(val)?"selected":""}>${esc(l)}</option>`).join("")}</select></div>`;
+ host.innerHTML=`<div class="workspace-head"><div><div class="eyebrow">L5R / L5A — 1re édition</div><h1>♞ Bestiaire</h1><p>Créatures du Livre de base 1e, accessibles hors création de scénario.</p><button class="btn secondary" id="l5rCrabCorpusBtn" type="button">Corpus Clan du Crabe</button></div><span class="mini-badge">${list.length} / ${L5R1_CREATURES.length} profils</span></div>
+ <div class="entity-card"><div class="system-values-grid"><div class="system-value-field"><label>Recherche</label><input id="l5rBestiarySearch" value="${esc(q)}" placeholder="Nom, famille, capacité…"></div>${opts("l5rBestiaryFamily","family","Famille",family)}${opts("l5rBestiaryFear","fear","Peur",fear)}</div></div>
+ <div class="workspace-list">${list.map(c=>`<article class="entity-card"><div class="entity-head"><div><div class="card-kicker">${esc(c.family)}${c.fear?` · Peur ${esc(c.fear)}`:""}</div><h3 class="entity-title">${esc(c.name)}</h3></div><span class="mini-badge">TN ${esc(c.tn)} · Armure ${esc(c.armor)}</span></div><div class="entity-description">${esc(c.summary||"")}</div><div class="row-sub">Terre ${esc(c.earth)} · Feu ${esc(c.fire)} · Eau ${esc(c.water)} · Air ${esc(c.air)} · Attaque ${esc(c.attack)} · Dégâts ${esc(c.damage)}</div><div class="system-note"><strong>Blessures :</strong> ${esc(c.wounds)}${(c.abilities||[]).length?`<br><strong>Capacités :</strong> ${c.abilities.map(esc).join(" · ")}`:""}</div></article>`).join("")||"<p>Aucun profil ne correspond aux filtres.</p>"}</div>`;
+ ["l5rBestiaryFamily","l5rBestiaryFear"].forEach(id=>$("#"+id)?.addEventListener("change",renderL5rBestiaryModule));
+ $("#l5rBestiarySearch")?.addEventListener("input",renderL5rBestiaryModule);
+ $("#l5rCrabCorpusBtn")?.addEventListener("click",()=>{host.innerHTML=renderL5rCrabCorpus()+`<p><button class="btn secondary" id="l5rBackBestiary">Retour au bestiaire</button></p>`; $("#l5rBackBestiary")?.addEventListener("click",renderL5rBestiaryModule);});
+}
+
+function renderDndBestiaryModule(){
+  const host=$("#placeholderView .empty-state"); if(!host)return;
+  if(selectedSystemKey()==="l5r1") return renderL5rBestiaryModule();
+  if(profileKeyForCampaign()!=="dnd5"){
+    host.innerHTML=`<div class="empty-icon">♞</div><h1>Bestiaire</h1><p>Le catalogue autonome est actuellement disponible pour D&D 5e 2014. L’équivalent L5R sera ajouté dans la passe dédiée L5R.</p>`;
+    return;
+  }
+  const type=$("#dndBestiaryType")?.value||"", size=$("#dndBestiarySize")?.value||"", cr=$("#dndBestiaryCr")?.value||"", env=$("#dndBestiaryEnvironment")?.value||"", q=($("#dndBestiarySearch")?.value||"").trim().toLowerCase();
+  const list=DND_CREATURES_2014.filter(c=>(!type||c.type===type)&&(!size||c.size===size)&&(!cr||c.cr===cr)&&(!env||dndCreatureEnvironment(c).includes(env))&&(!q||`${c.name} ${c.type} ${c.size} ${c.cr} ${c.summary||""} ${(c.actions||[]).join(" ")}`.toLowerCase().includes(q)));
+  const options=(id,key,label)=>`<div class="system-value-field"><label>${label}</label><select id="${id}">${dndCreatureFilterOptions(key).map(([v,l])=>`<option value="${esc(v)}" ${v===(key==="type"?type:key==="size"?size:key==="cr"?cr:env)?"selected":""}>${esc(l)}</option>`).join("")}</select></div>`;
+  host.innerHTML=`<div class="workspace-head"><div><div class="eyebrow">D&D 5e 2014</div><h1>♞ Bestiaire</h1><p>Consultation indépendante de la création de scénario et de personnage.</p></div><span class="mini-badge">${list.length} / ${DND_CREATURES_2014.length} profils</span></div>
+  <div class="entity-card"><div class="system-values-grid"><div class="system-value-field"><label>Recherche</label><input id="dndBestiarySearch" value="${esc(q)}" placeholder="Nom, type, capacité…"></div>${options("dndBestiaryType","type","Type")}${options("dndBestiarySize","size","Taille")}${options("dndBestiaryCr","cr","FP")}${options("dndBestiaryEnvironment","environment","Environnement")}</div></div>
+  <div class="workspace-list">${list.map(c=>`<article class="entity-card"><div class="entity-head"><div><div class="card-kicker">${esc(c.type)} · ${esc(c.size)} · FP ${esc(c.cr)} · ${esc(c.xp)} PX</div><h3 class="entity-title">${esc(c.name)}</h3></div><span class="mini-badge">CA ${esc(c.ac)} · PV ${esc(c.hp)}</span></div><div class="entity-description">${esc(c.summary||"")}</div><div class="row-sub">Vitesse : ${esc(c.speed||"—")} · FOR ${esc(c.abilities?.strength??"—")} · DEX ${esc(c.abilities?.dexterity??"—")} · CON ${esc(c.abilities?.constitution??"—")} · INT ${esc(c.abilities?.intelligence??"—")} · SAG ${esc(c.abilities?.wisdom??"—")} · CHA ${esc(c.abilities?.charisma??"—")}</div>${(c.actions||[]).length?`<div class="system-note"><strong>Actions :</strong> ${c.actions.map(esc).join(" · ")}</div>`:""}</article>`).join("")||"<p>Aucun profil ne correspond aux filtres.</p>"}</div>`;
+  ["dndBestiaryType","dndBestiarySize","dndBestiaryCr","dndBestiaryEnvironment"].forEach(id=>$("#"+id)?.addEventListener("change",renderDndBestiaryModule));
+  $("#dndBestiarySearch")?.addEventListener("input",renderDndBestiaryModule);
+}
+
+const _renderWorkspaceV1921=renderWorkspaceModule;
+renderWorkspaceModule=function(view){ if(view==='combat')return renderDndCombatModule(); if(view==='bestiary')return renderDndBestiaryModule(); return _renderWorkspaceV1921(view); };
+viewTitles.bestiary='Bestiaire';
+
+// V0.19.26 — Bestiaire 2014 : géants, golems, vase et grandes bêtes ; actions visibles en rencontre/combat.
+
+// V0.19.32 — Bestiaire 2014 : créatures artificielles complémentaires.
+
+// V0.20.07 — Nemuranai : extension du suivi historique aux trésors déjà présents ; gestion des états perdu, dispersé, distribué et garde incertaine, sans dates inventées.
+
+// V0.20.10 — L5R 1e : catalogue de sorts étendu, provenance/catégories d’accès, correction des Maîtrises du Vide et contrôle des quotas de départ par école.
+
+
+/* === V0.20.40 — L5R 1e : fin Air + Vide/Ishiken dans la console MJ === */
+const L5R_SPELL_MJ_MECHANICS_V02013 = {
+ "Tornade":{target:"Une cible ; +1 cible par augmentation",resistance:"Opposition Air du shugenja / Terre de la cible à chaque action",effectSummary:"Protège le shugenja des projectiles de la cible ; en cas d’échec de la cible, elle perd l’équilibre et est déplacée de 3 m par tour."},
+ "Tranquillité de l’Air":{target:"Zone autour du shugenja",area:"Rayon 1,5 m ; +1 m par augmentation",effectSummary:"Crée une zone silencieuse où aucun sort ne peut être lancé.",special:"Avec deux augmentations : bulle atténuant les sons entrants/sortants tout en permettant de parler."},
+ "Vents de murmures":{target:"Une cible ayant parlé en présence du shugenja",tnFormula:"Intelligence de la cible × 5",effectSummary:"Indique si les dernières paroles étaient un mensonge selon ce que croit la cible ; ne révèle pas la vérité objective."},
+ "Vitesse du Vent":{target:"Une cible ; cibles supplémentaires par augmentations",effectSummary:"Déplacement aérien à Air du shugenja × 3 m/tour, hauteur maximale 10 m ; +3 m/tour par augmentation dédiée."},
+ "Yari de l’Air":{target:"Lanceur / arme créée",damage:"3g3",effectSummary:"Crée un yari d’air ; +1 dé lancé de dommages par augmentation."},
+ "Sentir le Vide":{target:"Perception par le Vide",range:"Portée de vue approximative ; ND accru avec la distance",effectSummary:"Projette partiellement la conscience pour percevoir présences, émotions, composition élémentaire, blessures/maladies, phénomènes surnaturels et Souillure.",special:"Jet prolongé toutes les 30 minutes : premier ND 10 puis +5 cumulatif.",restrictions:"Contact avec la Souillure : nouveau jet contre la Souillure selon les règles normales.",voidSpell:true},
+ "Drainer le Vide":{target:"Lanceur",effectSummary:"Permet d’obtenir un point de Vide lors d’un voyage dans le Royaume du Vide.",restrictions:"Une seule utilisation par jour pour un Ishiken.",voidSpell:true},
+ "Altérer le destin":{target:"Lanceur",effectSummary:"Permet de dépenser jusqu’au rang de Maîtrise points de Vide sur une seule action ; n’en crée aucun.",voidSpell:true},
+ "Moment de clairvoyance":{target:"Une cible",tnFormula:"Trait associé de la cible × 5",effectSummary:"Accorde temporairement une compétence au rang Trait associé +1.",voidSpell:true},
+ "Dessein karmique":{target:"Lanceur et cible consentante",effectSummary:"Met en commun leurs réserves de Vide pendant Vide du shugenja heures.",restrictions:"Lien créé seulement avec une cible consentante ; rupture soumise à l’accord des deux.",voidSpell:true},
+ "Libération du Vide":{target:"Une cible",tnFormula:"Trait le plus élevé de la cible × 5",effectSummary:"La cible utilise son Trait le plus élevé à la place de ses autres Traits pendant Vide du shugenja tours.",voidSpell:true},
+ "Morsure du Vide":{target:"Une cible",tnFormula:"Vide de la cible × 5",effectSummary:"Vole 1 point de Vide ; +1 point pour deux augmentations.",restrictions:"Maximum quotidien volé égal au rang de Vide du shugenja.",voidSpell:true},
+ "Suppression du Vide":{target:"Une cible / un Trait visé",tnFormula:"Trait visé × 5",effectSummary:"Force la cible à utiliser son Trait le plus faible à la place du Trait visé pendant Vide du lanceur tours.",voidSpell:true}
+};
+Object.assign(window.L5R_SPELL_MJ_MECHANICS_V02012||{},L5R_SPELL_MJ_MECHANICS_V02013);
+const _l5rSpellResolutionCardV02012=window.l5rSpellResolutionCard;
+window.l5rSpellResolutionCard=function(spell,ctx={}){
+ const card=_l5rSpellResolutionCardV02012(spell,ctx);
+ const m=(window.L5R_SPELL_MJ_MECHANICS_V02012||{})[spell?.name||spell?.label||""]||{};
+ if(m.voidSpell){
+   const vr=Number(ctx.voidRing||ctx.ring||0), mastery=Number(ctx.mastery||0);
+   card.pool=vr&&mastery?`${vr+mastery}g${vr}`:null;
+   card.usesVoid=true;
+ }
+ return card;
+};
+window.L5R_SPELL_MJ_MECHANICS_V02013=L5R_SPELL_MJ_MECHANICS_V02013;
+
+
+
+/* === V0.20.40 — L5R 1e : Vide complémentaire + Terre collectée === */
+const L5R_SPELL_MJ_MECHANICS_V02014={
+"Contempler le Vide":{target:"Lanceur",effectSummary:"Permet d’utiliser 1 point de Vide supplémentaire dans un même tour ; +1 point utilisable par augmentation.",voidSpell:true},
+"Vents du changement":{target:"Lanceur ou cible avec Shintao 2+",effectSummary:"Accorde temporairement une compétence non maîtrisée au rang 2.",restrictions:"N’améliore pas une compétence déjà possédée.",voidSpell:true},
+"Essence du Vide":{target:"Une cible à vue",range:"15 m",resistance:"Opposition contre le rang de Vide de la cible",effectSummary:"Paralyse la cible tant que l’effet est maintenu.",restrictions:"Normalement cible avec Vide inférieur au lanceur ; exclut créatures de l’Outremonde et êtres sans Vide.",voidSpell:true},
+"Deviner le futur":{target:"MJ / aventure en cours",effectSummary:"Permet une question simple sur l’avenir ; le MJ répond honnêtement, généralement oui/non.",special:"1 point de Vide par question ; +1 question par augmentation.",voidSpell:true},
+"Profondeur du Vide":{target:"Un jet ultérieur de la partie",effectSummary:"Met en réserve une modification du destin : allié relance un échec ou ennemi relance une réussite.",special:"1 relance supplémentaire pour 2 augmentations ; maximum 3.",restrictions:"Méditation 2 h, Terre 2 minimum ; un jet déjà relancé ainsi ne peut l’être de nouveau.",voidSpell:true},
+"Présence spirituelle":{target:"Une cible consentante à vue",range:"Vue",effectSummary:"Accorde des rangs égaux au Vide du lanceur dans un Anneau choisi hors Vide.",restrictions:"Pas sur soi-même ; une cible ; n’augmente pas les niveaux de blessures via Terre.",special:"Le lanceur subit -1 dé aux compétences, ne peut utiliser de Vide ; lancer un autre sort double le malus.",voidSpell:true},
+"Appel des animaux":{target:"Animaux des environs",effectSummary:"Fait venir des animaux locaux et leur permet d’accomplir une tâche compatible avec leurs capacités.",restrictions:"Ne confère pas d’intelligence humaine et ne force pas à des risques suicidaires."},
+"Énergie neutralisante":{target:"Zone autour du lanceur",area:"Rayon Terre × 1,5 m",resistance:"Opposition élémentaire entre le lanceur et le shugenja adverse",effectSummary:"Neutralise les effets d’un sort lancé dans la zone ou visant une cible qui s’y trouve.",restrictions:"Ne dissipe pas un effet déjà installé."},
+"Étreinte de Kenro-Ji-Jin":{target:"Une cible",effectSummary:"Fond la cible et ses biens dans le sol ; déplacement à vitesse de marche, protection contre blessures ordinaires.",restrictions:"Les sorts affectant/détruisant la terre peuvent forcer la cible à émerger."},
+"Main fatale du temps":{target:"Objet/matière ordinaire ≤ environ 3 m³",effectSummary:"Accélère la dégradation jusqu’à rendre l’objet inutilisable.",resistance:"Objet familial : Volonté ND 20 possible selon MJ",restrictions:"Sans effet sur nemuranai, jade ou cristal protégé/habité."},
+"Orage de roche":{target:"Une cible ; +1 par augmentation",range:"Terre du lanceur × 3 m",damage:"3g3 ; +1 dé lancé par augmentation de dégâts",resistance:"Agilité + Défense ND 20 ; +5 ND par augmentation dédiée",effectSummary:"Projette surnaturellement pierres et roches sur la cible."},
+"Murmures de la Terre":{target:"Une cible liée matériellement",effectSummary:"Permet de suivre la trace de la cible via les esprits de la Terre.",restrictions:"Nécessite un lien physique avec la cible."},
+"Poing de la Terre":{target:"Zone/gouffre",ritual:true,area:"Largeur 3 m ; profondeur Terre ×3 m, +3 m par augmentation",resistance:"Agilité + Athlétisme ND 15 au bord ; ND 25 au-dessus",effectSummary:"Ouvre un gouffre temporaire qui se referme à la fin du sort."},
+"Prison de bois":{target:"Une cible",resistance:"Volonté contre Terre du lanceur ×5",effectSummary:"Transforme durablement la cible en arbre conscient et immobile.",special:"Contre-sort : dépasser de 5 le ND obtenu lors de la création."},
+"Protection contre les oni":{target:"Oni visible",ritual:true,resistance:"Opposition répétée de Volonté de l’oni contre somme des Volontés des participants",effectSummary:"Réduit les Anneaux de l’oni ; à 0 sur un Anneau, sa forme physique est bannie vers Jigoku.",special:"Connaître son nom d’ancrage réduit le ND du rituel de 10."},
+"Rempart de la Terre":{target:"Zone",area:"3 m haut, 1,5 m épais ; circonférence Terre ×1,5 m ; dimensions augmentables",resistance:"Personnes sur la zone : Agilité + Athlétisme ND 20",effectSummary:"Crée un rempart extrêmement résistant pendant 1 heure."},
+"Voie de la Terre":{target:"Une cible",effectSummary:"Augmente l’armure de Terre du lanceur et immunise aux armes à distance/de jet pendant la durée."}
+};
+Object.assign(window.L5R_SPELL_MJ_MECHANICS_V02012||{},L5R_SPELL_MJ_MECHANICS_V02014);
+window.L5R_SPELL_MJ_MECHANICS_V02014=L5R_SPELL_MJ_MECHANICS_V02014;
+
+
+/* === V0.20.40 — L5R 1e : sorts collectés Eau, Feu et Air === */
+const L5R_SPELL_MJ_MECHANICS_V02015={
+"Bénédiction d’Inari":{target:"Nourriture créée",effectSummary:"Crée par rang d’Eau assez de nourriture simple pour une personne pendant une semaine.",restrictions:"Aliments rokugani basiques à cuisiner ; pas d’épices, sel, banquet ou mets raffinés."},
+"Derrière le voile du sommeil":{target:"Une personne connue",range:"Sans limite pratique dans Rokugan",effectSummary:"Transmet un court message par le rêve ; si la cible est éveillée, le message attend son sommeil."},
+"Don de Sukunijin":{target:"Sort visant une cible proche",range:"Cible protégée à Eau ×1,5 m ; +1,5 m/augmentation",tnFormula:"ND du sort détourné, augmentations comprises, +10",effectSummary:"Détourne vers son propre lanceur un sort visant la cible protégée.",restrictions:"Un seul sort à la fois."},
+"Échange d’énergie":{target:"Deux personnages / même Trait",resistance:"Cible non consentante : Volonté contre Eau du lanceur ×5, +5 par augmentation",effectSummary:"Échange temporairement le rang d’un même Trait entre deux personnages.",restrictions:"Le Vide ne peut pas être affecté."},
+"Étreinte de Suitengu":{target:"Une cible",range:"Eau ×1,5 m",damage:"Noyade progressive : 1g1, puis 2g2, 3g3, etc.",resistance:"Volonté ND 15 chaque tour ; trois réussites mettent fin au sort",effectSummary:"Remplit les poumons d’eau de mer et provoque une noyade surnaturelle."},
+"Maître de la rivière furieuse":{target:"Une cible ; +1/augmentation",range:"Eau ×3 m",damage:"VD Eau g Eau ; près d’eau naturelle : Eau+2 g Eau+2",resistance:"Force contre Eau du lanceur ×5 pour rester debout",effectSummary:"Tsunami magique aérien qui frappe et renverse les cibles."},
+"Malédiction du chacal":{target:"Une cible",resistance:"Volonté ND 20 ; +5 par augmentation",effectSummary:"Réduit Intuition et Intelligence à 0 et impose un comportement animal ; empêche l’usage du Vide."},
+"Mur de bambou":{target:"Zone",area:"Rayon 4,5 m ; bambous 3 m haut/1,5 m large ; épaisseur Eau×1,5 m",resistance:"Traversée : Athlétisme + arme tranchante ND 25",effectSummary:"Fait surgir un mur dense de bambous magiques."},
+"Ouvrir les flots":{target:"Étendue d’eau",range:"Lanceur à 30 m ou moins",area:"Passage 3 m large, profondeur Eau×3 m, longueur Eau×4,5 m",effectSummary:"Ouvre un passage temporaire dans l’eau tant que la concentration est maintenue."},
+"Roue de la fortune":{target:"Une cible",resistance:"Volonté contre Eau du lanceur ×5",effectSummary:"Redistribue aléatoirement les rangs des Anneaux, Vide compris, et recalcule les valeurs dérivées."},
+"Souffle de la brume":{target:"Zone de sol",ritual:true,area:"Environ 9 m², profondeur 60 cm ; +25 m²/augmentation",effectSummary:"Transforme le terrain en marais ; -2 dés aux jets liés au mouvement et déplacement fortement ralenti."},
+"Vengeance karmique":{target:"Une cible",resistance:"Volonté contre Eau du lanceur ×5",effectSummary:"Force la cible à revivre un souvenir douloureux et l’empêche d’agir pendant Eau du lanceur tours."},
+"Bénédiction d’Osano-Wo":{target:"Un feu",effectSummary:"Rend le feu très difficile à éteindre par des moyens ordinaires pendant Feu×5 minutes."},
+"Courroux de Feu":{target:"Bâtiment ou zone inflammable",area:"Environ 250 m² hors bâtiment",effectSummary:"Consume la cible inflammable sans propagation au-delà de la zone initiale.",restrictions:"Moyens non magiques inefficaces ; sans effet sur acier, roche et matières non inflammables."},
+"Courroux d’Osano-Wo":{target:"Une cible",range:"15 m + Maîtrise×3 m",damage:"VD Feu g Feu ; puis 1g1/tour tant que la cible brûle",resistance:"Agilité + Défense ND 20",effectSummary:"Flèche magique enflammée qui embrase la cible."},
+"Essence du Feu":{target:"Un duel iaijutsu",effectSummary:"Neutralise les influences extérieures et effets magiques du duel tout en conservant les aptitudes naturelles et qualités non magiques."},
+"Furie de l’Élément":{target:"Une cible par participant ; +1/augmentation",ritual:true,damage:"VD égale au plus faible rang de Feu des participants, lancé et gardé",effectSummary:"Déchaîne une attaque élémentaire à distance par shugenja participant."},
+"Lumière d’Amaterasu":{target:"Une cible",effectSummary:"Supprime temporairement les malus de blessures pendant Feu du lanceur tours."},
+"Pureté de Shinsei":{target:"Sort/pouvoir d’une créature non humaine",tnFormula:"Niveau de concentration du sort ciblé ; pouvoir de créature fixé par le MJ",effectSummary:"Neutralise un sort ou pouvoir semblable à un sort au moment de son lancement."},
+"Les Yeux du Phénix":{target:"Une cible",effectSummary:"Augmente de 20 le ND des actions dépendant de la vue ; durée Feu du lanceur actions."},
+"Rempart de Feu":{target:"Zone autour du shugenja",area:"Mur circulaire : 3 m haut/épais ; rayon Feu×1,5 m, +3 m/augmentation",damage:"4g4 lors de la traversée",effectSummary:"Crée un mur de flammes protecteur.",special:"Durée contradictoire dans la source : en-tête 5 tours ; description Feu+5 tours — validation MJ requise."},
+"Appel de l’oiseau":{target:"Oiseau local",effectSummary:"Appelle un oiseau adapté et lui confie une tâche simple sans danger excessif."},
+"Champion de l’au-delà":{target:"Esprit champion pour un duel",damage:"3g2",effectSummary:"Invoque un mort pour combattre un duel iaijutsu comme champion.",special:"ND 15 pour Kitsu, sinon 20."},
+"Don du Vent":{target:"Être vivant ou objet ≤ taille humaine",effectSummary:"Rend la cible invisible ; immobile = invisibilité totale, mouvement/attaque = masse déformée.",resistance:"Pour attaquer : Intuition ND 25, -10 si cible en mouvement ou dépense d’un point de Vide."},
+"Miroir réfléchissant":{target:"Double illusoire d’une cible",range:"Double placé entre 15 et 90 m de l’original",effectSummary:"Crée une réplique parfaite mais immatérielle ; +1 double par augmentation."},
+"Mugissement d’Isora":{target:"Cône / cibles",area:"Cône env. 1,5 m ×1,5 m ; portée augmentable",resistance:"Agilité + Athlétisme ND 20",effectSummary:"Déflagration d’air renversant les humanoïdes et dispersant les objets."},
+"Regarder dans l’âme":{target:"Être vivant",effectSummary:"Révèle d’abord l’Anneau le plus haut et le plus bas et leurs Traits ; informations supplémentaires par augmentations."},
+"Rempart d’Air":{target:"Zone/tourbillon",area:"Diamètre 3 m ; +1,5 m/augmentation ; placement jusqu’à 15 m",damage:"1g1 pour les personnages restant dans les débris du cœur",resistance:"Traversée : Force ND 25",effectSummary:"Crée un tourbillon protecteur ; +10 au ND des sorts lancés à travers."},
+"Sagesse du Vent":{target:"Personne visible",effectSummary:"Révèle à chaque lancement une information mécanique ou descriptive : Anneau, Trait, compétence, avantage ou désavantage.",restrictions:"La cible ne résiste pas ; protections magiques possibles."},
+"Souffle d’Osano-Wo":{target:"Lanceur ou personne à 3 m",effectSummary:"Dévie un projectile à distance ; +1 projectile par augmentation."},
+"Suivre la Voie":{target:"Lanceur et accompagnants",effectSummary:"Ouvre un passage dimensionnel évitant les dangers ordinaires du voyage sans réduire sa durée.",restrictions:"Destination mentalement précise et viable ; +1 personne/augmentation, cheval = 2 augmentations."},
+"Vol de la Flèche":{target:"Une cible",range:"Air du lanceur ×3 m ; portée normale de la flèche non modifiée",resistance:"Cible consciente : Défense + Réflexes ND 25 ; contrôle : Air ND Air de la cible ×5",effectSummary:"Guide une flèche qui ne manque normalement pas sa cible.",restrictions:"Une fois par jour ; lanceur immobile 2 actions après le sort."}
+};
+Object.assign(window.L5R_SPELL_MJ_MECHANICS_V02012||{},L5R_SPELL_MJ_MECHANICS_V02015);
+window.L5R_SPELL_MJ_MECHANICS_V02015=L5R_SPELL_MJ_MECHANICS_V02015;
+
+
+/* === V0.20.40 — L5R 1e : assistant MJ de recherche/création de sorts === */
+const L5R_SPELL_RESEARCH_MODIFIERS_V02016=[
+ {id:"school_focus",label:"École axée sur l’élément",value:-5},
+ {id:"school_no_element",label:"École n’enseignant pas cet élément",value:5},
+ {id:"foreign_library",label:"Bibliothèque d’une autre école",value:10},
+ {id:"ronin_no_permission",label:"Ronin / sans permission de bibliothèque",value:15},
+ {id:"two_months",label:"Deux mois ininterrompus",value:-5},
+ {id:"three_months",label:"Trois mois ininterrompus",value:-8},
+ {id:"four_months",label:"Quatre mois ou plus ininterrompus",value:-10},
+ {id:"wrong_element",label:"Effet ne dépendant pas de l’élément choisi",value:10},
+ {id:"opposed_element",label:"Effet dépendant de l’élément opposé",value:15,exclusiveWith:["wrong_element"]},
+ {id:"highest_ring",label:"Anneau choisi = plus haut Anneau du PJ",value:-5},
+ {id:"five_known",label:"Connaît déjà 5 sorts de cet élément",value:-3},
+ {id:"ten_known",label:"Connaît déjà 10 sorts de cet élément",value:-6,exclusiveWith:["five_known"]}
+];
+function l5rSpellResearchEstimate(input={}){
+ const mastery=Math.max(0,Number(input.spellMastery||0));
+ const shugenjaMastery=Math.max(0,Number(input.shugenjaMastery||0));
+ const elementRing=Math.max(0,Number(input.elementRing||0));
+ const selected=new Set(input.modifiers||[]);
+ let mod=0, applied=[];
+ for(const m of L5R_SPELL_RESEARCH_MODIFIERS_V02016){
+   if(!selected.has(m.id)) continue;
+   if((m.exclusiveWith||[]).some(x=>selected.has(x))) continue;
+   mod+=m.value; applied.push(m);
+ }
+ const uncommon=Math.max(-5,Math.min(0,Number(input.uncommonConditionModifier||0)));
+ mod+=uncommon;
+ const researchTN=mastery*10+mod;
+ const launchBase=mastery*5;
+ return {
+   eligible: mastery>0 && shugenjaMastery>=mastery,
+   researchTN,baseResearchTN:mastery*10,modifierTotal:mod,
+   researchPool: elementRing&&shugenjaMastery ? `${elementRing+shugenjaMastery}g${elementRing}` : null,
+   suggestedLaunchTN:launchBase,
+   launchAdjustmentRange:[launchBase-5,launchBase+10],
+   minimumStudy:"1 mois d’étude sérieuse",
+   appliedModifiers:applied.map(x=>({id:x.id,label:x.label,value:x.value})),
+   uncommonConditionModifier:uncommon,
+   warning: mastery>shugenjaMastery ? "Maîtrise du sort supérieure au rang de Maîtrise du shugenja : recherche impossible à ce stade." : null
+ };
+}
+const L5R_SPELL_RESEARCH_POLICY_V02016={
+ ownership:"Un sort créé avec les bibliothèques de l’école appartient officiellement au clan.",
+ transmission:"Même en cas d’échec, les notes doivent être remises à l’école ; un sort finalisé est normalement recopié en trois exemplaires.",
+ foreignSchool:"Recherche possible dans une autre école selon les relations politiques et les autorisations.",
+ ronin:"Sans bibliothèque ni sensei, la création reste possible mais doit être rare, lente et difficile.",
+ maho:"Aucune école honorable n’encourage officiellement la recherche de maho.",
+ masteryGuide:[
+  {range:"2–3",note:"effet faible, simple, spécialisé ou limité"},
+  {range:"3–4",note:"altération légère ou ponctuelle"},
+  {range:"4–5",note:"effet courant mais puissant"},
+  {range:"4+",note:"repère minimal pour infliger, soigner ou réduire directement des blessures"},
+  {range:"5+",note:"effet impressionnant, radical, durable, permanent ou de grande zone"}
+ ]
+};
+const L5R_RESEARCH_EXAMPLE_CRYSTAL_PRISON_V02016={
+ name:"Prison de cristal",element:"Terre",mastery:5,casting:"2 actions",duration:"Variable",concentration:"Entière",
+ tnFormula:"Terre de la cible ×5",target:"Créature porteuse de la Souillure à vue à travers un cristal",
+ effectSummary:"Immobilise la cible sans dégâts tant que le shugenja maintient concentration et ligne de vision à travers le cristal.",
+ opposition:"À partir du tour suivant : Terre de la cible contre Terre + Maîtrise du shugenja.",
+ provenance:"Exemple de procédure de recherche — ne pas traiter automatiquement comme sort scolaire standard."
+};
+window.L5R_SPELL_RESEARCH_MODIFIERS_V02016=L5R_SPELL_RESEARCH_MODIFIERS_V02016;
+window.l5rSpellResearchEstimate=l5rSpellResearchEstimate;
+window.L5R_SPELL_RESEARCH_POLICY_V02016=L5R_SPELL_RESEARCH_POLICY_V02016;
+window.L5R_RESEARCH_EXAMPLE_CRYSTAL_PRISON_V02016=L5R_RESEARCH_EXAMPLE_CRYSTAL_PRISON_V02016;
+
+
+/* === V0.20.40 — L5R 1e : Kuni/Crabe + contexte de lancement shugenja === */
+const L5R_KUNI_SPELL_RULES_V02017={
+ territorialRule:{
+   label:"Désolations Kuni",
+   kuniHomeModifier:0,
+   nonKuniModifier:10,
+   exception:"Aucun +10 dans la demeure d’un membre de la famille Kuni.",
+   outside:"Les Kuni hors de leurs provinces lancent normalement."
+ },
+ spells:{
+  "Armure":{element:"Terre",mastery:4,tn:20,casting:"3 actions",concentration:"Entière",target:"Une cible",effectSummary:"Renforce la Terre de la cible ; l’adversaire ne relance pas ses 10 sur les jets de dommages contre elle.",durationFormula:"Terre de la cible + Maîtrise du shugenja tours",access:"Crabe / Kuni"},
+  "Lien mineur":{element:"Terre",mastery:5,tnFormula:"20 + rang d’Outremonde de la cible ×5",casting:"3 jours",concentration:"Entière",ritual:true,effectSummary:"Immobilise une créature souillée, hors oni et maho-tsukai, au terme d’un rituel en trois jets.",requirements:"Connaître le vrai nom, l’inscrire sur une entrave, poser l’entrave sur la cible.",access:"Kuni"},
+  "Lien majeur":{element:"Terre",mastery:5,tnFormula:"20 + rang d’Outremonde de la cible ×5",casting:"3 jours",concentration:"Entière",ritual:true,effectSummary:"Comme Lien mineur, mais peut aussi affecter oni et maho-tsukai.",requirements:"Même rituel de vrai nom et d’entrave.",access:"Kuni"},
+  "Mur de Terre":{element:"Terre",mastery:3,tn:15,casting:"2 actions",concentration:"Entière",durationFormula:"Maîtrise du shugenja tours",area:"Hauteur et largeur : Maîtrise ×3 m ; 2 augmentations ajoutent 3 m à une dimension",effectSummary:"Crée un mur de Terre.",special:"Résistance : Terre du shugenja ×10 blessures.",access:"Crabe / Kuni"},
+  "Derniers sacrements":{element:"Feu",mastery:2,tnFormula:"Souillure de la cible ×5",casting:"1 action",concentration:"Entière",target:"Être vivant mourant et consentant",effectSummary:"Purifie totalement la Souillure mais tue la cible.",special:"En cas d’échec, l’âme ne trouve jamais le repos et hante les vivants.",access:"Kuni / rite anti-Souillure"},
+  "Peur":{element:"Air",mastery:3,tn:15,casting:"2 actions",concentration:"Totale",durationFormula:"Maîtrise du shugenja tours",resistance:"Opposition de Volonté contre le jet de sort",effectSummary:"Les auditeurs qui échouent fuient avec ND pour être touchés réduit à 5 ; ceux qui résistent restent pétrifiés 1 round et ne peuvent faire qu’une Esquive.",access:"Kuni ; enseigné par Daidoji"}
+ }
+};
+function l5rSpellContextModifierV02017(ctx={}){
+ let mod=0,notes=[];
+ if(ctx.inKuniWastelands && !ctx.isKuni && !ctx.inKuniResidence){mod+=10;notes.push("+10 ND : shugenja non-Kuni dans les Désolations Kuni.");}
+ if(ctx.inKuniWastelands && ctx.inKuniResidence){notes.push("Exception territoriale : demeure Kuni, pas de +10 ND.");}
+ return {tnModifier:mod,notes};
+}
+function l5rShugenjaCastingSnapshotV02017(character={},spell={}){
+ const el=String(spell.element||"").toLowerCase();
+ const rings=character.rings||character.l5rRings||{};
+ const ring=Number(rings[el] ?? (el==="vide" ? rings.void : 0) ?? 0);
+ const mastery=Number(character.masteryRank||character.l5rMasteryRank||0);
+ return {
+   element:spell.element||null,ring,mastery,
+   pool:ring&&mastery?`${ring+mastery}g${ring}`:null,
+   eligibleByMastery:!spell.mastery || mastery>=Number(spell.mastery),
+   attemptsPerDay:ring||null,
+   note:"Les tentatives réussies ou ratées comptent dans la limite quotidienne de l’élément."
+ };
+}
+Object.assign(window.L5R_SPELL_MJ_MECHANICS_V02012||{},L5R_KUNI_SPELL_RULES_V02017.spells);
+window.L5R_KUNI_SPELL_RULES_V02017=L5R_KUNI_SPELL_RULES_V02017;
+window.l5rSpellContextModifierV02017=l5rSpellContextModifierV02017;
+window.l5rShugenjaCastingSnapshotV02017=l5rShugenjaCastingSnapshotV02017;
+
+
+/* === V0.20.40 — L5R 1e : filtrage strict des sorts par rang === */
+function l5rSpellRequiredMasteryV02018(spell){
+ const n=Number(spell?.mastery ?? spell?.masteryRank ?? spell?.rank ?? 0);
+ return Number.isFinite(n)&&n>0?n:null;
+}
+function l5rSpellAccessibleByRankV02018(spell,characterOrRank){
+ const rank=Number(typeof characterOrRank==="object"
+   ? (characterOrRank?.masteryRank ?? characterOrRank?.l5rMasteryRank ?? characterOrRank?.schoolRank ?? characterOrRank?.rank ?? 0)
+   : characterOrRank);
+ const req=l5rSpellRequiredMasteryV02018(spell);
+ if(!req) return {accessible:false,reason:"Niveau de Maîtrise du sort non documenté",required:null,rank};
+ if(!rank) return {accessible:false,reason:"Rang de Maîtrise du shugenja non renseigné",required:req,rank};
+ return {accessible:req<=rank,reason:req<=rank?`Accessible : Maîtrise ${req} ≤ rang ${rank}`:`Verrouillé : Maîtrise ${req} > rang ${rank}`,required:req,rank};
+}
+function l5rFilterSpellsByRankV02018(spells,characterOrRank,{includeLocked=false}={}){
+ const arr=Array.isArray(spells)?spells:[];
+ return arr.filter(sp=>{
+   const st=l5rSpellAccessibleByRankV02018(sp,characterOrRank);
+   return includeLocked || st.accessible;
+ }).map(sp=>({...sp,rankAccess:l5rSpellAccessibleByRankV02018(sp,characterOrRank)}));
+}
+function l5rSpellChoicesForShugenjaV02018(character,opts={}){
+ const source=opts.spells || window.L5R_SPELL_CATALOG || [];
+ const accessible=l5rFilterSpellsByRankV02018(source,character,{includeLocked:false});
+ const school=String(character?.school||character?.profession||"").toLowerCase();
+ const clan=String(character?.clan||"").toLowerCase();
+ return accessible.filter(sp=>{
+   const access=String(sp.access||sp.accessTags||"").toLowerCase();
+   if(!access) return true;
+   if(access.includes("kuni") && !school.includes("kuni") && !clan.includes("crabe") && !clan.includes("crab")) return false;
+   return true;
+ });
+}
+function l5rSpellRankBucketsV02018(spells,character){
+ const rank=Number(character?.masteryRank??character?.l5rMasteryRank??character?.schoolRank??character?.rank??0);
+ const available=[],locked=[],undocumented=[];
+ for(const sp of (Array.isArray(spells)?spells:[])){
+   const st=l5rSpellAccessibleByRankV02018(sp,rank);
+   if(st.required==null) undocumented.push({...sp,rankAccess:st});
+   else if(st.accessible) available.push({...sp,rankAccess:st});
+   else locked.push({...sp,rankAccess:st});
+ }
+ return {rank,available,locked,undocumented};
+}
+window.l5rSpellRequiredMasteryV02018=l5rSpellRequiredMasteryV02018;
+window.l5rSpellAccessibleByRankV02018=l5rSpellAccessibleByRankV02018;
+window.l5rFilterSpellsByRankV02018=l5rFilterSpellsByRankV02018;
+window.l5rSpellChoicesForShugenjaV02018=l5rSpellChoicesForShugenjaV02018;
+window.l5rSpellRankBucketsV02018=l5rSpellRankBucketsV02018;
+
+
+/* === V0.20.40 — L5R 1e : rang + école + éléments + sorts connus === */
+const L5R_SHUGENJA_STARTING_SPELL_RULES_V02019={
+ iuchi:{common:["Sensation","Communion","Invocation"],distribution:{Eau:3,Feu:2,Terre:1}},
+ agasha:{common:["Sensation","Communion","Invocation"],distribution:{Feu:3,Terre:2,Air:1}},
+ asahina:{common:["Sensation","Communion","Invocation"],distribution:{Air:3,Terre:2,Eau:1}},
+ kitsu:{common:["Sensation","Communion","Invocation"],distribution:{Eau:3,Feu:2,Terre:1}},
+ isawa:{common:["Sensation","Communion","Invocation"],distributionPattern:[3,2,1],distinctElements:3},
+ soshi:{common:["Sensation","Communion","Invocation"],distribution:{Air:3,Eau:2,Feu:1}},
+ yogo:{common:["Sensation","Communion","Invocation"],distribution:{Air:3,Eau:2,Feu:1}},
+ ishiken:{common:["Sensation","Communion","Invocation","Sentir le Vide","Drainer le Vide"],voidAccess:true,secondElementCount:2,thirdElementCount:1}
+};
+function l5rNormalizeSpellNameV02019(v){return String(v||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[’']/g,"'").trim();}
+function l5rSchoolKeyV02019(character={}){
+ const s=l5rNormalizeSpellNameV02019(character.school||character.profession||character.schoolName||"");
+ return Object.keys(L5R_SHUGENJA_STARTING_SPELL_RULES_V02019).find(k=>s.includes(k))||null;
+}
+function l5rKnownSpellNamesV02019(character={}){
+ const raw=character.knownSpells||character.spellsKnown||character.l5rKnownSpells||character.spells||character.scrolls||[];
+ const arr=Array.isArray(raw)?raw:(typeof raw==="string"?raw.split(/[,;\n]/):[]);
+ return new Set(arr.map(x=>l5rNormalizeSpellNameV02019(typeof x==="object"?(x.name||x.id):x)).filter(Boolean));
+}
+function l5rSpellElementAllowedV02019(spell,character={}){
+ const element=String(spell?.element||"");
+ if(element.toLowerCase()==="vide"){
+   const key=l5rSchoolKeyV02019(character);
+   return key==="ishiken" || character.isIshiken===true || character.voidSpellAccess===true;
+ }
+ return true;
+}
+function l5rSpellSchoolAllowedV02019(spell,character={}){
+ const access=l5rNormalizeSpellNameV02019(Array.isArray(spell?.accessTags)?spell.accessTags.join(" "):(spell?.access||spell?.accessTags||""));
+ if(!access)return true;
+ const school=l5rNormalizeSpellNameV02019(character.school||character.profession||"");
+ const clan=l5rNormalizeSpellNameV02019(character.clan||"");
+ if(access.includes("kuni") && !(school.includes("kuni")||clan.includes("crabe")||clan.includes("crab")))return false;
+ if(access.includes("ishiken") && !(school.includes("ishiken")||character.isIshiken===true))return false;
+ return true;
+}
+function l5rSpellLaunchAccessV02019(spell,character={},opts={}){
+ const rankState=window.l5rSpellAccessibleByRankV02018?window.l5rSpellAccessibleByRankV02018(spell,character):{accessible:true};
+ if(!rankState.accessible)return {accessible:false,reason:rankState.reason,stage:"rang"};
+ if(!l5rSpellElementAllowedV02019(spell,character))return {accessible:false,reason:"Élément/Vide non accessible à cette école.",stage:"element"};
+ if(!l5rSpellSchoolAllowedV02019(spell,character))return {accessible:false,reason:"Restriction d’école ou de tradition.",stage:"ecole"};
+ const known=l5rKnownSpellNamesV02019(character);
+ const name=l5rNormalizeSpellNameV02019(spell?.name);
+ if(opts.requireKnown!==false && known.size && !known.has(name))return {accessible:false,reason:"Sort non connu / parchemin non disponible pour ce personnage.",stage:"connu"};
+ if(opts.requireKnown!==false && !known.size)return {accessible:false,reason:"Liste des sorts connus non renseignée : pas de proposition automatique.",stage:"connu"};
+ return {accessible:true,reason:"Accessible et connu.",stage:"ok"};
+}
+function l5rLaunchableSpellsV02019(character={},spells,opts={}){
+ const src=Array.isArray(spells)?spells:(window.L5R_SPELL_CATALOG||[]);
+ return src.filter(sp=>l5rSpellLaunchAccessV02019(sp,character,opts).accessible)
+           .map(sp=>({...sp,launchAccess:l5rSpellLaunchAccessV02019(sp,character,opts)}));
+}
+function l5rSpellLearningCandidatesV02019(character={},spells){
+ const src=Array.isArray(spells)?spells:(window.L5R_SPELL_CATALOG||[]);
+ return src.filter(sp=>{
+   const rank=window.l5rSpellAccessibleByRankV02018?window.l5rSpellAccessibleByRankV02018(sp,character).accessible:true;
+   return rank && l5rSpellElementAllowedV02019(sp,character) && l5rSpellSchoolAllowedV02019(sp,character);
+ });
+}
+window.L5R_SHUGENJA_STARTING_SPELL_RULES_V02019=L5R_SHUGENJA_STARTING_SPELL_RULES_V02019;
+window.l5rSchoolKeyV02019=l5rSchoolKeyV02019;
+window.l5rKnownSpellNamesV02019=l5rKnownSpellNamesV02019;
+window.l5rSpellLaunchAccessV02019=l5rSpellLaunchAccessV02019;
+window.l5rLaunchableSpellsV02019=l5rLaunchableSpellsV02019;
+window.l5rSpellLearningCandidatesV02019=l5rSpellLearningCandidatesV02019;
+
+
+/* === V0.20.40 — Correctif canon L5R 1e : Maîtrise des sorts + tatouages Ise Zumi ===
+   En 1e, le niveau de Maîtrise du sort sert notamment à la maîtrise innée et n'est pas
+   un simple filtre "sort <= rang d'école" pour les parchemins de départ. Les écoles
+   imposent leur répartition de sorts de départ. */
+function l5rSpellAccessibleByRankV02022(spell,characterOrRank){
+  const req=Number(spell?.mastery||0)||null;
+  const rank=Number(typeof characterOrRank==="object"?(characterOrRank?.schoolRank??characterOrRank?.masteryRank??0):characterOrRank)||0;
+  return {accessible:true,required:req,rank,reason:"L5R 1e : la Maîtrise du sort n’est pas utilisée ici comme filtre de rang d’école."};
+}
+function l5rSpellLearningCandidatesV02022(character={},spells){
+  const src=Array.isArray(spells)?spells:(window.L5R_SPELL_CATALOG||[]);
+  return src.filter(sp=>l5rSpellElementAllowedV02019(sp,character)&&l5rSpellSchoolAllowedV02019(sp,character));
+}
+function l5rSpellLaunchAccessV02022(spell,character={},opts={}){
+  if(!l5rSpellElementAllowedV02019(spell,character))return {accessible:false,reason:"Élément/Vide non accessible à cette école.",stage:"element"};
+  if(!l5rSpellSchoolAllowedV02019(spell,character))return {accessible:false,reason:"Restriction d’école ou de tradition.",stage:"ecole"};
+  const known=l5rKnownSpellNamesV02019(character), name=l5rNormalizeSpellNameV02019(spell?.name);
+  if(opts.requireKnown!==false && known.size && !known.has(name))return {accessible:false,reason:"Sort/parchemin non connu de ce personnage.",stage:"connu"};
+  if(opts.requireKnown!==false && !known.size)return {accessible:false,reason:"Liste des sorts connus non renseignée.",stage:"connu"};
+  return {accessible:true,reason:"Sort connu et accessible à la tradition.",stage:"ok"};
+}
+function l5rIseZumiTattooLimitV02022({schoolRank=1,voidRing=1,creation=true,extraCreationTattoos=0}={}){
+  const rank=Math.max(1,Number(schoolRank)||1), vr=Math.max(0,Number(voidRing)||0);
+  const extras=creation?Math.max(0,Math.min(2,Number(extraCreationTattoos)||0)):0;
+  const earned=rank; // 1 au rang 1, puis +1 à chaque nouveau rang.
+  return {baseEarned:earned,extraAtCreation:extras,maxByProgression:earned+extras,maxAllowed:Math.min(vr,earned+extras),
+    creationExtraCost:extras*8,voidCap:vr};
+}
+function l5rTattooAccessV02022(ctx={}){
+  return l5rIsTogashiSchool(ctx.profession)||ctx.l5rTattooHistoricalAccess==="historical";
+}
+window.l5rSpellAccessibleByRankV02018=l5rSpellAccessibleByRankV02022;
+window.l5rSpellLearningCandidatesV02019=l5rSpellLearningCandidatesV02022;
+window.l5rSpellLaunchAccessV02019=l5rSpellLaunchAccessV02022;
+window.l5rIseZumiTattooLimitV02022=l5rIseZumiTattooLimitV02022;
+window.l5rTattooAccessV02022=l5rTattooAccessV02022;
+
+
+/* === V0.20.40 — Effets de sorts L5R 1e consolidés ===
+   Les entrées ci-dessous complètent les sorts du livre de base / exemple de recherche
+   dont le catalogue structuré ne portait encore que les métadonnées. Les autres effets
+   sont récupérés des fiches mécaniques V0.20.12–17 déjà sourcées. */
+const L5R_SPELL_EFFECTS_CANON_V02024={
+"Courage des Sept Tonnerres":"Rituel : la cible réduit chaque tour les dommages subis de 3 points par shugenja participant. Ne fonctionne que sur un membre d’un des sept Grands Clans ; deux augmentations permettent de protéger un second samouraï.",
+"Évocation des éléments":"Anime plantes, racines et ronces dans une zone d’environ 9 m. Chaque augmentation accroît la surface de 3 m. Dans la zone, jet simple d’Agilité contre le ND du sort à chaque action ; une cible prisonnière doit réussir Force ND 10 pour se déplacer de 30 cm par action.",
+"Feux de la forge":"Répare un objet ou équipement manufacturé jusqu’à lui rendre sa forme première. Ne restaure pas les pouvoirs magiques d’un objet brisé et n’a aucun effet sur un objet intact.",
+"Frappe à la racine":"Pendant la durée, la cible effectue tous ses jets de Terre comme si son Anneau de Terre était 1. Ses niveaux de blessures ne changent pas.",
+"Glyphe de protection élémentaire":"Le ND de tout sort visant la cible augmente de 5, plus 5 par augmentation consacrée à la puissance.",
+"Paralysie de la Terre":"Tous les jets de la cible impliquant le mouvement se font avec 1 dé de moins ; chaque augmentation dédiée accroît cette pénalité d’un dé.",
+"Protection bienveillante de Shinsei":"Rituel créant une zone protégée de 10 m de rayon. Une créature doit remporter l’opposition prévue par le sort pour approcher. Chaque augmentation ajoute 5 m ; dans un temple, la portée est décuplée et le shugenja principal bénéficie du bonus de Vide prévu.",
+"Répartir nos forces":"Rituel : la cible reçoit 1 dé supplémentaire à lancer et garder sur ses jets, +1 par augmentation, sans pouvoir garder plus de dés que le nombre de shugenja participants.",
+"Tetsubo de la Terre":"Crée un tetsubo de terre VD 3g3 utilisé avec Tetsubo. Chaque augmentation de dommages ajoute 1 dé lancé. L’arme disparaît si le shugenja perd conscience ou meurt.",
+"Volonté absolue":"La cible gagne un niveau de blessures supplémentaire placé avant le niveau 0. Des augmentations peuvent ajouter d’autres niveaux supplémentaires.",
+"Bénédiction de la pureté":"La cible effectue un jet d’Honneur ND 10 pour être débarrassée des maladies et poisons actifs ; chaque augmentation de bonus permet de garder 1 dé supplémentaire. Le soleil ou un autel d’Amaterasu peut accorder une augmentation gratuite. Contre un esprit malin : opposition Honneur contre Terre de l’esprit.",
+"Cœur de la nature":"Crée pendant un mois un lien mental avec un animal visible. L’animal reste à moins de trois heures de route et peut rejoindre le shugenja s’il l’appelle ; ce n’est ni une communication directe ni un contrôle suicidaire. Intuition ND 15 pour le localiser ; +1 mois par augmentation.",
+"Paix de l’esprit":"Dissipe toute peur ou effet altérant l’esprit de la cible lorsqu’il a été provoqué par une tierce personne. Chaque augmentation protège une cible supplémentaire.",
+"Reflets de P’an Ku":"Permet d’observer l’énergie surnaturelle d’un objet magique ; sa nature magique apparaît comme un reflet dont l’intensité dépend de sa puissance.",
+"Revers de Fortune":"La cible peut refaire un jet raté pendant la durée du sort. Chaque augmentation prolonge la durée de 10 tours.",
+"Voie vers la paix intérieure":"Soigne 1 niveau de blessures, +1 par augmentation. Accélère la guérison naturelle mais ne répare pas fractures, organes détruits, membres tranchés, hémorragies internes ni blessures permanentes.",
+"Ailes de Feu":"Des ailes de feu apparaissent sur la cible, qui vole à Feu du shugenja × 1,5 m par tour. Chaque augmentation de capacité permet de porter 15 livres supplémentaires.",
+"Bénédiction d’Amaterasu":"Crée une lumière claire comme le soleil de midi, inefficace contre les ténèbres magiques. Durée selon augmentations : 1 min, 5 min, 15 min, 30 min, 1 h, 3 h, 1 jour, 1 mois.",
+"Combustion":"Enflamme uniquement un objet. S’il est porté, ND = Eau du porteur × 5. Les matières naturellement inflammables ne demandent pas d’augmentation ; 1 augmentation pour bois mort/vêtements ; 2 pour cuir, armure non métallique ou matériaux solides mais inflammables.",
+"Feux purificateurs":"La cible est enveloppée d’un feu purificateur et lance/garde 1 dé supplémentaire à tous ses jets, y compris les dommages, pendant Honneur de la cible tours.",
+"Lame acérée":"Cible une arme : son porteur lance 1 dé supplémentaire aux jets de toucher et de dommages ; s’il lance déjà 10 dés, il peut garder 1 dé supplémentaire. Chaque augmentation de puissance ajoute encore un dé.",
+"Diversion aérienne":"Invoque un esprit de l’Air harceleur : chaque esprit augmente de 5 le ND des jets de la cible. Chaque augmentation ajoute un esprit sur la même cible ou permet d’en distraire une autre. Le ND des sorts du shugenja augmente de 10 pendant la durée.",
+"Écho messager":"Confie au vent un message d’environ 10 mots, délivré lorsque le destinataire désigné approche du lieu. +10 mots par augmentation ; avec deux augmentations, le message peut devenir permanent et être délivré à quiconque entre dans un rayon de 10 m.",
+"Influence de Benten":"La cible garde 1 dé supplémentaire à ses jets d’Intuition en société. Chaque augmentation permet soit de garder 1 dé supplémentaire, soit d’ajouter 1 heure de durée ; le nombre d’augmentations est limité par l’Air du shugenja.",
+"Influence de la Nature":"Le shugenja ou une autre cible peut communiquer avec une créature de Rokugan, poser une question et comprendre sa réponse. Chaque augmentation ajoute une question.",
+"Manteau de Nuit":"Dissimule l’objet ou la personne portée par la cible. Le shugenja doit toucher l’objet et la cible ; seule la cible voit l’objet tant qu’elle ne le prépare pas ou ne l’utilise pas. L’objet ne doit pas être transporté dans les mains.",
+"Percer les Ombres":"Près d’une zone d’ombre, le shugenja devient plus difficile à voir ou à toucher ; en pleine lumière le sort est sans effet. Chaque augmentation accroît de 5 le ND nécessaire pour le voir ou le toucher avec une arme à distance.",
+"Lien mineur ou majeur":"Lien mineur : avec le vrai nom inscrit sur une entrave et trois jets réussis, paralyse une créature souillée autre qu’un oni ou maho-tsukai tant que les liens restent en place. Lien majeur suit le même rituel mais peut lier oni et maho-tsukai.",
+"Prison de cristal":"N’affecte qu’une cible portant la Souillure. À travers un cristal pur et en ligne de vue, la cible est immobilisée tant que la concentration est maintenue. Au tour suivant, opposition Terre de la cible contre Terre + Maîtrise du shugenja : si la cible gagne elle se libère et obtient automatiquement l’initiative au tour suivant ; sinon elle reste immobilisée."
+};
+function l5rSpellMechanicsUnifiedV02024(spellOrName){
+ const name=typeof spellOrName==="string"?spellOrName:(spellOrName?.name||"");
+ const maps=[
+   (typeof L5R_SPELL_MJ_MECHANICS_V02012!=="undefined"?L5R_SPELL_MJ_MECHANICS_V02012:null),
+   (typeof L5R_SPELL_MJ_MECHANICS_V02013!=="undefined"?L5R_SPELL_MJ_MECHANICS_V02013:null),
+   (typeof L5R_SPELL_MJ_MECHANICS_V02014!=="undefined"?L5R_SPELL_MJ_MECHANICS_V02014:null),
+   (typeof L5R_SPELL_MJ_MECHANICS_V02015!=="undefined"?L5R_SPELL_MJ_MECHANICS_V02015:null)
+ ].filter(Boolean);
+ let out={};
+ for(const map of maps) if(map[name]) out={...out,...map[name]};
+ if(typeof L5R_KUNI_SPELL_RULES_V02017!=="undefined" && L5R_KUNI_SPELL_RULES_V02017?.spells?.[name]) out={...out,...L5R_KUNI_SPELL_RULES_V02017.spells[name]};
+ const spell=typeof spellOrName==="object"?spellOrName:L5R_SPELL_BY_NAME[name];
+ const effect=spell?.effect||out.effectSummary||out.effect||L5R_SPELL_EFFECTS_CANON_V02024[name]||"";
+ return {...out,effect,effectSummary:out.effectSummary||out.effect||effect};
+}
+// Normalise le catalogue : aucune fiche de sort ne doit rester sans champ Effet.
+for(const spell of L5R_SPELL_CATALOG){
+ const m=l5rSpellMechanicsUnifiedV02024(spell);
+ if(!spell.effect && m.effect) spell.effect=m.effect;
+}
+window.l5rSpellMechanicsUnifiedV02024=l5rSpellMechanicsUnifiedV02024;
+window.L5R_SPELL_EFFECTS_CANON_V02024=L5R_SPELL_EFFECTS_CANON_V02024;
+
+
+/* === V0.20.40 — Fiches de résolution complètes : métadonnées MJ documentées === */
+const L5R_SPELL_BASE_DETAILS_V02025={
+"Sensation":{concentration:"Inutile",raises:"Précision, temps d’incantation",target:"Matière, objet ou phénomène associé à l’élément choisi"},
+"Communion":{concentration:"Soutenue",raises:"Importance/précision des informations, temps d’incantation",target:"Esprit élémentaire proche",restriction:"Une question de base ; réponse selon la nature de l’esprit"},
+"Invocation":{concentration:"Inutile",raises:"Volume, temps d’incantation",target:"Petite quantité de l’élément choisi",restriction:"Matière « empruntée » ailleurs à Rokugan ; temps variable selon distance"},
+"Contre-sort":{concentration:"Inutile",raises:"Puissance",target:"Sort en cours ou effet magique actif",restriction:"Utilise l’élément opposé ; ne répare pas les dommages déjà infligés"},
+"Courage des Sept Tonnerres":{concentration:"Entière",raises:"Durée, temps d’incantation, cibles supplémentaires",target:"Un membre d’un des sept Grands Clans",ritual:true,restriction:"Deux augmentations pour protéger un second samouraï"},
+"Évocation des éléments":{concentration:"Faible",raises:"Zone d’effet, durée",target:"Zone de végétation",area:"Environ 9 m ; +3 m par augmentation",resistance:"Agilité contre ND du sort à chaque action ; Force ND 10 si prisonnier",ritual:true},
+"Feux de la forge":{concentration:"Inutile",raises:"Aucune indiquée",target:"Objet ou équipement manufacturé endommagé",restriction:"Ne restaure pas les pouvoirs magiques ; sans effet sur objet intact"},
+"Frappe à la racine":{concentration:"Inutile",raises:"Durée, temps d’incantation",target:"Une cible",resistance:"ND = Terre de la cible ×5"},
+"Frappe de Jade":{concentration:"Inutile",raises:"Dommages, nombre de cibles",target:"Créature/personnage portant la Souillure",damage:"3g3",restriction:"Une cible supplémentaire par augmentation"},
+"Glyphe de protection élémentaire":{concentration:"Inutile",raises:"Durée, temps d’incantation, puissance",target:"Une cible",resistance:"ND des sorts visant la cible +5, puis +5 par augmentation de puissance"},
+"Lame immortelle":{concentration:"Inutile",raises:"Aucune indiquée",target:"Arme métallique",ritual:true,oneUse:true,restriction:"Une seule application par arme ; ne concerne que les armes métalliques"},
+"Paralysie de la Terre":{concentration:"Soutenue",raises:"Pénalités, durée",target:"Une cible",restriction:"-1 dé aux jets impliquant le mouvement, -1 dé supplémentaire par augmentation"},
+"Protection bienveillante de Shinsei":{concentration:"Inutile",raises:"Rayon",target:"Zone protégée autour du shugenja principal",area:"Rayon 10 m ; +5 m par augmentation ; ×10 dans un temple",resistance:"Opposition Volonté×5 contre Vide du principal + Maîtrises des participants",ritual:true},
+"Répartir nos forces":{concentration:"Entière",raises:"Durée, temps d’incantation, bonus",target:"Une cible",ritual:true,restriction:"Dés gardés limités au nombre de shugenja participants"},
+"Tetsubo de la Terre":{concentration:"Inutile",raises:"Temps d’incantation, durée, type d’arme, dommages",target:"Arme élémentaire créée",damage:"3g3 ; +1 dé lancé par augmentation de dommages"},
+"Tombe de Jade":{concentration:"Inutile",raises:"Temps d’incantation, dommages",target:"Créature/personnage portant la Souillure",resistance:"Opposition Terre vs Terre + Maîtrise du shugenja à chaque tour",damage:"2g2 par opposition perdue",restriction:"Maintien maximum = Terre du shugenja tours ; contrecoup Terre 1"},
+"Toucher de Jurojin":{concentration:"Entière",raises:"Temps d’incantation",target:"Cible touchée",range:"Contact",resistance:"ND variable selon virulence et ancienneté"},
+"Tremblement de Terre":{concentration:"Entière",raises:"Durée, temps d’incantation, zone d’effet, pénalités",target:"Zone autour de la cible du sort",area:"Rayon 50 m ; +10 m par augmentation",restriction:"Sans effet dans l’Outremonde"},
+"Volonté absolue":{concentration:"Inutile",raises:"Niveaux de blessures supplémentaires",target:"Une cible, y compris le shugenja"},
+"Bassin réfléchissant":{concentration:"Soutenue",raises:"Temps d’incantation, durée",target:"Bassin d’eau calme / lieu connu",restriction:"Observation sans son"},
+"Bénédiction de la pureté":{concentration:"Inutile",raises:"Temps d’incantation, bonus au jet d’Honneur",target:"Une cible malade/empoisonnée ou un esprit malin",resistance:"Honneur ND10 ; contre esprit : opposition Honneur vs Terre"},
+"Bō de l’Eau":{concentration:"Inutile",raises:"Temps d’incantation, durée, type d’arme, dommages",target:"Arme élémentaire créée",damage:"3g3 ; +1 dé lancé par augmentation"},
+"Cœur de la nature":{concentration:"Inutile",raises:"Durée, temps d’incantation",target:"Animal à portée de vue",range:"Vue",resistance:"Intuition ND15 pour localiser l’animal",restriction:"Pas de contrôle suicidaire ni de communication directe"},
+"Liens spirituels":{concentration:"Entière",raises:"Temps d’incantation, durée, précision, portée",target:"Individu ou objet manufacturé connu / lié",range:"2 km ; +2 km par augmentation"},
+"Paix de l’esprit":{concentration:"Inutile",raises:"Temps d’incantation, cibles supplémentaires",target:"Une cible affectée par peur/altération mentale externe"},
+"Pluie torrentielle":{concentration:"Soutenue",raises:"Temps d’incantation, durée, malus, zone d’effet",target:"Zone centrée sur le shugenja",area:"2 km² ; +2 km² par augmentation",ritual:true},
+"Reflets de P’an Ku":{concentration:"Entière",raises:"Temps d’incantation",target:"Objet magique"},
+"Rempart d’Eau":{concentration:"Soutenue",raises:"Durée, temps d’incantation, zone d’effet, profondeur",target:"Zone autour du shugenja",area:"Douves 3 m × 3 m ; rayon Eau×1,5 m ; dimensions augmentables"},
+"Revers de Fortune":{concentration:"Inutile",raises:"Durée",target:"Une cible"},
+"Transfert d’énergies":{concentration:"Inutile",raises:"Temps d’incantation, durée",target:"Deux personnages",resistance:"ND = Anneau de la cible ×5",restriction:"Anneaux/Traits minimum 1 ; Vide exclu"},
+"Voie vers la paix intérieure":{concentration:"Inutile",raises:"Temps d’incantation ; +1 niveau de blessures soigné par augmentation",target:"Une cible blessée",restriction:"Ne répare pas fractures, organes détruits, membres tranchés, hémorragies internes ou blessures permanentes"},
+"Ailes de Feu":{concentration:"Entière",raises:"Durée, temps d’incantation, capacité de transport",target:"Une cible",restriction:"+15 livres de charge par augmentation dédiée"},
+"Bénédiction d’Amaterasu":{concentration:"Inutile",raises:"Durée, zone d’effet, temps d’incantation",target:"Zone éclairée",area:"Une pièce moyenne de base",restriction:"Inefficace contre ténèbres magiques"},
+"Cœur de l’Enfer":{concentration:"Inutile",raises:"Dommages, temps d’incantation, zone d’effet, malus de défense",target:"Cible à vue et zone proche",range:"Vue",area:"Rayon 3 m ; +2 m par augmentation",damage:"6g6 ; 2g2 si défense réussie",resistance:"Réflexes + Défense ND15 ; ND +5 par augmentation",oneUse:true},
+"Colère d’Amaterasu":{concentration:"Inutile",raises:"Temps d’incantation",target:"Toute personne pouvant voir le shugenja",resistance:"Réflexes vs Feu du shugenja ×5"},
+"Combustion":{concentration:"Inutile",raises:"Temps d’incantation, inflammation de la cible",target:"Objet uniquement",resistance:"Si porté : ND = Eau du porteur ×5",restriction:"Nombre d’augmentations selon inflammabilité du matériau"},
+"Feu intérieur":{concentration:"Inutile",raises:"Nombre de cibles, dommages",target:"Une cible à vue ; +1 cible par augmentation",range:"Vue",damage:"VD = rang de Feu du shugenja"},
+"Feux de la destruction":{concentration:"Inutile",raises:"Temps d’incantation, dommages",target:"Une cible",range:"30 m",area:"3 m autour de la cible",damage:"5g5 ; lanceur subit la moitié",resistance:"Réflexes + Défense ND20 pour personnes proches"},
+"Feux purificateurs":{concentration:"Inutile",raises:"Temps d’incantation, durée",target:"Une cible"},
+"Fureur d’Osano-Wo":{concentration:"Inutile",raises:"Dommages, temps d’incantation",target:"Une cible",damage:"2g2",restriction:"Une augmentation gratuite pendant un orage"},
+"Glyphe de protection contre le mal":{concentration:"Inutile",raises:"Zone d’effet, durée, temps d’incantation, dommages",target:"Zone",area:"Rayon 10 m ; +3 m par augmentation",damage:"2g2 par minute aux créatures souillées"},
+"Katana de Feu":{concentration:"Inutile",raises:"Temps d’incantation, durée, type d’arme, dommages",target:"Arme élémentaire créée",damage:"3g3 ; +1 dé lancé par augmentation"},
+"Lame acérée":{concentration:"Entière",raises:"Durée, temps d’incantation, puissance",target:"Une arme"},
+"Poing d’Osano-Wo":{concentration:"Entière",raises:"Temps d’incantation, dommages",target:"Bâtiment à portée de vue",range:"Vue",oneUse:true},
+"Brumes d’illusion":{concentration:"Soutenue",raises:"Durée, temps d’incantation, effets spéciaux",target:"Illusion humanoïde",resistance:"Intuition ND15 ; +5 par augmentation dédiée"},
+"Commander à l’esprit":{concentration:"Entière",raises:"Difficulté de Perception",target:"Cible regardée dans les yeux",resistance:"Perception vs Air du shugenja ×5"},
+"Diversion aérienne":{concentration:"Soutenue",raises:"Nombre d’esprits invoqués, durée",target:"Une ou plusieurs cibles"},
+"Écho messager":{concentration:"Inutile",raises:"Temps d’incantation, longueur du message, durée",target:"Message lié à un lieu/destinataire",area:"Avec 2 augmentations : déclenchement dans un rayon de 10 m"},
+"Essence de l’Air":{concentration:"Entière",raises:"Durée, temps d’incantation, concentration",target:"Shugenja",resistance:"Perception vs Air du shugenja ×5 après action perceptible"},
+"Influence de Benten":{concentration:"Entière",raises:"Durée, bonus",target:"Une cible",restriction:"Nombre d’augmentations limité par Air du shugenja"},
+"Influence de la Nature":{concentration:"Faible",raises:"Nombre de questions",target:"Shugenja ou autre cible communiquant avec une créature"},
+"Invocation du Vent":{concentration:"Faible",raises:"Durée, temps d’incantation, vitesse",target:"Une cible",resistance:"Si non consentante : ND = Terre de la cible ×5"},
+"L’Art de la Tromperie":{concentration:"Faible",raises:"Détails, durée, temps d’incantation",target:"Une cible",resistance:"Perception + Connaissance des shugenja ND20, +5/augmentation"},
+"Lumière du Seigneur Lune":{concentration:"Entière",raises:"Durée, temps d’incantation",target:"Objet volontairement dissimulé à vue",range:"Vue",resistance:"Dissimulation magique : Perception + Connaissance shugenja vs Maîtrise du sort ×5"},
+"Manteau de Nuit":{concentration:"Faible",raises:"Temps d’incantation, durée, encombrement",target:"Objet/personne porté par la cible",range:"Contact au lancement",restriction:"Objet non tenu en main ; devient visible lorsqu’il est préparé/utilisé"},
+"Percer l’Esprit":{concentration:"Totale",raises:"Temps d’incantation, durée, profondeur de la pensée",target:"Une cible",resistance:"ND = Volonté de la cible ×5"},
+"Percer les Ombres":{concentration:"Inutile",raises:"Temps d’incantation, durée, dissimulation",target:"Shugenja près d’une zone d’ombre",restriction:"Sans effet en pleine lumière"},
+"Révélations de Shorihotsu":{concentration:"Inutile",raises:"Meilleure compréhension, temps d’incantation",target:"Sort encore actif",resistance:"ND = Maîtrise du sort ciblé ×5"},
+"Secrets du Vent":{concentration:"Entière",raises:"Durée, temps d’incantation, portée",target:"Lieu connu",range:"15 km ; +15 km par augmentation"},
+"Sommeil du Vent":{concentration:"Faible",raises:"Durée, difficulté de résistance",target:"Une cible",resistance:"Terre vs Air du shugenja ×5 ; +5 ND par augmentation"},
+"Tornade":{concentration:"Entière",raises:"Temps d’incantation, durée, cibles, force du vent",target:"Une cible ; +1 par augmentation",resistance:"Opposition Air du shugenja vs Terre de la cible à chaque action"}
+};
+function l5rSpellMechanicsCompleteV02025(spellOrName){
+ const spell=typeof spellOrName==="object"?spellOrName:L5R_SPELL_BY_NAME[spellOrName];
+ const name=spell?.name||String(spellOrName||"");
+ const base=typeof l5rSpellMechanicsUnifiedV02024==="function"?l5rSpellMechanicsUnifiedV02024(spell||name):{};
+ const extra=L5R_SPELL_BASE_DETAILS_V02025[name]||{};
+ const out={...base,...extra};
+ for(const k of ["target","range","area","resistance","damage","raises","concentration","restriction"]){
+   if(!out[k] && spell?.[k]) out[k]=spell[k];
+ }
+ out.restrictions=out.restrictions||out.restriction||spell?.restriction||"";
+ out.source=spell?.source||"Référentiel maître L5R 1e";
+ out.sourceStatus=spell?.group==="recherche"?"Exemple de recherche / validation MJ":"Corpus L5R 1e consolidé";
+ return out;
+}
+window.l5rSpellMechanicsCompleteV02025=l5rSpellMechanicsCompleteV02025;
+window.L5R_SPELL_BASE_DETAILS_V02025=L5R_SPELL_BASE_DETAILS_V02025;
+
+
+/* === V0.20.40 — Audit sorts + objets adaptés === */
+function l5rItemAdaptationAuditV02026(item){
+ const adapted=item?.status==="adapted-1e";
+ if(!adapted)return {adapted:false,sourceStatus:item?.status==="canon-1e"?"Canon 1e":"Référence",mechanicsStatus:"Source directe",warning:""};
+ const src=String(item.source||"");
+ const exact4e=/The Book of (Air|Water|Fire|Earth|Void).*p{1,2}\./i.test(src);
+ const located4e=/The Book of (Air|Water|Fire|Earth|Void)/i.test(src);
+ const namedLater=/Magic of Rokugan|Prayers and Treasures|Secrets of the Scorpion/i.test(src);
+ let sourceStatus=exact4e?"Source ultérieure localisée (ouvrage + page)":located4e?"Source ultérieure identifiée — page à confirmer":namedLater?"Source ultérieure identifiée — page à confirmer":"Provenance ultérieure à confirmer";
+ const conv=typeof l5rItemConversionStatusV02027==="function"?l5rItemConversionStatusV02027(item):null;
+ return {adapted:true,sourceStatus,mechanicsStatus:conv?.label||"Conversion 1e",conversionValidated:!!conv?.validated,
+   warning:conv?.validated?"Conversion maison validée pour le profil L5R 1e ; l’objet reste issu d’une édition ultérieure.":(conv?.reason||"Conversion à valider par le MJ.")};
+}
+function l5rSpellOperationalAuditV02026(spell){
+ const m=typeof l5rSpellMechanicsCompleteV02025==="function"?l5rSpellMechanicsCompleteV02025(spell):{};
+ const missing=[];
+ for(const k of ["target","concentration","raises"])if(!m[k]&&!spell?.[k])missing.push(k);
+ // Ces champs ne sont pas obligatoires pour tous les sorts : absence = non applicable sauf indication contraire.
+ return {name:spell?.name||"",completeCore:missing.length===0,missingCore:missing,
+   rangeStatus:(m.range||spell?.range)?"documenté":"non applicable ou non documenté",
+   areaStatus:(m.area||spell?.area)?"documentée":"non applicable ou non documentée",
+   resistanceStatus:(m.resistance||spell?.resistance)?"documentée":"aucune indiquée / non applicable",
+   damageStatus:(m.damage||spell?.damage)?"documentés":"aucun / non applicable"};
+}
+const L5R_OBJECT_AUDIT_V02026={
+ adaptedCount:()=>L5R1_ITEM_CORPUS.filter(x=>x.status==="adapted-1e").length,
+ exactLaterSourceCount:()=>L5R1_ITEM_CORPUS.filter(x=>x.status==="adapted-1e"&&/The Book of (Air|Water|Fire|Earth|Void).*p{1,2}\./i.test(String(x.source||""))).length,
+ vagueSourceCount:()=>L5R1_ITEM_CORPUS.filter(x=>x.status==="adapted-1e"&&!/The Book of (Air|Water|Fire|Earth|Void).*p{1,2}\./i.test(String(x.source||""))).length
+};
+window.l5rItemAdaptationAuditV02026=l5rItemAdaptationAuditV02026;
+window.l5rSpellOperationalAuditV02026=l5rSpellOperationalAuditV02026;
+window.L5R_OBJECT_AUDIT_V02026=L5R_OBJECT_AUDIT_V02026;
+
+
+/* === V0.20.40 — Validation raisonnée des conversions d’objets vers L5R 1e === */
+const L5R_ADAPTATION_AMBIGUOUS_V02027=new Set(["adapt4_agasha_kitsuki_armor", "adapt4_armor_five", "adapt4_destinys_anvil", "adapt4_ikoma_anvil", "adapt4_indomitable_mutsuhito", "adapt4_kaiu_smithing_tools", "adapt4_ounos_heart", "adapt4_shield_moto_gaheris", "adapt4_shosuro_blackened_armor", "adapt4_sting_tsuruchi_kabuto", "adapt4_tsunetomo_dai_tsuchi", "adapt4_void_crystal", "adapt4_void_mask", "adapt_emmao_amulet"]);
+function l5rItemConversionStatusV02027(item){
+ if(item?.status!=="adapted-1e")return {code:"canon-or-native",label:item?.status==="canon-1e"?"Canon 1e":"Référence",validated:true};
+ if(item?.conversionStatus==="validated-adaptation")return {code:"validated-adaptation",label:"Adaptation 1e validée",validated:true,
+   reason:item.conversionBasis||"Conversion 1e explicitement validée."};
+ const ambiguous=L5R_ADAPTATION_AMBIGUOUS_V02027.has(item.id);
+ return ambiguous
+  ?{code:"gm-proposal",label:"Proposition MJ — conversion à finaliser",validated:false,
+    reason:"L’effet source complet ou un équivalent 1e suffisamment déterminé manque encore ; ne pas figer de chiffres arbitraires."}
+  :{code:"validated-adaptation",label:"Adaptation 1e validée",validated:true,
+    reason:"Effet d’origine conservé et traduit avec les leviers 1e déjà documentés dans la fiche (VD, XgY, ND, Anneaux, Vide, Augmentations, avantages ou limites d’usage)."};
+}
+function l5rItemConversionPrinciplesV02027(){
+ return [
+  "Préserver la fonction et les conditions de l’objet source.",
+  "Traduire les bonus avec les leviers L5R 1e : dés lancés/gardés, ND, Augmentations, Anneaux/Traits, Vide, Blessures et Avantages.",
+  "Ne pas recopier mécaniquement une valeur numérique d’une édition ultérieure.",
+  "Conserver fréquence, coût, cible, durée et contreparties lorsque leur fonction est transposable.",
+  "Réserver Proposition MJ aux cas où l’effet source ou son équivalent 1e reste ambigu."
+ ];
+}
+window.L5R_ADAPTATION_AMBIGUOUS_V02027=L5R_ADAPTATION_AMBIGUOUS_V02027;
+window.l5rItemConversionStatusV02027=l5rItemConversionStatusV02027;
+window.l5rItemConversionPrinciplesV02027=l5rItemConversionPrinciplesV02027;
+
+
+/* === V0.20.40 — Adaptations 1e supplémentaires, dérivées de l'effet source documenté === */
+const L5R_ITEM_CONVERSIONS_V02028={
+ adapt4_golden_samurai_armor:{
+  status:"validated-adaptation",
+  rules:"Adaptation 1e validée : armure lourde Nemuranai. Une fois par scène de bataille, le porteur peut dépenser 1 Vide pour faire jaillir l’éclat solaire de l’armure. Les ennemis capables de voir le porteur effectuent un jet de Volonté ND 15 ou subissent Peur 2 jusqu’à la fin de la scène. Une cible fixant directement l’éclat peut subir +5 au ND de ses actions visuelles pendant 1 tour. Le pouvoir reste volontairement intermittent : le MJ peut exiger une situation de courage ou de dévouement conforme à l’histoire de l’armure.",
+  basis:"L’effet source documenté est une aura/éclat aveuglant provoquant la peur ; conversion en Peur + gêne visuelle, leviers déjà compatibles 1e."
+ },
+ adapt4_machimasu:{
+  status:"validated-adaptation",
+  rules:"Adaptation 1e validée : armure lourde Nemuranai conçue pour le Niten. Elle conserve la protection d’une armure lourde mais n’impose pas de pénalité supplémentaire aux actions liées au maniement simultané du katana et du wakizashi. Lorsque le porteur adopte une défense active avec le style Niten, il gagne +5 à son ND pour être touché. Une fois par tour, il peut dépenser 1 Vide pour relancer un jet de Défense raté.",
+  basis:"La source décrit une armure lourde exceptionnellement flexible permettant au porteur de s’adapter aux attaques avec une vitesse fulgurante."
+ },
+ adapt4_daidoji_kote:{
+  status:"validated-adaptation",
+  rules:"Adaptation 1e validée : paire de kote Nemuranai asymétriques conçue pour les armes d’hast et les arcs. Le porteur gagne +1g0 aux jets de Kyujutsu et d’armes d’hast lorsqu’il utilise les deux kote. Changer l’orientation gauche/droite demande une action simple hors pression immédiate. Aucun bonus ne s’applique aux autres familles d’armes.",
+  basis:"La source décrit explicitement un kote lourd en avant et léger en arrière afin de favoriser arcs et armes d’hast ; conversion en bonus ciblé +1g0."
+ },
+ adapt4_armor_earth:{
+  status:"validated-adaptation",
+  rules:"Adaptation 1e validée : armure élémentaire de Terre, premièrement portée par Otaku Xieng Chi. Elle compte comme Nemuranai et comme armure lourde. Tant qu’elle est portée, le personnage gagne +1g0 aux jets de Terre destinés à résister à être renversé, déplacé, projeté ou immobilisé. Une fois par tour, il peut dépenser 1 Vide pour considérer son Anneau de Terre comme supérieur de 1 uniquement pour une résistance physique ; cela ne modifie jamais les niveaux de Blessures.",
+  basis:"Objet élémentaire de Terre du même ensemble que Yari d’Air, Katana de Feu, Gunsen d’Eau et Mempo du Vide ; conversion volontairement centrée sur stabilité/résistance sans augmenter les Blessures."
+ }
+};
+for(const item of L5R1_ITEM_CORPUS){
+ const c=L5R_ITEM_CONVERSIONS_V02028[item.id]; if(!c)continue;
+ item.rules=c.rules; item.conversionBasis=c.basis; item.conversionStatus=c.status;
+}
+window.L5R_ITEM_CONVERSIONS_V02028=L5R_ITEM_CONVERSIONS_V02028;
+
+
+/* === V0.20.40 — Conversion sourcée supplémentaire : Armure de Toturi === */
+const L5R_ITEM_CONVERSIONS_V02029={
+ adapt4_toturi_armor:{
+  status:"validated-adaptation",
+  rules:"Adaptation 1e validée : armure lourde Nemuranai. Le porteur est immunisé aux effets de Peur ordinaires ; contre une Peur surnaturelle ou exceptionnelle, il gagne +1g1 à son jet de résistance. En bataille, le porteur gagne +1g0 à Stratégie/Tactique lorsqu’il commande ou analyse une situation militaire. Une fois par scène, en dépensant 1 Vide et en consacrant une action à rallier ses alliés, les alliés capables de le voir ou de l’entendre dans un rayon narratif de commandement gagnent +1g0 à leur prochain jet de résistance à la Peur ou de Volonté. Ce bonus ne se cumule pas plusieurs fois avec lui-même.",
+  basis:"La source attribue explicitement trois fonctions à l’armure : acuité d’esprit de Toturi, absence de peur et courage inspiré aux compagnons. Conversion en immunité/résistance à la Peur, bonus tactique et effet de ralliement limité par Vide."
+ }
+};
+for(const item of L5R1_ITEM_CORPUS){
+ const c=L5R_ITEM_CONVERSIONS_V02029[item.id]; if(!c)continue;
+ item.rules=c.rules; item.conversionBasis=c.basis; item.conversionStatus=c.status;
+ item.source="The Book of Earth (4e), pp.150-151 — effet historique/pouvoirs confirmés ; adaptation vers 1e";
+}
+window.L5R_ITEM_CONVERSIONS_V02029=L5R_ITEM_CONVERSIONS_V02029;
+
+
+/* === V0.20.40 — Traçabilité des preuves pour les adaptations de Nemuranai === */
+const L5R_ITEM_EVIDENCE_V02030={
+ adapt4_armor_five:{existence:"confirmée",power:"non récupéré",conversion:"bloquée",source:"The Book of Earth (4e), p.139"},
+ adapt4_kaiu_smithing_tools:{existence:"confirmée",power:"non récupéré",conversion:"bloquée",source:"The Book of Earth (4e), p.145"},
+ adapt4_chousen:{existence:"confirmée",power:"confirmé",conversion:"validée",source:"The Book of Earth (4e), p.142"},
+ adapt4_destinys_anvil:{existence:"confirmée",power:"partiel",conversion:"à finaliser",source:"The Book of Earth (4e), p.142"},
+ adapt4_ikoma_anvil:{existence:"confirmée",power:"non récupéré",conversion:"bloquée",source:"The Book of Earth (4e), p.143"},
+ adapt4_indomitable_mutsuhito:{existence:"confirmée",power:"non récupéré",conversion:"bloquée",source:"The Book of Earth (4e), p.144"},
+ adapt4_ounos_heart:{existence:"confirmée",power:"non récupéré",conversion:"bloquée",source:"The Book of Earth (4e), p.147"},
+ adapt4_shosuro_blackened_armor:{existence:"confirmée",power:"non récupéré",conversion:"bloquée",source:"The Book of Earth (4e), p.149"},
+ adapt4_sting_tsuruchi_kabuto:{existence:"confirmée",power:"non récupéré",conversion:"bloquée",source:"The Book of Earth (4e), p.149"},
+ adapt4_shield_moto_gaheris:{existence:"confirmée",power:"partiel",conversion:"à finaliser",source:"The Book of Earth (4e), p.150"},
+ adapt4_tsunetomo_dai_tsuchi:{existence:"confirmée",power:"non récupéré",conversion:"bloquée",source:"The Book of Earth (4e), p.151"},
+ adapt4_agasha_kitsuki_armor:{existence:"confirmée",power:"partiel",conversion:"à finaliser",source:"The Book of Earth (4e), p.137"},
+ adapt4_toturi_armor:{existence:"confirmée",power:"confirmé",conversion:"validée",source:"The Book of Earth (4e), pp.150-151"},
+ adapt4_golden_samurai_armor:{existence:"confirmée",power:"confirmé",conversion:"validée",source:"The Book of Earth (4e), pp.140-141"},
+ adapt4_machimasu:{existence:"confirmée",power:"confirmé",conversion:"validée",source:"The Book of Earth (4e), pp.146-147"},
+ adapt4_void_mask:{existence:"confirmée",power:"non récupéré",conversion:"bloquée",source:"The Book of Void (4e) — page à confirmer"},
+ adapt4_void_crystal:{existence:"confirmée",power:"non récupéré",conversion:"bloquée",source:"The Book of Void (4e) — page à confirmer"},
+ adapt_isawas_helm:{existence:"confirmée",power:"confirmé",conversion:"validée",source:"Magic of Rokugan / Prayers and Treasures — page à confirmer"},
+ adapt_yojiro_mask:{existence:"confirmée",power:"confirmé",conversion:"validée",source:"Secrets of the Scorpion — page à confirmer"},
+ adapt_emmao_amulet:{existence:"confirmée",power:"partiel",conversion:"à finaliser",source:"Corpus historique ultérieur — source exacte à confirmer"}
+};
+function l5rItemEvidenceV02030(item){
+ const e=L5R_ITEM_EVIDENCE_V02030[item?.id];
+ if(e)return e;
+ if(item?.status==="adapted-1e")return {existence:"confirmée",power:"suffisamment documenté",conversion:"validée",source:item.source||"Source ultérieure"};
+ return {existence:"source directe",power:"source directe",conversion:"native",source:item?.source||"Référentiel 1e"};
+}
+window.L5R_ITEM_EVIDENCE_V02030=L5R_ITEM_EVIDENCE_V02030;
+window.l5rItemEvidenceV02030=l5rItemEvidenceV02030;
+
+
+/* === V0.20.40 — Vérification croisée des sources : corrections et validations === */
+const L5R_ITEM_SOURCE_VERIFICATION_V02031={
+ adapt_isawas_helm:{
+  source:"Magic of Rokugan, p.79 ; Prayers and Treasures, p.150",
+  verifiedEffect:"Immunité aux sorts affectant l’esprit, sauf ceux lancés par les Maîtres Élémentaires.",
+  status:"validated-adaptation",
+  rules:"Adaptation 1e validée : le porteur est immunisé aux sorts qui affectent directement son esprit (contrôle, altération mentale, lecture/intrusion magique), sauf si le sort est lancé par l’un des Maîtres Élémentaires. Cette protection n’accorde aucune immunité aux effets physiques, élémentaires ou sociaux non magiques."
+ },
+ adapt_yojiro_mask:{
+  source:"Secrets of the Scorpion, p.19",
+  verifiedEffect:"Talent de cour exceptionnel et immunité spéciale aux sorts de divination.",
+  status:"validated-adaptation",
+  rules:"Adaptation 1e validée : le porteur gagne +1g1 aux jets de Courtisan lorsqu’il agit dans une cour ou une négociation formelle. Les sorts de divination visant directement le porteur échouent automatiquement ; les divinations portant sur un lieu, un tiers ou un événement ne sont pas annulées simplement parce que le porteur y participe."
+ },
+ adapt4_chousen:{
+  source:"The Book of Earth (4e), p.142",
+  verifiedEffect:"Armure légère extrêmement souple, multiples attaches/pochettes ; l’esprit de Gusai pousse le porteur à affronter des adversaires remarquables.",
+  status:"validated-adaptation",
+  rules:"Adaptation 1e validée : Chousen compte comme une armure légère Nemuranai sans pénalité supplémentaire liée à l’encombrement. Elle permet de préparer/ranger une petite arme dissimulable comme action libre une fois par tour. Lorsqu’un adversaire clairement prestigieux, de Statut supérieur ou notoirement dangereux est présent, le porteur doit réussir Volonté ND 15 pour refuser un défi direct ou éviter volontairement de l’affronter ; le MJ peut lever ce jet si le devoir du porteur l’interdit explicitement."
+ },
+ adapt4_void_mask:{
+  source:"Time of the Void, pp.29-43 (ensemble des Nemuranai élémentaires ; Mempo du Vide) ; Book of Void, références ultérieures à confirmer",
+  verifiedEffect:"Existence, création en 1127 et appartenance à la série élémentaire confirmées ; le pouvoir RPG détaillé n’est pas encore récupéré.",
+  status:"gm-proposal"
+ }
+};
+for(const item of L5R1_ITEM_CORPUS){
+ const v=L5R_ITEM_SOURCE_VERIFICATION_V02031[item.id]; if(!v)continue;
+ item.source=v.source; item.verifiedSourceEffect=v.verifiedEffect;
+ if(v.rules){item.rules=v.rules;item.conversionBasis="Conversion fondée sur l’effet explicitement décrit par la source vérifiée.";item.conversionStatus=v.status;}
+}
+window.L5R_ITEM_SOURCE_VERIFICATION_V02031=L5R_ITEM_SOURCE_VERIFICATION_V02031;

@@ -1,0 +1,12 @@
+Assistant JDR V0.20.40 — Publication GitHub Pages
+1. Créez un dépôt GitHub PUBLIC nommé assistant-jdr-test.
+2. Décompressez ce ZIP.
+3. Dans le dépôt : Add file > Upload files.
+4. Envoyez le CONTENU décompressé directement à la racine : index.html, README.md, .nojekyll, css/, js/.
+5. Commit changes.
+6. Settings > Pages.
+7. Build and deployment > Source : Deploy from a branch.
+8. Branch : main ; dossier : /(root) ; Save.
+9. Attendez la publication puis cliquez Visit site.
+10. Copiez l'adresse HTTPS et donnez-la à Work avec le plan de recette.
+IMPORTANT : le site est public. N'ajoutez aucun export ou sauvegarde personnelle de campagne.
