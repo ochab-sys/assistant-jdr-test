@@ -1,8 +1,48 @@
-## V0.20.40 — Préparation recette navigateur / Work
 
-Cette version ne modifie pas les règles de jeu : elle fige la V0.20.38 comme base de recette et ajoute au README le protocole de test navigateur V0.20.40. Le plan complet est également livré séparément pour être utilisé comme instruction de travail dans Work.
+## V0.20.57 — L5R 1e : fiches complètes des Kiho de La Voie de Shinsei
+- Complète les 39 Kiho déjà catalogués depuis *The Way of Shinsei* avec une règle mécanique paraphrasée exploitable en jeu : activation, Vide, jets/oppositions, durée, limitations et effets chiffrés lorsqu’ils sont attestés.
+- Conserve Anneau, type, Maîtrise et réductions de Maîtrise par clan.
+- Les règles officielles PJ et la génération simplifiée PNJ restent strictement séparées.
+- Le Cœur perçant reste une attribution automatique du Bushi Kakita Rang 2 ; sa mécanique détaillée n’est pas inventée tant qu’une source vérifiée ne la fournit pas.
+# Assistant JDR — V0.20.47
 
-# Assistant JDR — Plan de recette Work — V0.20.40
+## V0.20.47 — L5R 1e — Scorpion complet et audit Dragon
+
+- Scorpion : 10/10 entrées du Who’s Who disposent désormais d’un bloc mécanique 1e relié.
+- Ajouts : Bayushi Tangen (p.57), Soshi Bantaro (p.62), Yogo Junzo (p.63), Yogo Asami (pp.64-65).
+- Les profils postérieurs de Bantaro, Junzo et Asami restent séparés des valeurs de The Way of the Scorpion.
+- Dragon : correction du roster Who’s Who avec Togashi Yama, absent de l’index précédent ; Togashi Mitsu est conservé.
+- Les profils Dragon non suffisamment récupérés restent « profil à extraire » : aucune statistique Clan War/édition ultérieure n’est substituée.
+- Audit : absence de doublons et contrôle du rattachement profil ↔ entrée nominative.
+
+## L5R 1e — poursuite des profils PNJ vérifiés
+
+- Dragon : ajout du bloc mécanique 1e de Togashi Gaijutsu (Way of the Dragon, pp.58-59).
+- Lion : ajout du bloc mécanique 1e de Matsu Hiroru (Way of the Lion, p.73), sans reprendre son adaptation 4e.
+- Scorpion : ajout des blocs 1e de Shosuro Hametsu (pp.53-54) et Shosuro Taberu (p.54).
+- Les valeurs absentes ou illisibles dans les sources exploitées ne sont pas inventées.
+- Les corrections d’errata restent distinguées des valeurs imprimées ; aucune correction silencieuse n’est appliquée à un profil non vérifié.
+- Les profils postérieurs restent séparés des profils des livres de clan 1e.
+
+# Assistant JDR — V0.20.42
+
+## V0.20.42 — L5R 1e — consolidation nominative des sept Grands Clans
+
+- Dragon : 14 entrées du chapitre Who’s Who indexées nominativement ; les ancêtres sont distingués des contemporains.
+- Crabe : 19 entrées du Who’s Who intégrées à la bibliothèque PNJ commune ; le corpus Crabe séparé est aligné sur cette liste.
+- Grue : 18 entrées vérifiées ; les 9 ancêtres qui manquaient à l’index global sont ajoutés.
+- Lion : contrôle croisé, 18/18 entrées déjà présentes ; aucune duplication ajoutée.
+- Phénix : contrôle croisé, 19/19 entrées déjà présentes ; aucune duplication ajoutée.
+- Scorpion : 10 entrées vérifiées ; ajout de Tangen, Yojiro, Hametsu, Taberu, Bantaro, Junzo et Asami.
+- Licorne : contrôle croisé, 20/20 entrées déjà présentes ; aucune duplication ajoutée.
+- Les profils mécaniques détaillés ne sont pas extrapolés : une entrée sans bloc 1e récupéré reste « profil à extraire ».
+- Les contrôles intermédiaires vérifient pour chaque clan le nombre d’entrées et l’absence de doublons.
+
+## V0.20.41 — Préparation recette navigateur / Work
+
+Cette version ne modifie pas les règles de jeu : elle fige la V0.20.38 comme base de recette et ajoute au README le protocole de test navigateur V0.20.41. Le plan complet est également livré séparément pour être utilisé comme instruction de travail dans Work.
+
+# Assistant JDR — Plan de recette Work — V0.20.41
 
 ## Objectif
 Tester réellement l'application dans un navigateur, en interaction, avec contrôle fonctionnel et visuel. Ne pas se limiter à vérifier que la page s'ouvre.
@@ -164,7 +204,7 @@ Gravité :
 6. résultats des retests.
 
 ## Instruction de correction
-Ne jamais reconstruire l'application depuis zéro. Partir de la V0.20.40. Conserver exactement les chemins internes :
+Ne jamais reconstruire l'application depuis zéro. Partir de la V0.20.41. Conserver exactement les chemins internes :
 - `jdr-assistant/index.html`
 - `jdr-assistant/README.md`
 - `jdr-assistant/css/app.css`
@@ -174,7 +214,7 @@ Ne jamais reconstruire l'application depuis zéro. Partir de la V0.20.40. Conser
 Après corrections : incrémenter la version, reconstruire l'HTML portable, exécuter `node --check` sur `app.js`, `db.js` et tous les scripts embarqués, puis vérifier réellement les parcours corrigés dans le navigateur.
 
 
-## V0.20.40 — Consolidation massive PNJ 1e
+## V0.20.41 — Consolidation massive PNJ 1e
 
 Nouveaux profils 1e vérifiés et intégrés :
 - Doji Shizue — The Way of the Crane p.84.
@@ -187,7 +227,7 @@ Les variantes postérieures (Clan War, Time of the Void, Hidden Emperor, éditio
 
 Les recherches de cette passe ont aussi confirmé que certaines entrées restantes sont documentées narrativement dans les livres de clan mais que les résultats disponibles ne fournissent pas encore leur bloc RPG 1e complet. Elles restent donc volontairement sans statistiques.
 
-## V0.20.40 — Passe massive PNJ 1e
+## V0.20.41 — Passe massive PNJ 1e
 
 Ajout de profils mécaniques 1e supplémentaires vérifiés :
 Doji Hoturi (Way of the Crane p.78), Doji Kuwanan (p.80), Kakita Yoshi (p.85), Asahina Tamako (pp.88-89), Daidoji Uji (p.90), Bayushi Aramoro (Way of the Scorpion p.52), Bayushi Kachiko (p.53), Bayushi Shoju (p.56), Isawa Tomo (Way of the Phoenix p.76), Shiba Ujimitsu (p.86).
@@ -198,7 +238,7 @@ La bibliothèque PNJ ajoute un filtre `Profil : Tous / Profil 1e récupéré / �
 
 La passe n’invente toujours aucune statistique lorsqu’un bloc source fiable n’a pas été retrouvé.
 
-## V0.20.40 — PNJ 1e supplémentaires + apprentissage des sorts séparé
+## V0.20.41 — PNJ 1e supplémentaires + apprentissage des sorts séparé
 
 PNJ : ajout de cinq blocs mécaniques 1e vérifiés :
 - Akodo Toturi — The Way of the Lion p.64.
@@ -216,7 +256,7 @@ Sorts :
 - recherche : bibliothèque de l’école requise et ND de base = Maîtrise × 10, avant modificateurs ;
 - la Maîtrise du sort n’est jamais transformée en prérequis de rang d’école.
 
-## V0.20.40 — Correctif sélection des sorts de départ L5R 1e
+## V0.20.41 — Correctif sélection des sorts de départ L5R 1e
 
 - Correction de la régression visible dans l’éditeur de shugenja.
 - Le rang d’école n’est plus utilisé pour autoriser/interdire un sort selon sa Maîtrise.
@@ -230,7 +270,7 @@ Sorts :
 
 Important : cette passe corrige la sélection de création. L’apprentissage ultérieur d’un sort reste un flux distinct (bibliothèque/recherche/enseignement) et ne doit pas être confondu avec les parchemins de départ.
 
-## V0.20.40 — Fiches mécaniques PNJ 1e + tri par Clan
+## V0.20.41 — Fiches mécaniques PNJ 1e + tri par Clan
 
 Première passe de récupération des blocs mécaniques vérifiés dans les suppléments 1e :
 - Doji Satsume — The Way of the Crane p.76.
@@ -243,7 +283,7 @@ Pour ces fiches : école/rang, Honneur, Gloire, Anneaux, Traits, compétences, a
 La bibliothèque PNJ possède maintenant un filtre par Clan et une recherche par nom.
 Les autres PNJ restent visibles avec la mention `profil à extraire`; aucune statistique n’est extrapolée.
 
-## V0.20.40 — L5R 1e — PNJ Lion, Phénix et Licorne + accès global
+## V0.20.41 — L5R 1e — PNJ Lion, Phénix et Licorne + accès global
 
 - Extraction nominative du chapitre `Who's Who` de The Way of the Lion : 18 entrées.
 - Extraction nominative du chapitre `Who's Who` de The Way of the Phoenix : 19 entrées.
@@ -254,7 +294,7 @@ Les autres PNJ restent visibles avec la mention `profil à extraire`; aucune sta
 - Les statistiques détaillées ne sont toujours pas inventées : une fiche sans bloc extrait indique seulement sa source et son statut.
 - Dragon reste à extraire nominativement depuis une source 1e suffisamment précise.
 
-## V0.20.40 — L5R 1e — Réouverture des PNJ des livres
+## V0.20.41 — L5R 1e — Réouverture des PNJ des livres
 
 - Les entrées nominatives déjà indexées dans les livres de clan sont maintenant cliquables.
 - Grue : Doji Satsume, Doji Hoturi, Doji Kuwanan, Doji Ameiko, Doji Shizue, Kakita Yoshi, Kakita Toshimoko, Asahina Tamako et Daidoji Uji.
@@ -265,7 +305,7 @@ Les autres PNJ restent visibles avec la mention `profil à extraire`; aucune sta
 - Aucun bloc de caractéristiques absent de la source structurée n’est inventé.
 - Les livres Dragon, Lion, Phénix et Licorne qui ne contiennent encore qu’une mention générique `Personnalités du chapitre` restent à extraire nominativement avant d’exposer de fausses fiches.
 
-## V0.20.40 — Vérification croisée des sources
+## V0.20.41 — Vérification croisée des sources
 
 - Heaume d’Isawa : source corrigée vers Magic of Rokugan p.79 et Prayers and Treasures p.150 ; pouvoir confirmé (immunité aux sorts affectant l’esprit sauf Maîtres Élémentaires) ; adaptation 1e validée.
 - Masque de Yojiro : source corrigée vers Secrets of the Scorpion p.19 ; pouvoir confirmé (aptitude de cour exceptionnelle + immunité spéciale à la divination) ; adaptation 1e validée.
@@ -274,7 +314,7 @@ Les autres PNJ restent visibles avec la mention `profil à extraire`; aucune sta
 - La fiche d’objet peut désormais afficher `Effet source vérifié` séparément de la conversion 1e.
 - Les autres entrées ne sont pas promues sans description de pouvoir vérifiable.
 
-## V0.20.40 — L5R 1e — Audit de preuve des Nemuranai restants
+## V0.20.41 — L5R 1e — Audit de preuve des Nemuranai restants
 
 - Ajout d’un statut distinct pour `Existence`, `Pouvoir source` et `Conversion`.
 - Un objet cité dans le sommaire de Book of Earth est désormais clairement `existence confirmée`, sans que cela valide automatiquement son pouvoir.
@@ -283,7 +323,7 @@ Les autres PNJ restent visibles avec la mention `profil à extraire`; aucune sta
 - Les conversions déjà étayées par un effet source exploitable restent `validées`.
 - Cette séparation empêche une donnée de provenance ou un simple nom de devenir accidentellement une mécanique de jeu.
 
-## V0.20.40 — L5R 1e — Poursuite des Nemuranai
+## V0.20.41 — L5R 1e — Poursuite des Nemuranai
 
 - Armure de Toturi : effet source retrouvé et conversion 1e validée.
 - Traduction retenue : immunité à la Peur ordinaire, +1g1 contre la Peur surnaturelle/exceptionnelle, +1g0 aux jets de Stratégie/Tactique militaires, et ralliement des alliés 1 fois/scène contre dépense de Vide.
@@ -292,7 +332,7 @@ Les autres PNJ restent visibles avec la mention `profil à extraire`; aucune sta
 - Référence du Bouclier de Moto Gaheris corrigée : The Book of Earth p.150.
 - Les autres objets dont la recherche ne fournit encore que le nom ou la localisation restent `Proposition MJ — conversion à finaliser` ; aucune mécanique n’est créée sans pouvoir source exploitable.
 
-## V0.20.40 — L5R 1e — Conversion ciblée des Nemuranai restants
+## V0.20.41 — L5R 1e — Conversion ciblée des Nemuranai restants
 
 - Correction des pages Book of Earth grâce au sommaire détaillé : Armure de Terre p.138, Armure des Cinq p.139, Samouraï Doré pp.140-141, outils Kaiu p.145, kote Daidoji p.146, Machimasu pp.146-147, Cœur d’Ouno p.147, armure Shosuro et Sting p.149, Toturi pp.150-151, Tsunetomo p.151, etc.
 - Quatre conversions supplémentaires passent en `Adaptation 1e validée` parce que leur fonction source est suffisamment documentée : Armure de Terre, Armure du Samouraï Doré, Kote du Daimyō Daidoji et Machimasu.
@@ -300,7 +340,7 @@ Les autres PNJ restent visibles avec la mention `profil à extraire`; aucune sta
 - Les objets dont seuls le nom, l’existence ou la provenance sont établis restent à finaliser : aucune mécanique n’est inventée sans effet source exploitable.
 - Les adaptations validées précédentes restent inchangées.
 
-## V0.20.40 — L5R 1e — Validation des adaptations d’objets
+## V0.20.41 — L5R 1e — Validation des adaptations d’objets
 
 - Corpus audité : 58 objets issus d’éditions ultérieures.
 - 36 conversions disposent déjà d’une traduction mécanique suffisamment déterminée pour être classées **Adaptation 1e validée**.
@@ -313,7 +353,7 @@ Les autres PNJ restent visibles avec la mention `profil à extraire`; aucune sta
 ### Conversions restant à finaliser
 adapt_isawas_helm, adapt_yojiro_mask, adapt_emmao_amulet, adapt4_agasha_kitsuki_armor, adapt4_armor_earth, adapt4_golden_samurai_armor, adapt4_kaiu_smithing_tools, adapt4_daidoji_kote, adapt4_machimasu, adapt4_shield_moto_gaheris, adapt4_tsunetomo_dai_tsuchi, adapt4_armor_five, adapt4_chousen, adapt4_destinys_anvil, adapt4_ikoma_anvil, adapt4_indomitable_mutsuhito, adapt4_ounos_heart, adapt4_shosuro_blackened_armor, adapt4_sting_tsuruchi_kabuto, adapt4_toturi_armor, adapt4_void_mask, adapt4_void_crystal
 
-## V0.20.40 — Audit sorts et objets adaptés
+## V0.20.41 — Audit sorts et objets adaptés
 
 - Contrôle du corpus des sorts : les champs structurels sont distingués des champs conditionnels (portée, zone, résistance et dégâts ne s’appliquent pas nécessairement à tous les sorts).
 - Ajout d’un audit opérationnel qui signale les véritables champs centraux encore manquants sans inventer les champs non applicables.
@@ -324,14 +364,14 @@ adapt_isawas_helm, adapt_yojiro_mask, adapt_emmao_amulet, adapt4_agasha_kitsuki_
 - Heaume d’Isawa et Masque de Bayushi Yojiro : ouvrage ultérieur identifié mais page à confirmer.
 - Amulette d’Emma-O : provenance exacte encore à confirmer ; sa mécanique reste narrative/proposition MJ.
 
-## V0.20.40 — L5R 1e — Fiches de résolution opérationnelles
+## V0.20.41 — L5R 1e — Fiches de résolution opérationnelles
 
 - Complète les métadonnées du corpus de base avec cible, portée/zone lorsqu’elles sont définies, résistance, dégâts, concentration, augmentations, rituel, usage unique et restrictions.
 - La fiche de séance affiche désormais systématiquement les champs opérationnels ; lorsqu’une donnée n’est pas donnée par le référentiel, elle est explicitement signalée « Non documentée » au lieu d’être inventée.
-- Les sorts des suppléments conservent les mécaniques déjà consolidées dans V0.20.12–V0.20.17 ; le résolveur V0.20.40 les fusionne avec le catalogue et les compléments du livre de base.
+- Les sorts des suppléments conservent les mécaniques déjà consolidées dans V0.20.12–V0.20.17 ; le résolveur V0.20.41 les fusionne avec le catalogue et les compléments du livre de base.
 - La provenance/statut du sort est affichée dans la fiche MJ.
 
-## V0.20.40 — L5R 1e — Effets des 128 sorts consolidés
+## V0.20.41 — L5R 1e — Effets des 128 sorts consolidés
 
 - Audit du catalogue : 128 sorts, dont seulement 4 portaient directement un champ `effect`; les fiches mécaniques séparées en documentaient déjà 95 autres.
 - Consolidation des fiches mécaniques V0.20.12 à V0.20.17 dans un résolveur unique.
@@ -339,7 +379,7 @@ adapt_isawas_helm, adapt_yojiro_mask, adapt_emmao_amulet, adapt4_agasha_kitsuki_
 - À l’exécution, les 128 entrées du catalogue disposent désormais d’un effet exploitable par la bibliothèque et la fiche de séance.
 - La fiche de séance utilise maintenant le résolveur unifié au lieu de ne consulter que l’ancien bloc V0.20.12.
 
-## V0.20.40 — L5R — Fiche standard + accès de séance
+## V0.20.41 — L5R — Fiche standard + accès de séance
 
 - Les participants affichés sur une scène sont maintenant cliquables.
 - Un clic ouvre une fiche de séance compacte PJ/PNJ sans passer par l’éditeur.
@@ -347,7 +387,7 @@ adapt_isawas_helm, adapt_yojiro_mask, adapt_emmao_amulet, adapt4_agasha_kitsuki_
 - La fiche complète reste distincte et conserve la présentation papier L5R avec identité, cinq Anneaux, réputation, blessures, compétences, école, équipement et informations spéciales.
 - Bouton « Fiche de séance » depuis la fiche complète et « Fiche complète » depuis la vue de séance.
 
-## V0.20.40 — L5R 1e — Correction sorts et tatouages
+## V0.20.41 — L5R 1e — Correction sorts et tatouages
 
 - Corrige une erreur de règle : le niveau de Maîtrise d’un sort 1e n’est plus utilisé comme filtre simple `Maîtrise ≤ rang d’école` dans les listes de parchemins de départ.
 - Les sorts de départ sont contrôlés par la répartition propre à l’école (Agasha : communs + 3 Feu, 2 Terre, 1 Air, etc.).
@@ -355,42 +395,42 @@ adapt_isawas_helm, adapt_yojiro_mask, adapt_emmao_amulet, adapt4_agasha_kitsuki_
 - Les tatouages Ise Zumi sont maintenant complètement absents du formulaire sauf école Togashi, ou accès exceptionnel « trait historique / validation MJ ».
 - Règle Ise Zumi : 1 tatouage au rang 1, +1 à chaque rang ; jusqu’à 2 tatouages supplémentaires à 8 PP chacun uniquement à la création ; plafond total = Anneau du Vide.
 
-## V0.20.40 — L5R 1e — Correctif runtime et fiche shugenja
+## V0.20.41 — L5R 1e — Correctif runtime et fiche shugenja
 
 - Corrige l’erreur runtime `Identifier 'L5R_SHUGENJA_STARTING_SPELL_RULES_V02019' has already been declared` du HTML portable : les patches déjà intégrés à `app.js` ne sont plus exécutés une seconde fois.
 - Branche le rang réel du champ système « Rang d’École / Insight » sur le filtre des sorts, dans Créer un PNJ comme Modifier le PNJ.
 - Un changement de rang reconstruit immédiatement la liste des sorts accessibles.
 - Sur la fiche d’un shugenja, le bloc « Techniques d’école » vide est remplacé par « Sorts / parchemins » et affiche les sorts réellement enregistrés.
 
-## V0.20.40 — L5R 1e — Filtrage UI création ET modification PNJ
+## V0.20.41 — L5R 1e — Filtrage UI création ET modification PNJ
 
 - Corrige le branchement réel de l’interface : la liste « Sorts / parchemins connus » est maintenant filtrée dans le rendu commun utilisé par Créer un PNJ et Modifier le PNJ.
 - Le filtre applique le rang de Maîtrise au catalogue avant de construire les cases à cocher.
 - Les sorts dont la Maîtrise est supérieure au rang ne sont plus proposés dans ces formulaires.
 - Le changement de rang déclenche un nouveau rendu de la liste lorsqu’un champ de rang est présent dans le contexte.
 
-## V0.20.40 — L5R 1e — Sorts réellement lançables
+## V0.20.41 — L5R 1e — Sorts réellement lançables
 
 - Le choix de lancement combine désormais rang de Maîtrise, école/tradition, accès au Vide et liste des sorts réellement connus/parchemins du personnage.
 - Si la liste des sorts connus n’est pas renseignée, aucun sort n’est proposé automatiquement au lancement : la bibliothèque reste consultable.
 - Ajoute les répartitions de départ documentées pour Iuchi, Agasha, Asahina, Kitsu, Isawa, Soshi, Yogo et Ishiken.
 - Sépare les sorts pouvant être appris (rang/école) des sorts effectivement lançables (connus par le personnage).
 
-## V0.20.40 — L5R 1e — Sorts proposés selon le rang
+## V0.20.41 — L5R 1e — Sorts proposés selon le rang
 
 - Le sélecteur de sorts peut désormais ne proposer que les sorts dont le niveau de Maîtrise est inférieur ou égal au rang de Maîtrise du shugenja.
 - Un sort sans niveau de Maîtrise documenté n’est pas proposé automatiquement : il reste consultable dans la bibliothèque et doit être validé par le MJ.
 - Les sorts trop élevés sont classés comme verrouillés et peuvent rester visibles dans une vue de référence, mais pas dans la liste normale de choix/lancement.
 - Le filtrage conserve les restrictions d’accès déjà connues, notamment Kuni/Crabe.
 
-## V0.20.40 — L5R 1e — Kuni/Crabe et contexte shugenja
+## V0.20.41 — L5R 1e — Kuni/Crabe et contexte shugenja
 
 - Intègre les sorts Kuni/Crabe documentés : Armure, Liens mineur/majeur, Mur de Terre, Derniers sacrements et Peur.
 - Ajoute la règle territoriale des Désolations Kuni : +10 ND aux non-Kuni, avec l’exception documentée des demeures Kuni.
 - Ajoute un instantané de lancement lié à la fiche shugenja : Anneau, Maîtrise, pool XgY, éligibilité par Maîtrise et tentatives quotidiennes indicatives.
 - Les restrictions de vrai nom, Souillure, consentement et rituel restent visibles pour le MJ.
 
-## V0.20.40 — L5R 1e — Recherche et création de sorts
+## V0.20.41 — L5R 1e — Recherche et création de sorts
 
 - Ajoute un moteur MJ de calcul du ND de recherche : Maîtrise ×10 + modificateurs documentés.
 - Vérifie l’éligibilité selon le rang de Maîtrise du shugenja et affiche le pool Élément + Maîtrise / garder Élément.
@@ -398,21 +438,21 @@ adapt_isawas_helm, adapt_yojiro_mask, adapt_emmao_amulet, adapt4_agasha_kitsuki_
 - Ajoute les règles de propriété/transmission et les restrictions de recherche, sans automatiser les décisions politiques ou la maho.
 - Conserve Prison de cristal comme exemple de recherche et non comme sort scolaire standard.
 
-## V0.20.40 — L5R 1e — Sorts collectés Eau, Feu et Air
+## V0.20.41 — L5R 1e — Sorts collectés Eau, Feu et Air
 
 - Étend la console MJ aux sorts collectés d’Eau, de Feu et d’Air documentés dans le référentiel.
 - Ajoute zones, portées, résistances, VD, rituels et restrictions lorsqu’ils sont explicitement fournis.
 - Conserve la contradiction de durée du Rempart de Feu comme point à valider au lieu de la résoudre arbitrairement.
 - Bibliothèque complète et console MJ continuent de partager les mêmes données.
 
-## V0.20.40 — L5R 1e — Vide complémentaire et sorts collectés de Terre
+## V0.20.41 — L5R 1e — Vide complémentaire et sorts collectés de Terre
 
 - Ajoute les six sorts complémentaires Ishiken documentés à la console MJ.
 - Ajoute les principales fiches mécaniques des sorts de Terre collectés, sans reconstruire le fragment non identifié.
 - Conserve bibliothèque et console MJ sur une base commune.
 - Les restrictions, oppositions, zones et formules restent source-grounded.
 
-## V0.20.40 — L5R 1e — Air complet et magie du Vide/Ishiken
+## V0.20.41 — L5R 1e — Air complet et magie du Vide/Ishiken
 
 - Complète les fiches MJ des derniers sorts d’Air du livre de base.
 - Intègre les sorts fondamentaux du Vide à la console MJ avec leurs ND dynamiques, restrictions et effets opérationnels.
@@ -420,11 +460,11 @@ adapt_isawas_helm, adapt_yojiro_mask, adapt_emmao_amulet, adapt4_agasha_kitsuki_
 - La bibliothèque complète reste conservée et partage la même base avec la console MJ.
 - Aucune donnée mécanique absente n’est inventée.
 
-## V0.20.40 — L5R 1e — fiches mécaniques MJ
+## V0.20.41 — L5R 1e — fiches mécaniques MJ
 
 Enrichissement de la console MJ avec cible, portée/zone, résistance, dégâts, rituel/usage unique et résumés mécaniques source-grounded pour un premier lot de sorts du livre de base Terre/Eau/Feu/Air. La bibliothèque permanente est conservée et utilise le même catalogue. Les données non documentées restent explicitement à compléter.
 
-## V0.20.40 — Bibliothèque de sorts permanente + console MJ L5R
+## V0.20.41 — Bibliothèque de sorts permanente + console MJ L5R
 - La bibliothèque de sorts L5R reste un module permanent et indépendant de la console MJ ; les deux utilisent exactement `L5R_SPELL_CATALOG`.
 - Ajout de filtres par recherche, élément, Maîtrise et provenance, avec fiche détaillée par sort.
 - Ajout d’une console MJ de résolution : pool Anneau + rang de Maîtrise / garder Anneau, ND final avec augmentations et accélération, suivi indicatif des tentatives par élément.
@@ -493,3 +533,143 @@ Base : V0.20.04.
 - Les données historiques restent consultables dans le corpus ; le filtrage concerne les propositions normales de création.
 
 Structure interne et fonctionnement portable inchangés.
+
+
+## V0.20.41 — consolidation L5R 1e
+- Corrige l'application de la chronologie aux fiches PNJ des livres : utilisation du contexte historique réel de la campagne.
+- Corrige le bouton « Retour aux PNJ » depuis une fiche globale : retour à la bibliothèque PNJ et non à l'accueil des règles.
+- Sécurise le passage Progression ↔ Création des sorts : un sort déjà enregistré hors répartition de création reste visible et sélectionné, avec l'indication « conservé (hors répartition de création) », afin d'éviter une perte silencieuse à l'enregistrement.
+- La Maîtrise d'un sort reste une donnée du sort et n'est pas réintroduite comme prérequis général de rang d'école.
+- Aucun profil PNJ Dragon n'est inventé : les entrées sans bloc mécanique vérifié restent signalées comme à extraire.
+
+
+
+## V0.20.45 — poursuite profils PNJ 1e, vérification clan par clan
+
+- Nouvelle passe documentaire effectuée clan par clan, sans conversion silencieuse depuis les éditions ultérieures.
+- Lion : ajout du profil mécanique 1e d’Akodo Kage (The Way of the Lion, p.74).
+- Phénix : ajout du profil mécanique 1e d’Isawa Uona (The Way of the Phoenix, pp.74-75).
+- Licorne : ajout des profils mécaniques 1e d’Iuchi Karasu (pp.72-73) et Horiuchi Shoan (p.75).
+- Dragon, Crabe, Grue et Scorpion : recontrôlés dans cette passe ; aucun nouveau bloc mécanique complet n’est intégré sans source 1e suffisamment lisible. Les entrées restent explicitement à extraire plutôt que d’être reconstruites.
+- Les profils postérieurs (Clan War, Time of the Void, Secrets/Great Clans, éditions 3e/4e/5e) restent distincts et ne remplacent pas les fiches 1e.
+
+## V0.20.45 — PNJ mécaniques 1e, contrôle clan par clan
+
+- Dragon contrôlé en premier : ajout des blocs 1e de Togashi Mitsu (p.54), Mirumoto Hitomi (p.63) et Agasha Tamori (p.65).
+- Crabe contrôlé ensuite : ajout de Hida Kisada (p.60), Hida Yakamo (p.63), Hida Sukune (p.65), Kuni Yori (p.70) et Yasuki Taka (p.73).
+- Grue et Lion : contrôle des profils déjà présents et correction structurelle de Doji Shizue, Matsu Agetoki et Ikoma Ujiaki.
+- Phénix : ajout d’Isawa Kaede (p.72).
+- Scorpion : ajout de Bayushi Yojiro (pp.58-59).
+- Licorne : ajout d’Iuchi Daiyu (pp.73-74).
+- Correction structurelle : Doji Shizue, Matsu Agetoki, Ikoma Ujiaki et Shinjo Hanari étaient accidentellement rangés dans les notes de version ; ils sont replacés dans le registre des profils mécaniques.
+- Les incarnations Clan War, Time of the Void, Hidden Emperor et éditions ultérieures restent distinctes et ne remplacent pas les profils des livres de clan 1e.
+- Les entrées sans bloc mécanique 1e vérifié restent volontairement « à extraire ».
+
+
+## V0.20.45 — poursuite profils PNJ L5R 1e
+- Dragon : ajoute le profil mécanique 1e de Togashi Hoshi (The Way of the Dragon, pp.60-61).
+- Dragon : réintègre Togashi Mitsu dans l’index permanent des PNJ ; son profil mécanique existait déjà mais n’était pas exposé par l’index.
+- Les profils postérieurs (Time of the Void, Hidden Emperor, éditions ultérieures) restent séparés et ne remplacent pas les blocs 1e.
+- Les PNJ dont le bloc complet n’est pas vérifié restent volontairement « à extraire ».
+
+
+## V0.20.48 — Ancêtres L5R 1e séparés des PNJ
+
+- Nouvelle bibliothèque permanente Ancêtres, distincte des PNJ historiques/contemporains.
+- 16 Ancêtres avec coût et effet vérifiés dans le référentiel maître : 6 Dragon et 10 Licorne.
+- Les autres entrées déjà marquées Ancêtre dans les livres de clan restent visibles mais non sélectionnables tant que leur mécanique 1e n’est pas vérifiée.
+- Les Ancêtres vérifiés sont proposés comme avantages dans la création/modification PJ et PNJ L5R ; ils sont exclus de la génération aléatoire.
+- La bibliothèque PNJ et ses compteurs excluent désormais les Ancêtres.
+- Règle conservée : Ancêtre acheté à la création en PP ; pas d’achat par XP par défaut, sauf décision exceptionnelle du MJ.
+
+
+## V0.20.49 — Ancêtres des sept grands clans
+
+- Extension de la bibliothèque Ancêtres aux clans Crabe, Grue, Lion, Phénix et Scorpion, en plus du Dragon et de la Licorne.
+- Coûts, restrictions, effets et contreparties issus du référentiel maître L5R 1e v5.0.
+- Les Ancêtres restent distincts des PNJ historiques et sont exclus des compteurs de profils PNJ à extraire.
+- Les entrées vérifiées deviennent sélectionnables à la création/modification PJ et PNJ ; les entrées non vérifiées restent visibles mais non sélectionnables.
+- Gestion d’un coût contextuel pour Soshi Saibankan (4 PP magistrat / 5 PP autre Scorpion).
+- Les coûts négatifs d’Ancêtres néfastes sont conservés tels quels conformément au référentiel maître.
+
+## V0.20.50 — Budget PP et table d’historique L5R 1e
+
+- Ajout d’un suivi des points de personnage (PP) dans la création/modification L5R 1e.
+- Pour les PJ, le contrôle du budget est obligatoire ; pour les PNJ, il est optionnel et désactivé par défaut.
+- Le budget reste modifiable par le MJ ; l’assistant propose 25 PP par défaut sans présenter cette valeur comme une règle verrouillée du référentiel.
+- Les coûts numériques des Avantages, Désavantages et Ancêtres sélectionnés sont intégrés au solde ; les coûts variables sont signalés pour validation MJ.
+- Les Ancêtres à coût négatif restent négatifs et augmentent donc le solde disponible conformément au référentiel consolidé.
+- Soshi Saibankan conserve son coût contextuel : 4 PP pour un magistrat, 5 PP pour un autre Scorpion.
+- Rappel intégré du barème 1e : Trait +1 = 8 PP ; Vide +1 = 12 PP ; Compétence +1 = 1 PP ; Honneur +1 = 3 PP ; Honneur -1 rapporte 2 PP.
+- Ajout de champs « autres dépenses PP » et « autres gains PP » pour les dépenses que le formulaire ne peut pas déduire avec certitude.
+- Ajout de la Table d’historique / héritage familial dans l’éditeur L5R, avec premier jet d’orientation 1d10 pour Crabe, Grue, Dragon, Lion, Phénix, Scorpion et Licorne.
+- Le résultat et les notes de sous-table sont conservés dans `systemData` du personnage.
+- Les effets complexes des sous-tables ne modifient pas automatiquement le budget : ils restent sous validation du MJ afin de ne pas transformer à tort un avantage gratuit d’historique en dépense de PP.
+
+
+## V0.20.51 — Historique guidé et PP gratuits
+
+- Base directe : V0.20.50 budget PP / historique.
+- Les champs du budget PP et de l’historique sont désormais explicitement persistés dans `systemData` lors de la réouverture d’une fiche L5R.
+- La création L5R conserve l’orientation, la sous-table appelée, le jet de sous-table, le résultat final, les notes et l’état de validation MJ.
+- Ajout d’un bouton de jet de sous-table pendant la création.
+- Ajout du champ « PP d’achats gratuits par l’historique » : il neutralise le coût d’un Avantage/Ancêtre accordé gratuitement par une table sans générer de PP dépensables.
+- Les effets sur Honneur, Gloire, équipement, relations ou école restent soumis à validation explicite du MJ ; aucune mécanique absente du référentiel n’est inventée.
+- Pour les PJ, le contrôle du budget reste obligatoire ; pour les PNJ, il reste optionnel.
+
+
+## V0.20.53 — Application sûre des effets d’historique L5R
+
+- Base consolidée : branche V0.20.51 « budget PP + historique guidé », sans suppression des acquis Ancêtres.
+- Ajout d’un bouton « Appliquer les effets sûrs » pour les résultats finaux d’historique L5R.
+- Application automatique limitée aux effets déterministes : Honneur, Gloire, Réputation/Insight, compétences reconnues et avantages/désavantages explicitement gratuits.
+- Conversion canonique de saisie : 1 point d’Honneur/Gloire = 0,1 rang ; 1 rang = 1,0.
+- Les effets structurels ou à choix (rōnin, école, relations, ennemis, secrets, équipement, sorts, objets, obligations, etc.) restent sous validation MJ.
+- Les avantages/désavantages accordés par l’historique sont enregistrés à 0 PP afin de ne pas fausser le budget de création.
+- Signature d’application empêchant la double application lors d’une réédition ou d’un nouvel enregistrement.
+- Annulation contrôlée : restaure les valeurs automatiques précédentes sans écraser une compétence modifiée manuellement après application.
+- Les scans/résultats incomplets restent « à vérifier » ; aucune règle manquante n’est inventée.
+
+
+## V0.20.54 — Kiho L5R 1e
+
+- Ajout d’un catalogue de 39 Kiho issus de *The Way of Shinsei* (1e), classés par Anneau, type et Maîtrise.
+- Règles d’accès des moines et non-moines intégrées à la création, avec limites par Anneau et Rang.
+- Réductions de Maîtrise de clan intégrées lorsque la source les indique.
+- Les achats de Kiho sont intégrés au contrôle PP : 3 Kiho de départ gratuits pour un moine, puis 2 × Maîtrise PP pour les achats supplémentaires à la création ; non-moines 2 × Maîtrise PP/XP.
+- Persistance des Kiho sélectionnés dans systemData.
+- Tatouages Ise Zumi conservés comme système distinct des Kiho.
+- Source : *The Way of Shinsei*, pp. 52–65.
+
+
+## V0.20.55 — Kiho : traitement identique aux sorts
+
+- Les Kiho disposent désormais d’un mode **Création** / **Progression**, comme les sorts.
+- Les Kiho explicitement accordés par une technique d’école sont injectés automatiquement, gratuits et hors quota normal.
+- Le Bushi Kakita reçoit automatiquement **Le Cœur perçant** à partir du Rang 2, conformément à « La frappe éclair ».
+- Les Kiho gratuits de moine sont distingués des acquisitions payantes ; les acquisitions supplémentaires de création alimentent le budget PP, tandis que le mode progression n’impute pas le budget initial.
+- Pour un moine créé directement à un Rang supérieur, le quota acquis suit la progression documentée : 3 Kiho au Rang 1 puis +2 par Rang supplémentaire.
+- Les Kiho d’école ne sont pas soumis aux prérequis génériques d’apprentissage des non-moines.
+- Une baisse/changement d’école retire l’ancien Kiho automatique d’école au lieu de le laisser silencieusement sur la fiche.
+- La fiche mécanique complète de **Le Cœur perçant** n’est pas inventée : le référentiel confirme son acquisition Kakita Rang 2, mais l’effet détaillé reste indiqué comme à consulter dans la source.
+
+
+## V0.20.56 — Séparation stricte PJ / PNJ
+
+- **PJ L5R 1e** : règles officielles complètes obligatoires pour la création et la progression. Les Kiho utilisent les règles de *The Way of Shinsei* et les acquisitions explicites des écoles.
+- **PNJ L5R 1e** : nouveau mode par défaut **Génération simplifiée MJ**. Les quotas, coûts PP, prérequis et automatismes d’école ne bloquent pas la génération ; le catalogue reste disponible comme aide.
+- Un PNJ peut être basculé en **Règles complètes — comme un PJ** ; dans ce mode, il reçoit exactement les mêmes validations et automatismes que le PJ.
+- Le barème interne « moine Rang 2 : 1 Kiho / Rang 3 : 1 à 3 » reste une aide d’équilibrage PNJ et n’est jamais présenté comme une règle officielle.
+- Le Bushi Kakita Rang 2 reçoit **Le Cœur perçant** automatiquement uniquement lorsque les règles complètes sont actives.
+- Cette séparation devient le principe d’architecture : PJ = règles canoniques du système ; PNJ = simplification autorisée, avec option règles complètes.
+
+
+## V0.20.58 — corrections recette Work
+- REC-01 : conservation des sorts possédés lors des changements Création/Progression confirmée et préservée.
+- REC-02 : fiches L5R lisent désormais avantages/désavantages au niveau réellement sauvegardé et chargent l’équipement persistant du personnage.
+- REC-03 : retour de la bibliothèque globale PNJ vers la liste maintenu ; filtres restaurés dans la même vue lors du retour.
+- REC-04 : sorts communs des écoles de shugenja réellement auto-attribués sans effacer les sorts acquis.
+- REC-05 : école de Shugenja Yogo exposée dans le sélecteur Scorpion, avec répartition 3 Air / 2 Eau / 1 Feu déjà documentée.
+- REC-06 : suppression des alertes de démonstration et remplacement des compteurs/contexte statiques par les données de la campagne active, avec états vides.
+- REC-07 : les fiches de sorts dont les champs mécaniques restent non documentés portent maintenant le statut visible « Fiche incomplète ». Aucun chiffre manquant n’est inventé.
+- Garde-fou : aucune restriction générale Maîtrise du sort ≤ rang d’école n’a été ajoutée.

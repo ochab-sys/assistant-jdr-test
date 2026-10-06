@@ -35,14 +35,11 @@ const state = {
   originalEquipmentIds: [],
   lastCharacterProfession: null,
   locations: [],
-  locationMap: new Map()
+  locationMap: new Map(),
+  l5rNpcLibraryFilters: {clan:"Tous",profile:"all",query:""}
 };
 
-const alerts = [
-  { type: "warning", icon: "⚠", title: "Notes non traitées", detail: "Les notes rapides pourront être converties en événements après la séance." },
-  { type: "info", icon: "ℹ", title: "1 intrigue sans mise à jour", detail: "Visites mystérieuses : aucune activité depuis la séance 11." },
-  { type: "danger", icon: "!", title: "Contrôle de continuité", detail: "Alerte de démonstration : vérification d’une localisation contradictoire." }
-];
+const alerts = [];
 
 const viewTitles = {
   session: "Séance",
@@ -435,7 +432,8 @@ const L5R_PROFESSIONS_BY_CLAN = {
   ],
   scorpion: [
     ["bayushi_bushi","Bushi Bayushi"],["bayushi_courtier","Courtisan Bayushi"],
-    ["shosuro_infiltrator","Infiltrateur Shosuro"],["soshi_shugenja","Shugenja Soshi"]
+    ["shosuro_infiltrator","Infiltrateur Shosuro"],["soshi_shugenja","Shugenja Soshi"],
+    ["yogo_shugenja","Shugenja Yogo"]
   ],
   unicorn: [
     ["shinjo_bushi","Bushi Shinjo"],["utaku_bushi","Bushi Utaku"],
@@ -667,11 +665,15 @@ function l5rSpellStartAllowedElementsV02035(profession){
 function l5rSpellOptions(baseOptions, profession, schoolRank=1, selectedValues=[], acquisitionMode="creation"){
   const merged=new Map(),allowed=acquisitionMode==="creation"?l5rSpellStartAllowedElementsV02035(profession):null;
   for(const spell of L5R_SPELL_CATALOG){
-    if(!l5rSpellAccessAllowed(spell,profession)) continue;
-    if(allowed && !allowed.has(spell.element)) continue;
+    const selected=new Set(l5rOccupationValues(selectedValues));
+    if(!l5rSpellAccessAllowed(spell,profession) && !selected.has(spell.name)) continue;
+    const outsideCreation=allowed && !allowed.has(spell.element);
+    if(outsideCreation && !selected.has(spell.name)) continue;
     // Important : la Maîtrise n'est PAS comparée au rang d'école.
+    // Un sort déjà enregistré reste visible lors d'un changement de mode afin d'éviter toute perte silencieuse.
     const restriction=spell.restriction?` · ${spell.restriction}`:"";
-    merged.set(spell.name,[spell.name,`${spell.name} — ${spell.element}${spell.mastery?` · Maîtrise ${spell.mastery}`:""}${restriction}`]);
+    const retained=outsideCreation?" · conservé (hors répartition de création)":"";
+    merged.set(spell.name,[spell.name,`${spell.name} — ${spell.element}${spell.mastery?` · Maîtrise ${spell.mastery}`:""}${restriction}${retained}`]);
   }
   const order={Commun:0,Terre:1,Eau:2,Feu:3,Air:4,Vide:5};
   return [...merged.values()].sort((a,b)=>{
@@ -754,7 +756,9 @@ function l5rSpellResolution(spell,{ring=1,schoolRank=1,raises=0,fastActions=0,ri
 function l5rSpellDetailHtml(spell,{mj=false}={}){
   if(!spell) return '<div class="system-note">Sort non trouvé dans le catalogue structuré.</div>';
   const conc=spell.concentration?L5R_CONCENTRATION_RULES[spell.concentration]:null;
-  return `<article class="entity-card spell-detail-card"><div class="entity-head"><div><div class="card-kicker">${esc(spell.element)} · Maîtrise ${esc(spell.mastery??"—")}</div><h3 class="entity-title">${esc(spell.name)}</h3></div><span class="mini-badge">${esc(l5rSpellGroupLabel(spell))}</span></div>
+  const mech=l5rSpellMjMechanics(spell);
+  const incomplete=[spell.tn,spell.casting,spell.duration,spell.concentration,spell.raises].some(v=>!v||/documenter/i.test(String(v)))||(!mech&&!spell.effect);
+  return `<article class="entity-card spell-detail-card"><div class="entity-head"><div><div class="card-kicker">${esc(spell.element)} · Maîtrise ${esc(spell.mastery??"—")}</div><h3 class="entity-title">${esc(spell.name)}</h3></div><span class="mini-badge">${incomplete?"Fiche incomplète · ":""}${esc(l5rSpellGroupLabel(spell))}</span></div>
   <div class="spell-data-grid"><div><b>ND</b><span>${esc(spell.tn||"À documenter")}</span></div><div><b>Incantation</b><span>${esc(spell.casting||"À documenter")}</span></div><div><b>Durée</b><span>${esc(spell.duration||"À documenter")}</span></div><div><b>Concentration</b><span>${esc(spell.concentration||"À documenter")}</span></div><div><b>Augmentations</b><span>${esc(spell.raises||"À documenter")}</span></div><div><b>Accès</b><span>${esc(spell.restriction||spell.access||"Shugenja")}</span></div></div>
   ${(()=>{const m=l5rSpellMjMechanics(spell); if(!m)return spell.effect?`<div class="system-note"><strong>Effet — résumé MJ :</strong> ${esc(spell.effect)}</div>`:`<div class="system-note warning"><strong>Effet détaillé :</strong> pas encore structuré dans cette entrée ; consulter la source avant arbitrage.</div>`; return `<div class="spell-data-grid">${m.target?`<div><b>Cible</b><span>${esc(m.target)}</span></div>`:""}${m.range?`<div><b>Portée</b><span>${esc(m.range)}</span></div>`:""}${m.area?`<div><b>Zone</b><span>${esc(m.area)}</span></div>`:""}${m.damage?`<div><b>Dégâts / VD</b><span>${esc(m.damage)}</span></div>`:""}${m.resistance?`<div><b>Résistance</b><span>${esc(m.resistance)}</span></div>`:""}${m.ritual?`<div><b>Type</b><span>Rituel</span></div>`:""}${m.oneUse?`<div><b>Usage</b><span>Usage unique</span></div>`:""}</div><div class="system-note"><strong>Effet — résumé MJ :</strong> ${esc(m.effect||spell.effect||"À documenter")}</div>`;})()}
   ${conc?`<div class="system-note"><strong>Concentration ${esc(spell.concentration)} :</strong> jet de Volonté ND ${conc.tn} si elle est menacée/interrompue. ${esc(conc.note)}</div>`:""}
@@ -4264,6 +4268,13 @@ function l5rFilterClanOptions(options,campaign=state.campaign){
 function renderContextFields(container, kind, values = {}, prefix = "") {
   const cfg = contextConfig(kind);
   if (!container) return;
+  // V0.20.58 — Les sorts communs réellement automatiques d'une école de shugenja
+  // sont des sorts possédés, pas seulement une consigne visuelle. On les ajoute
+  // sans retirer aucun sort déjà appris (création/progression restent des filtres d'acquisition).
+  if (profileKeyForCampaign() === "l5r1" && kind === "character" && l5rIsShugenjaSchool(values.profession)) {
+    const rule=L5R_SPELL_START_RULES[values.profession];
+    if (rule?.common?.length) values={...values,l5rSpells:[...new Set([...(rule.common||[]),...l5rOccupationValues(values.l5rSpells)])]};
+  }
 
   container.innerHTML = cfg.fields.map(field => {
     let options = field.options || [];
@@ -4477,6 +4488,7 @@ function contextChanged(kind, prefix = "", applyPreset = true) {
     if (profileKeyForCampaign() === "l5r1") {
       const guidance=container?.querySelector('[data-l5r-guidance="occupation"]');
       if (guidance) guidance.textContent=l5rOccupationGuidance(ctx.socialStatus || "samurai", ctx.occupation);
+      if (!prefix && $("#positiveTraitCatalog")) { populateTraitAndEquipmentCatalogs(); renderL5rAncestorCreationEditor(); }
     }
 
     if (!prefix) {
@@ -5018,8 +5030,332 @@ function renderGeneratorProfileSummary() {
   `;
 }
 
+
+/* === V0.20.56 — L5R 1e : PJ RAW / PNJ simplifié ou règles complètes === */
+const L5R_KIHO_CATALOG_V02054=[
+['earth','heart_stone','Heart of Stone','Kharmic',3,'Réduit l’impact des dés de blessures exceptionnellement élevés en dépensant du Vide.'],
+['earth','rest_brother','Rest, My Brother','Mushin',3,'Renforce attaques et dégâts contre une cible porteuse de Souillure.','crab',2],
+['earth','cleansing_spirit','Cleansing Spirit','Aiki',4,'Résistance accrue aux poisons/corruptions ; purification personnelle possible avec méditation.'],
+['earth','grasp_earth_dragon','Grasp the Earth Dragon','Aiki',4,'Stabilité de la Terre : conscience maintenue et pénalités réduites, avec contraintes de contact au sol.'],
+['earth','tsuchi_do','Tsuchi-do','Mushin',4,'Saisie écrasante immobilisant l’adversaire et infligeant des dégâts tant que la prise est maintenue.'],
+['earth','root_mountain','Root the Mountain','Zanshin',6,'Ancrage extrême : devient très difficile à déplacer au prix de l’immobilité.'],
+['earth','walk_mountains','Walk Through the Mountains','Zanshin',7,'Permet de traverser terre et pierre pendant une courte durée en dépensant du Vide.'],
+['water','freezing_lifeblood','Freezing the Lifeblood','Mushin (Atemi)',3,'Atemi pouvant paralyser temporairement une cible après opposition d’Eau.'],
+['water','musubi','Musubi','Kharmic',3,'Après une Défense Totale réussie, prépare une contre-attaque renforcée contre l’assaillant.'],
+['water','slap_wave','Slap the Wave','Mushin',3,'Kiai et claquement perturbant toutes les personnes qui entendent l’onde.'],
+['water','chi_protection','Chi Protection','Mushin (Atemi)',4,'Kiho de soin majeur ; peut également neutraliser certains atemi.'],
+['water','speak_soul','Speak to the Soul','Zanshin',4,'Révèle la dominante élémentaire et certains signes spirituels/corruptions d’une cible touchée.'],
+['water','ride_water_dragon','Ride the Water Dragon','Aiki',5,'Accélère fortement la guérison mais amoindrit l’efficacité offensive.'],
+['water','boundless_depths','The Boundless Depths of Water','Kharmic',6,'Permet de revenir d’un état critique en dépensant du Vide, suivi d’une période de récupération.'],
+['water','spirit_water','Spirit of Water','Zanshin',7,'Déplacement instantané hors de vue vers un point précédemment visible, avec dépense de Vide.'],
+['fire','ai_uchi','Ai Uchi','Kharmic',3,'Contre-attaque automatique au moment où le moine accepte volontairement une frappe.'],
+['fire','channel_fire_dragon','Channel the Fire Dragon','Aiki',3,'Résistance exceptionnelle au chaud/froid et concentration accrue, avec vigilance amoindrie.'],
+['fire','falling_star','Falling Star Strike','Mushin (Atemi)',4,'Atemi pouvant aveugler temporairement la cible.'],
+['fire','kuzushi','Kuzushi','Mushin',4,'Déséquilibre une cible pour créer des augmentations gratuites à l’attaque suivante.'],
+['fire','breaking_blow','Breaking Blow','Mushin',4,'Concentre le Feu pour briser matériaux, structures ou armure et accroître les dégâts.'],
+['fire','dance_flames','Dance of the Flames','Mushin',5,'Répartit les dés d’attaque pour frapper plusieurs adversaires dans le même tour.'],
+['fire','purity_shinsei','Purity of Shinsei','Zanshin',5,'Produit une lumière spirituelle qui effraie les créatures liées aux ténèbres/corruptions.'],
+['fire','hitsu_do','Hitsu-do','Aiki',6,'Enveloppe le pratiquant de Feu et augmente fortement attaque/dégâts au prix de blessures continues.','phoenix',5],
+['air','fortunes_breath','Fortune’s Breath','Aiki',3,'Permet de survivre longtemps avec très peu d’air, mais rend plus vulnérable à la magie hostile.'],
+['air','way_willow','Way of the Willow','Kharmic',3,'Contre une Attaque Totale, permet une projection défensive inspirée du Mizu-do.','crane',2],
+['air','stain_soul','Stain Upon the Soul','Mushin (Atemi)',4,'Atemi douloureux infligeant des pénalités temporaires aux jets de compétence.'],
+['air','soul_four_winds','Soul of the Four Winds','Aiki',4,'Améliore la défense par perception et mouvement ; incompatible avec l’Attaque Totale.','unicorn',3],
+['air','winds_truth','The Wind’s Truth','Aiki',4,'Détecte mieux mensonges et séduction, mais gêne les actions non sociales.','scorpion',3],
+['air','great_silence','The Great Silence','Zanshin',4,'Peut rendre momentanément muette une cible après opposition d’Air.'],
+['air','steal_air_dragon','Steal the Air Dragon','Aiki',5,'Rend le moine socialement insignifiant tant qu’il reste non menaçant, avec forte faiblesse martiale.'],
+['air','flee_darkness','Flee the Darkness','Kharmic',6,'Détecte les tentatives de contrôle mental et permet d’augmenter fortement la résistance.'],
+['void','no_self','No Self','Aiki',3,'Méditation rapide restaurant le Vide, mais empêche les Augmentations pendant l’effet.'],
+['void','ancestral_guidance','Ancestral Guidance','Zanshin',4,'Permet d’entrer en contact avec des esprits locaux et de leur poser des questions.','lion',3],
+['void','touch_void_dragon','Touch the Void Dragon','Aiki',4,'Accorde temporairement un niveau élémentaire supérieur selon la géomancie locale.','dragon',3],
+['void','ryoku','Ryoku','Mushin',5,'Frappe et kiai perturbant directement la réserve de Vide de l’adversaire.'],
+['void','unattunement','Unattunement','Kharmic',5,'En réaction à une magie/kiho subi, peut couper temporairement l’adversaire d’un élément.'],
+['void','death_touch','Death Touch','Mushin (Atemi)',6,'Dim mak interdit : malédiction progressive mortelle, difficile à soigner.'],
+['void','kukan_do','Kukan-do','Zanshin',7,'Lie deux esprits en stase et neutralise magie, kiho, techniques et pouvoirs de Rang.'],
+['void','happo_zanshin','Happo Zanshin','Aiki / Zanshin',8,'Conscience omnidirectionnelle légendaire révélant les détails dans un rayon autour du pratiquant.']
+].map(x=>({element:x[0],id:x[1],name:x[2],type:x[3],mastery:x[4],summary:x[5],favoredClan:x[6]||'',favoredMastery:x[7]||null,source:'The Way of Shinsei (L5R 1e), pp.54–65'}));
+/* === V0.20.57 — fiches mécaniques complètes des 39 Kiho de The Way of Shinsei === */
+const L5R_KIHO_RULES_V02057={
+heart_stone:"Après avoir subi des Blessures, dépenser 1 point de Vide : pour ce jet de dommages, tout dé dont le résultat dépasse 10 est ramené à 10.",
+rest_brother:"Contre une cible possédant un Rang de Souillure, les jets d’attaque et de dommages gagnent des dés lancés/gardés égaux à deux fois ce Rang. Sans Rang de Souillure, aucun effet. Fonctionne à mains nues ou avec une arme.",
+cleansing_spirit:"Ajoute la Terre aux jets pour résister aux poisons et corruptions. Avec 1 Vide et Terre ND 30, peut combattre un poison normalement sans antidote. Une semaine de méditation, 1 Vide et Terre ND 40 permettent de réduire la Souillure d’une case ; cinq succès peuvent retirer un Point d’Ombre. Contrepartie : vulnérabilité accrue aux influences mentales/sociales/magiques.",
+grasp_earth_dragon:"Tant que le pratiquant reste en contact avec la terre, il ne tombe pas inconscient à cause des Blessures sauf mort ; les pénalités de Blessures sont réduites selon son Rang. Il ne peut pratiquement pas parler et l’effet cesse rapidement s’il quitte le sol.",
+tsuchi_do:"Attaque à mains nues avec 2 Augmentations pour saisir ; avec 4, les bras sont immobilisés. La cible s’échappe par opposition de Terre. Tant que la prise tient, dégâts automatiques chaque tour basés sur Terre + Rang, en gardant Terre ; le pratiquant reste immobile et très facile à toucher.",
+root_mountain:"Activation par une action et Terre ND 25. Le ND pour déplacer de force le pratiquant devient Terre × 15. Nombre d’attaques par tour limité à la moitié de Terre arrondie au supérieur ; pas d’attaque à distance ni de déplacement. Terre ND 15 pour mettre fin à l’effet.",
+walk_mountains:"Dépenser 1 Vide : traverse terre et pierre pendant un nombre de minutes égal à Terre et peut traiter certains sols instables comme solides.",
+freezing_lifeblood:"Atemi sans dégâts : dépenser 1 Vide puis opposition d’Eau. En cas de réussite, la cible est paralysée pendant le tour courant puis un nombre de tours égal au Rang ; elle peut dépenser du Vide et refaire l’opposition chaque tour pour se libérer.",
+musubi:"Utiliser Défense Totale. Si l’adversaire manque son attaque, l’attaque du pratiquant contre lui au tour suivant reçoit +1 dé, plus un dé supplémentaire par tranche de 5 points de marge d’échec.",
+slap_wave:"Dépenser 1 Vide et produire un kiai/claquement. Toute personne qui entend oppose son Eau à celle du pratiquant ; en cas d’échec, pénalité en dés égale à la moitié de l’Eau du pratiquant arrondie au supérieur pendant un nombre de tours égal à son Eau. Alliés et ennemis sont concernés.",
+chi_protection:"Après environ 10 minutes de traitement et 1 Vide, additionner les jets d’Eau du pratiquant et du patient contre ND 30 ; soigne un nombre de Niveaux de Blessures égal à Eau + Augmentations. Utilisable sur soi. Peut aussi contrer un atemi par contact, Vide et opposition d’Eau.",
+speak_soul:"Par contact et dépense de Vide, révèle l’Anneau le plus fort de la cible ainsi que plusieurs états spirituels importants : objet éveillé/nemuranai, Souillure et certaines traces des Ténèbres.",
+ride_water_dragon:"Tant qu’il est actif, récupère des Blessures à raison de l’Eau par minute ; en contrepartie, les jets de dommages gardent les dés les plus faibles.",
+boundless_depths:"Lorsque le pratiquant atteint un état critique (Down/Out/Dead sans avoir été réellement tué), il dépense automatiquement 2 Vide et récupère un nombre de Niveaux de Blessures égal à Eau + Rang. Il reste ensuite limité à Défense Totale pendant une courte période déterminée par Eau + Rang.",
+spirit_water:"Hors de la vue d’autrui, dépenser 1 Vide pour réapparaître instantanément en un lieu déjà vu. Ne fonctionne pas si le pratiquant est observé.",
+ai_uchi:"Déclarer le Kiho au début du tour : ND pour être touché fixé à 5. Lorsqu’une attaque inflige des Blessures, le pratiquant contre-attaque avant résolution des dégâts ; pas d’Augmentations déclarées, mais il reçoit autant d’Augmentations gratuites que l’assaillant. Nombre de contres limité par Feu ; dégâts simultanés.",
+channel_fire_dragon:"Réduit fortement les dés de dommages dus au feu et au froid selon le Rang/Feu. Le pratiquant est extrêmement concentré : parole limitée et perception des embuscades pénalisée.",
+falling_star:"Atemi du bout des doigts : dépenser 1 Vide et opposition de Feu. En cas de réussite, aveugle pendant un nombre de tours égal à Feu ; actions dépendant de la vue fortement pénalisées et bonus défensif de Réflexes réduit.",
+kuzushi:"Attaque sans Blessures. Chaque tranche de 5 points au-dessus du ND fournit une Augmentation gratuite utilisable au tour suivant contre la même cible, par le pratiquant ou un allié.",
+breaking_blow:"Dépenser 1 Vide et frapper. Jet de Feu contre un ND dépendant du matériau (fragile à métal) pour briser une épaisseur donnée, doublable par Augmentation. Sur un être vivant, accroît les dés de dommages ; contre une armure, des Augmentations peuvent réduire durablement son bonus de ND.",
+dance_flames:"Permet de répartir les dés lancés et gardés d’une attaque entre plusieurs cibles avec la même compétence d’arme ou de corps à corps.",
+purity_shinsei:"Dépenser 1 Vide : produit une lueur spirituelle dans un rayon proportionnel au Feu. Les créatures liées à la Souillure, aux Ténèbres ou au Gaki-do subissent un effet de peur d’intensité égale au Feu pendant plusieurs heures.",
+hitsu_do:"Tant qu’il est actif, ajoute Feu aux dés d’attaque et de dommages. À la fin de chaque tour, le pratiquant subit des Blessures égales à Feu qui ne peuvent être évitées ni soignées avant désactivation.",
+fortunes_breath:"Permet de rester sans respirer pendant environ Air × 5 minutes ; une seule respiration renouvelle cette durée. Contrepartie : la magie hostile bénéficie d’une Augmentation gratuite contre le pratiquant.",
+way_willow:"En Défense Totale face à une Attaque Totale, permet d’interrompre l’attaque par une opposition Air + Corps à corps contre Agilité + arme. En cas de réussite, l’attaque est annulée et l’adversaire est projeté et mis à terre.",
+stain_soul:"Atemi sans dégâts : dépenser 1 Vide puis opposition d’Air. Inflige une pénalité en dés égale à la moitié de l’Air du pratiquant arrondie au supérieur pendant un nombre de tours égal à Air ; les effets peuvent se cumuler.",
+soul_four_winds:"Augmente le ND pour être touché de Air + Rang + Défense. Incompatible avec l’Attaque Totale.",
+winds_truth:"Augmente fortement la difficulté pour mentir ou séduire le pratiquant. Avec 1 Vide et une opposition d’Air, il peut reconnaître un mensonge. Contrepartie : pénalité importante aux compétences non sociales.",
+great_silence:"Contact visuel, 1 Vide et opposition d’Air : la cible devient muette pendant un nombre de minutes égal à Air, ou jusqu’à ce que le pratiquant dépense du Vide pour une autre raison.",
+steal_air_dragon:"Tant que le pratiquant reste silencieux, non menaçant et sans arme ostensiblement visible, les autres tendent à l’ignorer. Les personnes alertes peuvent résister par opposition d’Air. Contrepartie : capacités martiales et Mushin fortement réduites pendant l’effet.",
+flee_darkness:"Permet de détecter les influences de contrôle mental. Dépenser 1 Vide pour doubler soit le ND imposé à l’effet de contrôle, soit le résultat du jet de résistance selon le cas.",
+no_self:"Méditation d’environ 5 minutes, ND 20 : restaure complètement la réserve de Vide. Tant que l’état est maintenu, le pratiquant ne peut déclarer d’Augmentations.",
+ancestral_guidance:"Entrer en transe et dépenser 1 Vide pour contacter un esprit local, connaître son identité et lui poser un nombre limité de questions lié au Vide.",
+touch_void_dragon:"Dépenser 1 Vide : un Anneau augmente temporairement de 1 selon l’élément dominant du lieu. Perception + Shintao ND 15 permet d’anticiper l’élément ; sinon il peut être déterminé aléatoirement. Les esprits remarquent l’usage ; dans un lieu Souillé, risque de gagner de la Souillure à chaque tour.",
+ryoku:"Après une attaque à mains nues normale, le pratiquant peut dépenser des points de Vide ; la cible doit en dépenser autant. Tout excédent qu’elle ne peut payer bloque sa récupération de Vide pendant plusieurs jours.",
+unattunement:"Réaction lorsqu’un sort ou Kiho affecte directement le pratiquant : dépenser 1 Vide puis opposition Vide + Rang contre l’Anneau + Rang adverse. En cas de réussite, l’adversaire est coupé de l’élément concerné pendant environ une journée : sorts/Kiho associés indisponibles et Anneau/Traits réduits (minimum 1).",
+death_touch:"Atemi avec 3 Augmentations, sans Attaque Totale et sans Aiki/Kharmic actif. Dépense de Vide liée au Rang de la cible puis opposition de Vide. En cas de réussite, une malédiction de Blessures progressives frappe à chaque lever/coucher du soleil et résiste aux soins jusqu’à purification. Kiho extrêmement mal considéré.",
+kukan_do:"Contact visuel, 1 Vide puis opposition Vide + Rang (une cible sans Vide utilise une défense basée sur Terre/Rang). Tant que le lien tient, les deux protagonistes ne peuvent utiliser magie, Kiho, techniques d’école, tatouages ni bénéfices de Rang ; compétences, Avantages/Désavantages et dépense normale de Vide restent disponibles.",
+happo_zanshin:"Doit être appris d’un autre maître. Dépenser 1 Vide et lancer les dés de Vide : la portée commence à environ 3 m et augmente fortement avec les résultats exceptionnels. Révèle détails, objets dissimulés et passages cachés même à travers obscurité et obstacles ordinaires ; certaines protections mystiques peuvent bloquer l’effet."
+};
+for(const k of L5R_KIHO_CATALOG_V02054){ if(L5R_KIHO_RULES_V02057[k.id]) k.rules=L5R_KIHO_RULES_V02057[k.id]; }
+
+// Kiho explicitement accordé par une technique d'école ; le référentiel maître confirme l'acquisition mais ne fournit pas ici sa fiche mécanique complète.
+L5R_KIHO_CATALOG_V02054.push({element:'void',id:'piercing_heart',name:'Le Cœur perçant',type:'Technique d’école / Kiho',mastery:null,summary:'Kiho appris automatiquement par le Bushi Kakita au Rang 2 (La frappe éclair). Effet détaillé à consulter dans la source avant résolution.',favoredClan:'crane',favoredMastery:null,source:'Référentiel maître L5R 1e — École de Bushi Kakita, Rang 2'});
+const L5R_KIHO_ELEMENT_LABELS={earth:'Terre',water:'Eau',fire:'Feu',air:'Air',void:'Vide'};
+function l5rKihoSelectedIdsV02054(data){return String(data.kihoIds||'').split(',').map(x=>x.trim()).filter(Boolean);}
+function l5rKihoCsvSetV02055(v){return new Set(String(v||'').split(',').map(x=>x.trim()).filter(Boolean));}
+function l5rKihoIsMonkV02054(ctx){return /\b(moine|monk|shinsei|sohei)\b/i.test(`${ctx?.occupation||''} ${ctx?.profession||''}`);}
+function l5rKihoIsNonMonkEligibleV02054(ctx){return /shugenja|ise\s*zumi|togashi|henshin|sodan|kitsu|tsukai|sagasu|witch\s*hunter|chasseur.*sorc/i.test(`${ctx?.occupation||''} ${ctx?.profession||''} ${ctx?.school||''}`);}
+function l5rKihoEffectiveMasteryV02054(k,ctx){return k.favoredClan&&k.favoredClan===ctx.clan&&k.favoredMastery?k.favoredMastery:k.mastery;}
+function l5rUsesFullRulesV02056(data={}){ return !isNpcEditor() || String(data.npcRulesMode||'simplified')==='full'; }
+function l5rKihoSchoolGrantedIdsV02055(ctx,data={}){
+ const rank=Math.max(1,Number(data.schoolRank||1)), out=[];
+ if(ctx?.profession==='kakita_bushi' && rank>=2) out.push('piercing_heart');
+ return out;
+}
+function l5rKihoFreeChoiceQuotaV02055(ctx,data={}){
+ if(!l5rKihoIsMonkV02054(ctx)) return 0;
+ const rank=Math.max(1,Number(data.schoolRank||1));
+ return 3 + Math.max(0,rank-1)*2;
+}
+function l5rKihoSyncSchoolGrantsV02055(data,ctx){
+ if(!l5rUsesFullRulesV02056(data)){ data.kihoSchoolGrantedIds=''; return data; }
+ const previous=l5rKihoCsvSetV02055(data.kihoSchoolGrantedIds), school=new Set(l5rKihoSchoolGrantedIdsV02055(ctx,data));
+ const selected=new Set(l5rKihoSelectedIdsV02054(data));
+ previous.forEach(id=>selected.delete(id)); school.forEach(id=>selected.add(id));
+ data.kihoIds=[...selected].join(','); data.kihoSchoolGrantedIds=[...school].join(',');
+ return data;
+}
+function l5rKihoHtmlV02054(data,ctx,characteristics){
+ const fullRules=l5rUsesFullRulesV02056(data);
+ l5rKihoSyncSchoolGrantsV02055(data,ctx);
+ const selected=new Set(l5rKihoSelectedIdsV02054(data)), schoolGranted=l5rKihoCsvSetV02055(data.kihoSchoolGrantedIds), paid=l5rKihoCsvSetV02055(data.kihoPaidIds);
+ const monk=l5rKihoIsMonkV02054(ctx), generalEligible=monk||l5rKihoIsNonMonkEligibleV02054(ctx), eligible=!fullRules||generalEligible||schoolGranted.size>0;
+ const rank=Math.max(1,Number(data.schoolRank||1)), mode=data.kihoAcquisitionMode||'creation', freeQuota=fullRules?l5rKihoFreeChoiceQuotaV02055(ctx,data):0;
+ const rings=l5rRings(characteristics||{}),ringMap={earth:rings.earth,water:rings.water,fire:rings.fire,air:rings.air,void:rings.void};
+ const choiceSelected=[...selected].filter(id=>!schoolGranted.has(id));
+ const groups=Object.keys(L5R_KIHO_ELEMENT_LABELS).map(el=>`<div class="l5r-kiho-element"><strong>${L5R_KIHO_ELEMENT_LABELS[el]}</strong>${L5R_KIHO_CATALOG_V02054.filter(k=>k.element===el).map(k=>{const m=l5rKihoEffectiveMasteryV02054(k,ctx); const ring=Number(ringMap[el]||0); const masteryCap=monk?ring+rank:ring+(/shugenja/i.test(`${ctx?.occupation||''} ${ctx?.profession||''}`)?Math.ceil(rank/2):0); const grant=fullRules&&schoolGranted.has(k.id), known=selected.has(k.id), masteryOk=m===null||m<=masteryCap; const ok=!fullRules||(generalEligible&&masteryOk)||grant; const status=!fullRules?'PNJ simplifié — choix MJ':grant?'École — automatique et gratuit':paid.has(k.id)?(mode==='creation'?'Achat PP':'Progression / XP'):(monk?'Quota gratuit':'Acquisition'); const cost=m===null?'—':`${m*2}`; return `<label class="trait-selected-card l5r-kiho-card"><input type="checkbox" data-l5r-kiho="${k.id}" ${known?'checked':''} ${grant?'disabled data-school-grant="1"':''} ${!ok&&!known?'disabled':''}><span><b>${esc(k.name)}</b> · ${esc(k.type)} · Maîtrise ${m??'—'}${k.favoredClan===ctx.clan&&k.favoredMastery?` (réduite pour ce clan)`:''}<br><small>${esc(k.summary)}${k.rules?`<br><b>Règle :</b> ${esc(k.rules)}`:''} · <b>${esc(status)}</b>${fullRules&&!grant&&m!==null?` · coût ${cost} PP/XP si payant`:''} · ${esc(k.source)}</small></span></label>`;}).join('')}</div>`).join('');
+ const guidance=!fullRules?`<b>PNJ — génération simplifiée MJ :</b> le catalogue sert d’aide. Les quotas, PP, prérequis et automatismes d’école ne sont pas imposés. Passe le PNJ en « règles complètes » pour appliquer exactement les règles d’un PJ.`:monk?`<b>Règles officielles PJ :</b> quota gratuit acquis jusqu’au Rang ${rank} : ${freeQuota} Kiho (${choiceSelected.filter(id=>!paid.has(id)).length}/${freeQuota} actuellement marqués gratuits). Les acquisitions au-delà du quota sont payantes.`:`<b>Règles officielles PJ :</b> non-moine : 1 Kiho maximum par Rang, sauf Kiho accordé explicitement par une technique d’école.`;
+ return `<div class="system-derived"><strong>Kiho — ${fullRules?'règles officielles':'aide de génération PNJ'}</strong><input type="hidden" data-system-key="kihoIds" value="${esc([...selected].join(','))}"><input type="hidden" data-system-key="kihoSchoolGrantedIds" value="${esc([...schoolGranted].join(','))}"><input type="hidden" data-system-key="kihoPaidIds" value="${esc([...paid].join(','))}"><label>Gestion des Kiho<select data-system-key="kihoAcquisitionMode"><option value="creation" ${mode==='creation'?'selected':''}>Création — Kiho de départ / achats PP</option><option value="learned" ${mode==='learned'?'selected':''}>Progression — apprentissage / XP</option></select></label><div class="system-note">${guidance}${fullRules?' Maîtrise maximale : moine = Anneau + Rang ; shugenja = Anneau + moitié du Rang arrondie au supérieur ; autre non-moine = Anneau. Maximum de Kiho d’un élément = Anneau correspondant. Les Kiho imposés par une école sont ajoutés automatiquement, gratuits et hors quota.':''}</div>${eligible?'':`<div class="system-note"><b>Profil non reconnu comme utilisateur de Kiho.</b> Le MJ peut conserver un Kiho déjà enregistré, mais le catalogue n’autorise pas de nouvel achat automatiquement.</div>`}<div class="l5r-kiho-grid">${groups}</div><div class="system-note" data-l5r-kiho-summary>Sélection : ${selected.size} Kiho · école ${schoolGranted.size} · payants ${paid.size}.</div></div>`;
+}
+function l5rBindKihoV02054(){
+ const sync=()=>{const ctx=readContextFields($("#characterContextEditor")), d=readSystemSpecificEditor(), fullRules=l5rUsesFullRulesV02056(d), school=new Set(fullRules?l5rKihoSchoolGrantedIdsV02055(ctx,d):[]), freeQuota=fullRules?l5rKihoFreeChoiceQuotaV02055(ctx,d):0; let ids=$$("[data-l5r-kiho]:checked").map(x=>x.dataset.l5rKiho); school.forEach(id=>{if(!ids.includes(id))ids.push(id)}); const paid=new Set(), choice=ids.filter(id=>!school.has(id)); if(fullRules&&l5rKihoIsMonkV02054(ctx)){ const ranked=choice.map(id=>({id,k:L5R_KIHO_CATALOG_V02054.find(x=>x.id===id)})).sort((a,b)=>Number(l5rKihoEffectiveMasteryV02054(b.k||{},ctx)||0)-Number(l5rKihoEffectiveMasteryV02054(a.k||{},ctx)||0)); ranked.slice(freeQuota).forEach(x=>paid.add(x.id)); } else if(fullRules) choice.forEach(id=>paid.add(id)); const h=$("#systemSpecificEditor [data-system-key='kihoIds']"), ph=$("#systemSpecificEditor [data-system-key='kihoPaidIds']"), sh=$("#systemSpecificEditor [data-system-key='kihoSchoolGrantedIds']"); if(h)h.value=ids.join(','); if(ph)ph.value=[...paid].filter(id=>ids.includes(id)&&!school.has(id)).join(','); if(sh)sh.value=[...school].join(','); const s=$("[data-l5r-kiho-summary]"); if(s)s.textContent=`Sélection : ${ids.length} Kiho · école ${school.size} · payants ${[...paid].filter(id=>ids.includes(id)&&!school.has(id)).length}.`;};
+ $$("[data-l5r-kiho]").forEach(el=>el.addEventListener('change',sync));
+ $("#systemSpecificEditor [data-system-key='kihoAcquisitionMode']")?.addEventListener('change',sync); sync();
+}
+
+/* === V0.20.51 — L5R 1e : budget PP et historique guidé === */
+const L5R_HERITAGE_ORIENTATION_V02050={
+ crab:[{min:1,max:2,label:"Passé indigne — table 2"},{min:3,max:5,label:"Passé neutre — aucun bonus ni malus"},{min:6,max:9,label:"Passé glorieux — table 3"},{min:10,max:10,label:"Passé mitigé — table 4"}],
+ crane:[{min:1,max:1,label:"Passé indigne — table 2"},{min:2,max:3,label:"Passé neutre — aucun bonus ni malus"},{min:4,max:6,label:"Passé glorieux — table 3"},{min:7,max:10,label:"Passé mitigé — table 4"}],
+ dragon:[{min:1,max:1,label:"Passé indigne — table 2"},{min:2,max:3,label:"Passé neutre — aucun bonus ni malus"},{min:4,max:6,label:"Ancêtre glorieux — table 3"},{min:7,max:10,label:"Passé mitigé — table 4"}],
+ lion:[{min:1,max:3,label:"Ancêtre glorieux — table 2"},{min:4,max:4,label:"Passé quelconque — aucun bonus ni malus"},{min:5,max:6,label:"Ancêtre déshonoré — table 3"},{min:7,max:8,label:"Histoire incertaine — table 4"},{min:9,max:10,label:"Histoire particulière — table 6"}],
+ phoenix:[{min:1,max:1,label:"Passé glorieux — table 2"},{min:2,max:4,label:"Passé neutre — aucun bonus ni malus"},{min:5,max:6,label:"Passé honteux — table 3"},{min:7,max:9,label:"Passé incertain — table 4"},{min:10,max:10,label:"Savoir interdit — table 5"}],
+ scorpion:[{min:1,max:2,label:"Passé indigne — table 2"},{min:3,max:5,label:"Passé neutre — aucun bonus ni malus"},{min:6,max:7,label:"Passé glorieux — table 3"},{min:8,max:10,label:"Passé mitigé — table 4"}],
+ unicorn:[{min:1,max:2,label:"Passé déshonorant — table 2"},{min:3,max:5,label:"Passé quelconque — aucun bonus ni malus"},{min:6,max:9,label:"Passé glorieux — table 3"},{min:10,max:10,label:"Passé mitigé — table 4"}]
+};
+function l5rHeritageOrientationV02050(clan,roll){
+ const rows=L5R_HERITAGE_ORIENTATION_V02050[clan]||[]; const n=Math.max(1,Math.min(10,Number(roll)||10));
+ return rows.find(r=>n>=r.min&&n<=r.max)?.label||"Table d’historique à arbitrer par le MJ";
+}
+function l5rHeritageNextTableV02051(result){
+ const m=String(result||"").match(/table\s+(\d+)/i);
+ return m?`Table ${m[1]}`:"Aucune sous-table";
+}
+function l5rStrictPpValueV02050(value){
+ const t=String(value??"").trim().replace(',', '.');
+ const m=t.match(/^(-?\d+(?:\.\d+)?)\s*(?:PP)?$/i); return m?Number(m[1]):null;
+}
+function l5rTraitPpAuditV02050(ctx={}){
+ let spent=0,gained=0,unpriced=[];
+ for(const t of state.editingAdvantages||[]){
+   let v=l5rStrictPpValueV02050(t.cost);
+   if(String(t.name||"").startsWith("Ancêtre : Soshi Saibankan")) v=String(ctx.profession||"").includes("magistr")?4:5;
+   if(v===null){unpriced.push(t.name);continue;} if(v>=0) spent+=v; else gained+=Math.abs(v);
+ }
+ for(const t of state.editingDisadvantages||[]){ const v=l5rStrictPpValueV02050(t.cost); if(v===null){unpriced.push(t.name);continue;} gained+=Math.abs(v); }
+ return {spent,gained,unpriced};
+}
+function l5rKihoPpAuditV02054(data,ctx){
+ if(!l5rUsesFullRulesV02056(data)) return {spent:0,details:[]};
+ l5rKihoSyncSchoolGrantsV02055(data,ctx);
+ const ids=l5rKihoSelectedIdsV02054(data), school=l5rKihoCsvSetV02055(data.kihoSchoolGrantedIds), paid=l5rKihoCsvSetV02055(data.kihoPaidIds); let spent=0;
+ const ks=ids.map(id=>L5R_KIHO_CATALOG_V02054.find(k=>k.id===id)).filter(Boolean);
+ if((data.kihoAcquisitionMode||'creation')==='creation') for(const k of ks){if(school.has(k.id)||!paid.has(k.id))continue; const m=l5rKihoEffectiveMasteryV02054(k,ctx); if(Number.isFinite(Number(m)))spent+=2*Number(m);}
+ return {spent,count:ks.length,free:ks.length-[...paid].filter(id=>ids.includes(id)).length,schoolGranted:school.size,paid:[...paid].filter(id=>ids.includes(id)&&!school.has(id)).length};
+}
+function l5rCreationBudgetHtmlV02050(data,ctx){
+ const npc=isNpcEditor(), enabled=!npc || String(data.creationPointsEnabled??"no")==="yes";
+ const budget=Number(data.creationPointBudget??25), extraSpent=Number(data.creationPointExtraSpent||0), extraGained=Number(data.creationPointExtraGained||0), heritageFreePp=Math.max(0,Number(data.heritageFreePp||0));
+ const a=l5rTraitPpAuditV02050(ctx), ka=l5rKihoPpAuditV02054(data,ctx), spent=Math.max(0,a.spent+ka.spent+extraSpent-heritageFreePp), gained=a.gained+extraGained, remaining=budget+gained-spent;
+ return `<div class="system-derived"><strong>Budget de création — Points de personnage (PP)</strong>
+   ${npc?systemSelectField("Contrôler les PP du PNJ","creationPointsEnabled",enabled?"yes":"no",[["no","Non — optionnel"],["yes","Oui — contrôler le budget"]]):`<div class="system-note"><b>PJ :</b> contrôle PP obligatoire.</div>`}
+   <div class="system-values-grid">${systemInputField("Budget PP","creationPointBudget",budget,{min:0})}${systemInputField("Autres dépenses PP","creationPointExtraSpent",extraSpent,{min:0})}${systemInputField("Autres gains PP","creationPointExtraGained",extraGained,{min:0})}${systemInputField("PP d’achats gratuits par l’historique","heritageFreePp",heritageFreePp,{min:0})}</div>
+   <div class="system-note">Barème 1e : Trait +1 = 8 PP · Vide +1 = 12 PP · Compétence +1 = 1 PP · Honneur +1 = 3 PP · Honneur −1 = +2 PP. Les champs « autres » servent notamment aux achats que le formulaire ne peut pas déduire de façon sûre. « PP d’achats gratuits par l’historique » neutralise le coût d’un Avantage/Ancêtre imposé gratuitement par une table, sans créer de PP à dépenser ailleurs.</div>
+   <div class="system-note" data-l5r-pp-summary><b>${enabled?`Solde : ${remaining} PP`:`Contrôle désactivé pour ce PNJ`}</b>${enabled?` — budget ${budget} + gains ${gained} − dépenses ${spent} (dont Kiho ${ka.spent} PP)`:""}.${a.unpriced.length?` Coût variable/non chiffré à valider : ${esc(a.unpriced.join(", "))}.`:""}</div>
+ </div>`;
+}
+function l5rHeritageSafeEffectsV02053(text){
+ const src=String(text||""); const out={honor:0,glory:0,insight:0,skills:[],advantages:[],disadvantages:[],manual:[]};
+ const addNum=(kind,n,unit)=>{ n=Number(n); if(!Number.isFinite(n))return; const v=/rang/i.test(unit)?n:n/10; out[kind]+=v; };
+ let m;
+ const honorRe=/(?:gagne|obtient|reçoit|commence avec|perd)\s*([+−-]?\d+(?:[.,]\d+)?)\s*(rang(?:s)?|point(?:s)?)\s+d[’']Honneur/gi;
+ while((m=honorRe.exec(src))){ let n=Number(m[1].replace('−','-').replace(',','.')); const pre=src.slice(Math.max(0,m.index-12),m.index+8); if(/perd/i.test(pre)&&n>0)n=-n; addNum('honor',n,m[2]); }
+ const gloryRe=/(?:gagne|obtient|reçoit|commence avec|perd)\s*([+−-]?\d+(?:[.,]\d+)?)\s*(rang(?:s)?|point(?:s)?)\s+de\s+Gloire/gi;
+ while((m=gloryRe.exec(src))){ let n=Number(m[1].replace('−','-').replace(',','.')); const pre=src.slice(Math.max(0,m.index-12),m.index+8); if(/perd/i.test(pre)&&n>0)n=-n; addNum('glory',n,m[2]); }
+ const repRe=/(?:gagne|obtient|reçoit)\s*([+]?\d+)\s*points?\s+de\s+Réputation/gi;
+ while((m=repRe.exec(src))) out.insight+=Number(m[1]);
+ const skillPatterns=[/([A-Za-zÀ-ÿ :’'\-]+?)\s*\+\s*(\d+)\s*(?:rang(?:s)?)?/g,/([A-Za-zÀ-ÿ :’'\-]+?)\s+au\s+rang\s+(\d+)/gi];
+ for(const re of skillPatterns) while((m=re.exec(src))){ const name=m[1].trim().replace(/^(et|ainsi que)\s+/i,''); if(name.length>2 && !/Honneur|Gloire|Statut|Vide|rang/i.test(name)) out.skills.push({name,rank:Number(m[2]),mode:re===skillPatterns[0]?'add':'min'}); }
+ const advRe=/avantage\s+\*?\*?([^.,;]+?)(?=\*?\*?[.,;]|\s+sans\s+les\s+PP|$)/gi;
+ while((m=advRe.exec(src))) out.advantages.push(m[1].replace(/\*\*/g,'').trim());
+ const disRe=/désavantage\s+\*?\*?([^.,;]+?)(?=\*?\*?[.,;]|\s+sans\s+les\s+PP|$)/gi;
+ while((m=disRe.exec(src))) out.disadvantages.push(m[1].replace(/\*\*/g,'').trim());
+ if(/rōnin|ronin|autre école|choix|au choix|Ennemi juré|Relation|Sombre secret|Obligation|nemuranai|sort|katana|équipement|qualité|monture|koku|faveur|titre|terres/i.test(src)) out.manual.push("Le résultat contient aussi un effet structurel, matériel, relationnel ou à choix : validation MJ nécessaire.");
+ return out;
+}
+function l5rApplySafeHeritageV02053(){
+ const finalEl=$("#systemSpecificEditor [data-system-key='heritageFinalResult']"); if(!finalEl||!String(finalEl.value||'').trim()){showToast("L5R : renseigne d’abord le résultat final de l’historique.");return;}
+ const sig=String(finalEl.value).trim(); const prior=$("#systemSpecificEditor [data-system-key='heritageAppliedSignature']")?.value||"";
+ if(prior===sig){showToast("L5R : les effets sûrs de ce résultat sont déjà appliqués.");return;}
+ if(prior){showToast("L5R : le résultat a changé. Retire d’abord l’ancienne application via le bouton Annuler.");return;}
+ const fx=l5rHeritageSafeEffectsV02053(sig);
+ const setNum=(key,delta,min=0,max=Infinity)=>{const el=$("#systemSpecificEditor [data-system-key='"+key+"']"); if(!el||!delta)return; el.value=Math.max(min,Math.min(max,Number(el.value||0)+delta));};
+ setNum('honor',fx.honor,0,10); setNum('glory',fx.glory,0,10);
+ const skillChanges=[]; for(const sk of fx.skills){ const el=$$(".skill-input").find(x=>String(x.dataset.skill||'').toLowerCase()===sk.name.toLowerCase()); if(el){ const before=Number(el.value||0); el.value=sk.mode==='add'?before+sk.rank:Math.max(before,sk.rank); skillChanges.push({name:el.dataset.skill,before,after:Number(el.value||0)}); } else fx.manual.push(`Compétence « ${sk.name} » non reconnue automatiquement.`); }
+ const addTrait=(name,kind)=>{ if(!name)return; const arr=kind==='positive'?state.editingAdvantages:state.editingDisadvantages; if(!arr.some(t=>t.name===name)) arr.push(normalizeTrait([name,"0 PP (historique)","Accordé gratuitement par la table d’historique L5R 1e."],kind,"Historique L5R")); };
+ fx.advantages.forEach(x=>addTrait(x,'positive')); fx.disadvantages.forEach(x=>addTrait(x,'negative')); renderSelectedTraits();
+ const sigEl=$("#systemSpecificEditor [data-system-key='heritageAppliedSignature']"); if(sigEl)sigEl.value=sig;
+ const deltaEl=$("#systemSpecificEditor [data-system-key='heritageAppliedDelta']"); if(deltaEl)deltaEl.value=JSON.stringify({honor:fx.honor,glory:fx.glory,skillChanges,advantages:fx.advantages,disadvantages:fx.disadvantages});
+ const valid=$("#systemSpecificEditor [data-system-key='heritageValidated']"); if(valid)valid.value=fx.manual.length?'no':'yes';
+ showToast(fx.manual.length?`Effets sûrs appliqués. ${fx.manual.join(' ')}`:"Effets sûrs de l’historique appliqués à la fiche.");
+}
+function l5rUndoSafeHeritageV02053(){
+ const sigEl=$("#systemSpecificEditor [data-system-key='heritageAppliedSignature']"), deltaEl=$("#systemSpecificEditor [data-system-key='heritageAppliedDelta']");
+ if(!sigEl?.value){showToast("L5R : aucun effet automatique à annuler.");return;}
+ let d={}; try{d=JSON.parse(deltaEl?.value||'{}')}catch{}
+ const setNum=(key,delta,min=0,max=Infinity)=>{const el=$("#systemSpecificEditor [data-system-key='"+key+"']"); if(el&&delta)el.value=Math.max(min,Math.min(max,Number(el.value||0)-delta));}; setNum('honor',Number(d.honor||0),0,10); setNum('glory',Number(d.glory||0),0,10);
+ for(const ch of d.skillChanges||[]){ const el=$$(".skill-input").find(x=>x.dataset.skill===ch.name); if(el && Number(el.value||0)===Number(ch.after)) el.value=Number(ch.before||0); }
+ state.editingAdvantages=state.editingAdvantages.filter(t=>t.source!=="Historique L5R"); state.editingDisadvantages=state.editingDisadvantages.filter(t=>t.source!=="Historique L5R"); renderSelectedTraits();
+ sigEl.value=""; if(deltaEl)deltaEl.value=""; const valid=$("#systemSpecificEditor [data-system-key='heritageValidated']"); if(valid)valid.value='no'; showToast("Application automatique de l’historique annulée. Une compétence modifiée ensuite manuellement est conservée par sécurité.");
+}
+function l5rHeritageHtmlV02050(data,ctx){
+ const clan=ctx.clan||"dragon", roll=Math.max(1,Math.min(10,Number(data.heritageRoll||0))), result=data.heritageResult|| (roll?l5rHeritageOrientationV02050(clan,roll):"");
+ const next=data.heritageNextTable||l5rHeritageNextTableV02051(result);
+ return `<div class="system-derived"><strong>Table d’historique / héritage familial</strong>
+ <div class="system-values-grid">
+ ${systemInputField("Jet d’orientation (1d10)","heritageRoll",roll||"",{min:1,max:10})}
+ ${systemInputField("Orientation","heritageResult",result,{type:"text"})}
+ ${systemInputField("Sous-table appelée","heritageNextTable",next,{type:"text"})}
+ ${systemInputField("Jet de sous-table","heritageSubRoll",data.heritageSubRoll||"",{min:0,max:100})}
+ ${systemInputField("Résultat final / effet","heritageFinalResult",data.heritageFinalResult||"",{type:"text"})}
+ ${systemSelectField("Résultat validé par le MJ","heritageValidated",data.heritageValidated||"no",[["no","Non — à vérifier"],["yes","Oui — appliqué à la fiche"]])}
+ ${systemInputField("Notes d’historique","heritageNotes",data.heritageNotes||"",{type:"text"})}
+ ${systemInputField("Signature application auto","heritageAppliedSignature",data.heritageAppliedSignature||"",{type:"text"})}
+ ${systemInputField("Delta application auto","heritageAppliedDelta",data.heritageAppliedDelta||"",{type:"text"})}
+ </div>
+ <div class="campaign-actions-row"><button type="button" class="btn secondary" id="l5rHeritageRollButton">Lancer l’orientation</button><button type="button" class="btn secondary" id="l5rHeritageApplyButton">Interpréter</button><button type="button" class="btn secondary" id="l5rHeritageSubRollButton">Lancer la sous-table</button><button type="button" class="btn primary" id="l5rHeritageSafeApplyButton">Appliquer les effets sûrs</button><button type="button" class="btn secondary" id="l5rHeritageUndoButton">Annuler l’application auto</button></div>
+ <div class="system-note">V0.20.53 : les effets déterministes simples peuvent être appliqués automatiquement et une signature empêche leur double application. Les points d’Honneur/Gloire sont convertis à 0,1 par point ; un rang vaut 1.  Les effets gratuits/imposés par l’historique ne rapportent ni ne coûtent automatiquement des PP : valider l’effet puis utiliser « PP d’achats gratuits par l’historique » uniquement si un avantage/Ancêtre gratuit a été ajouté à la fiche. Les effets sur Honneur, Gloire, équipement, relations ou école restent appliqués explicitement après validation MJ.</div></div>`;
+}
+
+function l5rValidateCreationBudgetV02050(){
+ if(profileKeyForCampaign()!=="l5r1") return true; const npc=isNpcEditor(), d=readSystemSpecificEditor(), ctx0=readContextFields($("#characterContextEditor"));
+ const ids=l5rKihoSelectedIdsV02054(d), ks=ids.map(id=>L5R_KIHO_CATALOG_V02054.find(k=>k.id===id)).filter(Boolean);
+ if(l5rUsesFullRulesV02056(d) && ks.length){
+   const monk=l5rKihoIsMonkV02054(ctx0), rank=Math.max(0,Number(d.schoolRank||0)), rings=l5rRings(readCurrentCharacteristics()), rm={earth:rings.earth,water:rings.water,fire:rings.fire,air:rings.air,void:rings.void};
+   const schoolGranted=l5rKihoCsvSetV02055(d.kihoSchoolGrantedIds); const learnedKs=ks.filter(k=>!schoolGranted.has(k.id)); if(!monk && !l5rKihoIsNonMonkEligibleV02054(ctx0) && learnedKs.length){showToast("L5R : ce profil ne peut pas apprendre de Kiho hors ceux accordés explicitement par son école.");return false;}
+   if(!monk && learnedKs.length>rank){showToast(`L5R : un non-moine ne peut apprendre qu’un Kiho par Rang hors Kiho accordés par son école (Rang ${rank}).`);return false;}
+   for(const el of Object.keys(rm)){ if(learnedKs.filter(k=>k.element===el).length>Number(rm[el]||0)){showToast(`L5R : trop de Kiho de ${L5R_KIHO_ELEMENT_LABELS[el]} pour l’Anneau correspondant.`);return false;} }
+   for(const k of learnedKs){const cap=monk?Number(rm[k.element]||0)+rank:Number(rm[k.element]||0)+(/shugenja/i.test(`${ctx0.occupation||''} ${ctx0.profession||''}`)?Math.ceil(rank/2):0); if(l5rKihoEffectiveMasteryV02054(k,ctx0)>cap){showToast(`L5R : ${k.name} dépasse la Maîtrise accessible à ce personnage.`);return false;}}
+   if(!monk && learnedKs.length){const sk=readSkillsEditor(); const med=Number(sk['Méditation']??sk['Meditation']??0), sh=Number(sk['Shintao']??0); if(med<1||sh<1){showToast("L5R : un non-moine doit avoir Méditation 1 et Shintao 1 pour apprendre un Kiho.");return false;}}
+ }
+ const enabled=!npc||d.creationPointsEnabled==="yes"; if(!enabled)return true;
+ const budget=Number(d.creationPointBudget); if(!Number.isFinite(budget)||budget<=0){showToast("L5R : renseigne le budget PP de création.");return false;}
+ const ctx=readContextFields($("#characterContextEditor")), a=l5rTraitPpAuditV02050(ctx), ka=l5rKihoPpAuditV02054(d,ctx), heritageFreePp=Math.max(0,Number(d.heritageFreePp||0)), remaining=budget+Number(d.creationPointExtraGained||0)+a.gained-Number(d.creationPointExtraSpent||0)-Math.max(0,a.spent+ka.spent-heritageFreePp);
+ if(remaining<0){showToast(`L5R : budget PP dépassé de ${Math.abs(remaining)} point(s).`);return false;} return true;
+}
+
 function traitCatalog() {
-  return TRAIT_CATALOGS[profileKeyForCampaign()] || TRAIT_CATALOGS.generic;
+  const key=profileKeyForCampaign();
+  const base=TRAIT_CATALOGS[key] || TRAIT_CATALOGS.generic;
+  // V0.20.52 — En L5R 1e, les Ancêtres ont désormais leur sélecteur dédié
+  // dans la création. Ils ne sont plus dupliqués dans le catalogue général
+  // des Avantages ; le stockage historique dans advantages reste compatible.
+  return base;
+}
+
+function l5rAncestorEntryByTraitName(name) {
+  const m=String(name||"").match(/^Ancêtre\s*:\s*(.+)$/i);
+  if(!m || typeof L5R_ANCESTOR_CATALOG_V02048==="undefined") return null;
+  return L5R_ANCESTOR_CATALOG_V02048.find(a=>a.name===m[1].trim())||null;
+}
+
+function l5rAncestorTraitFromEntry(a) {
+  return normalizeTrait([
+    `Ancêtre : ${a.name}`,
+    a.costLabel||`${a.cost} PP`,
+    `${a.effect}${a.restriction?` · Restriction : ${a.restriction}`:""} · Source : ${a.source}`
+  ],"positive","Ancêtre L5R 1e");
+}
+
+function renderL5rAncestorCreationEditor() {
+  const box=$("#l5rAncestorCreationBox");
+  if(!box) return;
+  if(profileKeyForCampaign()!=="l5r1") { box.classList.add("hidden"); return; }
+  box.classList.remove("hidden");
+  const ctx=currentCharacterContext();
+  const clanLabels={dragon:"Dragon",crane:"Grue",crab:"Crabe",lion:"Lion",phoenix:"Phénix",scorpion:"Scorpion",unicorn:"Licorne"};
+  const activeClan=clanLabels[ctx.clan]||null;
+  const choices=(typeof L5R_ANCESTOR_CATALOG_V02048!=="undefined"?L5R_ANCESTOR_CATALOG_V02048:[])
+    .filter(a=>a.selectable && activeClan && a.clan===activeClan);
+  const selectedTrait=state.editingAdvantages.find(t=>l5rAncestorEntryByTraitName(t.name));
+  const selected=l5rAncestorEntryByTraitName(selectedTrait?.name);
+  const select=$("#l5rAncestorSelect");
+  select.innerHTML=`<option value="">— Aucun ancêtre —</option>`+choices.map(a=>`<option value="${esc(a.name)}">${esc(a.name)} — ${esc(a.costLabel||`${a.cost} PP`)}</option>`).join("");
+  if(selected && choices.some(a=>a.name===selected.name)) select.value=selected.name;
+  else select.value="";
+  const info=$("#l5rAncestorCreationInfo");
+  if(selected && (!activeClan || selected.clan!==activeClan)) {
+    info.innerHTML=`<strong>${esc(selected.name)}</strong> — choix existant hors clan actuel, conservé comme exception MJ.<br><strong>Effet :</strong> ${esc(selected.effect)}<br><strong>Restriction :</strong> ${esc(selected.restriction||"—")}<br><strong>Source :</strong> ${esc(selected.source||"—")}`;
+  } else if(selected) {
+    info.innerHTML=`<strong>${esc(selected.name)}</strong> · ${esc(selected.costLabel||`${selected.cost} PP`)}<br><strong>Effet :</strong> ${esc(selected.effect)}<br><strong>Restriction :</strong> ${esc(selected.restriction||"—")}<br><strong>Source :</strong> ${esc(selected.source||"—")}`;
+  } else {
+    info.textContent=activeClan?`Aucun Ancêtre sélectionné. Seuls les Ancêtres compatibles avec le clan ${activeClan} sont proposés ici.`:"Choisis d’abord le clan du personnage pour afficher ses Ancêtres compatibles.";
+  }
+}
+
+function setL5rAncestorFromCreation(value) {
+  if(profileKeyForCampaign()!=="l5r1") return;
+  // Le sélecteur dédié gère un seul Ancêtre ; les autres avantages sont préservés.
+  state.editingAdvantages=state.editingAdvantages.filter(t=>!l5rAncestorEntryByTraitName(t.name));
+  if(value) {
+    const ctx=currentCharacterContext();
+    const clanLabels={dragon:"Dragon",crane:"Grue",crab:"Crabe",lion:"Lion",phoenix:"Phénix",scorpion:"Scorpion",unicorn:"Licorne"};
+    const activeClan=clanLabels[ctx.clan]||null;
+    const a=L5R_ANCESTOR_CATALOG_V02048.find(x=>x.selectable && x.name===value && x.clan===activeClan);
+    if(a) state.editingAdvantages.push(l5rAncestorTraitFromEntry(a));
+  }
+  renderSelectedTraits();
+  populateTraitAndEquipmentCatalogs();
+  renderL5rAncestorCreationEditor();
 }
 
 function equipmentCatalog() {
@@ -5135,7 +5471,7 @@ function generateRandomCharacterTraits() {
   const existingPositiveNames = new Set(state.editingAdvantages.map(t => t.name));
   const existingNegativeNames = new Set(state.editingDisadvantages.map(t => t.name));
 
-  const positives = catalog.positive.filter(e => !existingPositiveNames.has(e[0]));
+  const positives = catalog.positive.filter(e => !existingPositiveNames.has(e[0]) && !String(e[0]||"").startsWith("Ancêtre :"));
   const negatives = catalog.negative.filter(e => !existingNegativeNames.has(e[0]));
 
   for (const entry of randomUniqueEntries(positives, positiveCount)) {
@@ -5621,6 +5957,7 @@ function defaultSystemDataForCharacter(character = null) {
     const insight = numericSystemValue(saved,"insight",l5rInsight(characteristics,character?.skills || readSkillsEditor()));
     return {
       npcRole:saved.npcRole || "generic",
+      npcRulesMode:saved.npcRulesMode || "simplified",
       schoolRank,
       insight,
       honor:numericSystemValue(saved,"honor",L5R_STARTING_HONOR[ctx.profession] ?? 0),
@@ -5632,7 +5969,25 @@ function defaultSystemDataForCharacter(character = null) {
       status:numericSystemValue(saved,"status",l5rDefaultStatus(socialStatus)),
       woundsCurrent:numericSystemValue(saved,"woundsCurrent",0),
       woundsPerLevel,
-      woundsMax
+      woundsMax,
+      creationPointsEnabled:saved.creationPointsEnabled ?? "no",
+      creationPointBudget:numericSystemValue(saved,"creationPointBudget",25),
+      creationPointExtraSpent:numericSystemValue(saved,"creationPointExtraSpent",0),
+      creationPointExtraGained:numericSystemValue(saved,"creationPointExtraGained",0),
+      heritageFreePp:numericSystemValue(saved,"heritageFreePp",0),
+      heritageRoll:numericSystemValue(saved,"heritageRoll",0),
+      heritageResult:saved.heritageResult || "",
+      heritageNextTable:saved.heritageNextTable || "",
+      heritageSubRoll:numericSystemValue(saved,"heritageSubRoll",0),
+      heritageFinalResult:saved.heritageFinalResult || "",
+      heritageNotes:saved.heritageNotes || "",
+      heritageValidated:saved.heritageValidated || "no",
+      heritageAppliedSignature:saved.heritageAppliedSignature || "",
+      heritageAppliedDelta:saved.heritageAppliedDelta || "",
+      kihoIds:saved.kihoIds || "",
+      kihoAcquisitionMode:saved.kihoAcquisitionMode || "creation",
+      kihoPaidIds:saved.kihoPaidIds || "",
+      kihoSchoolGrantedIds:saved.kihoSchoolGrantedIds || ""
     };
   }
 
@@ -5794,6 +6149,7 @@ function renderSystemSpecificEditor(character = null) {
     box.innerHTML = `
       <div class="system-values-grid">
         ${isNpcEditor() ? systemSelectField("Archétype PNJ","npcRole",data.npcRole,NPC_ARCHETYPES) : ""}
+        ${isNpcEditor() ? systemSelectField("Mode de règles PNJ","npcRulesMode",data.npcRulesMode||"simplified",[["simplified","Génération simplifiée MJ"],["full","Règles complètes — comme un PJ"]]) : ""}
         ${systemSelectField("Rang d’École / Insight","schoolRank",data.schoolRank,[[0,"0 — Sans école / PNJ mineur"],[1,"1"],[2,"2"],[3,"3"],[4,"4"],[5,"5"]])}
         ${systemInputField("Réputation / Insight","insight",computedInsight,{min:0})}
         ${systemInputField("Honneur","honor",data.honor,{min:0,max:10,step:"0.1"})}
@@ -5810,8 +6166,12 @@ function renderSystemSpecificEditor(character = null) {
         Réputation / Insight calculée : ${computedInsight} · Rang correspondant : ${computedRank}.
         Une profession est indépendante de l’École : un heimin, hinin/eta ou autre personnage sans dojo peut avoir Rang d’École 0 tout en possédant de vraies compétences professionnelles.
       </div>
+      ${isNpcEditor()?`<div class="system-note"><b>PNJ :</b> ${data.npcRulesMode==="full"?"règles complètes actives — mêmes contraintes que pour un PJ.":"génération simplifiée MJ active — les règles officielles servent de référence mais ne bloquent pas la génération."}</div>`:`<div class="system-note"><b>PJ :</b> règles officielles complètes obligatoires.</div>`}
       <div class="system-derived"><strong>Anneaux</strong>Terre ${rings.earth} · Eau ${rings.water} · Feu ${rings.fire} · Air ${rings.air} · Vide ${rings.void}</div>
       <div class="system-derived"><strong>État actuel</strong>${esc(stateLabel)} · Souillure ${Number(data.taint||0).toFixed(1)}</div>
+      ${l5rCreationBudgetHtmlV02050(data,ctx)}
+      ${l5rHeritageHtmlV02050(data,ctx)}
+      ${l5rKihoHtmlV02054(data,ctx,characteristics)}
       <div class="system-note">L’Insight est calculé par 10 × somme des Anneaux + somme des rangs de Compétence. Les Anneaux suivent la présentation Terre (Endurance/Volonté), Eau (Force/Perception), Feu (Agilité/Intelligence), Air (Réflexes/Intuition) et Vide. Les valeurs supérieures à 5 restent saisissables pour les personnages exceptionnels ; les limites normales de création restent une règle distincte.</div>
       <div class="system-note">La Gloire proposée pour les métiers/fonctions sans école est une convention du générateur, toujours modifiable par le MJ ; elle ne prétend pas être une table canonique L5R.</div>
     `;
@@ -6188,6 +6548,15 @@ function bindSystemSpecificEditorEvents(character = null) {
     });
   }
 
+  if (profileKeyForCampaign() === "l5r1") {
+    const refreshHeritage=()=>{ const roll=Math.max(1,Math.min(10,Number($("#systemSpecificEditor [data-system-key='heritageRoll']")?.value||10))); const clan=readContextFields($("#characterContextEditor")).clan||"dragon"; const out=$("#systemSpecificEditor [data-system-key='heritageResult']"); const next=$("#systemSpecificEditor [data-system-key='heritageNextTable']"); const result=l5rHeritageOrientationV02050(clan,roll); if(out) out.value=result; if(next) next.value=l5rHeritageNextTableV02051(result); };
+    $("#l5rHeritageRollButton")?.addEventListener("click",()=>{ const el=$("#systemSpecificEditor [data-system-key='heritageRoll']"); if(el) el.value=1+Math.floor(Math.random()*10); refreshHeritage(); });
+    $("#l5rHeritageApplyButton")?.addEventListener("click",refreshHeritage);
+    $("#l5rHeritageSubRollButton")?.addEventListener("click",()=>{ const el=$("#systemSpecificEditor [data-system-key='heritageSubRoll']"); if(el) el.value=1+Math.floor(Math.random()*10); });
+    $("#l5rHeritageSafeApplyButton")?.addEventListener("click",l5rApplySafeHeritageV02053);
+    $("#l5rHeritageUndoButton")?.addEventListener("click",l5rUndoSafeHeritageV02053);
+    l5rBindKihoV02054();
+  }
   if (profileKeyForCampaign() === "vampire2") {
     $("#systemSpecificEditor [data-system-key='generation']")?.addEventListener("change", recalculateSystemValues);
   }
@@ -6526,7 +6895,7 @@ function l5rCharacterSheetHtml(c) {
  const ring=(n,k,v,cl,t)=>`<div class="l5r-paper-ring ${cl}"><div class="l5r-paper-ring-name">${n}</div><div class="l5r-paper-ring-disc"><strong>${v}</strong><em>${k}</em></div><div class="l5r-paper-ring-traits">${t}</div></div>`;
  const rels=(state.relations||[]).filter(r=>!r.deleted&&(r.sourceId===c.id||r.targetId===c.id));
  const relRows=rels.length?rels.map(r=>{const o=r.sourceId===c.id?r.targetId:r.sourceId;return `<tr><td>${esc(v191EntityName(o))}</td><td>${esc(r.relationType||"Lié")}</td><td>${esc(r.status||"Actif")}</td></tr>`}).join(""):`<tr><td colspan="3">Aucune relation enregistrée</td></tr>`;
- const advantages=Array.isArray(sd.advantages)?sd.advantages:[],disadvantages=Array.isArray(sd.disadvantages)?sd.disadvantages:[],equipment=Array.isArray(c.equipment)?c.equipment:(Array.isArray(sd.equipment)?sd.equipment:[]);
+ const advantages=Array.isArray(c.advantages)?c.advantages:(Array.isArray(sd.advantages)?sd.advantages:[]),disadvantages=Array.isArray(c.disadvantages)?c.disadvantages:(Array.isArray(sd.disadvantages)?sd.disadvantages:[]),equipment=Array.isArray(c.equipment)?c.equipment:(Array.isArray(sd.equipment)?sd.equipment:[]);
  const skillMid=Math.ceil(skills.length/2),skillTable=col=>`<div class="l5r-skill-col">${col.map(([k,v])=>`<div><span>${esc(k)}</span><b>${v}</b></div>`).join("")}</div>`;
  const tattoos=l5rOccupationValues(ctx.l5rTattoos||sd.l5rTattoos),spells=l5rOccupationValues(ctx.l5rSpells||sd.l5rSpells);
  return `<div class="l5r-paper-sheet">
@@ -6601,8 +6970,10 @@ window.l5rOpenSessionSpell=function(id,name){
  openModal("characterSheetModal");
 };
 
-function openCharacterSheet(id, compact=false) {
-  const c=state.characters.find(x=>x.id===id); if(!c) return;
+async function openCharacterSheet(id, compact=false) {
+  const base=state.characters.find(x=>x.id===id); if(!base) return;
+  const equipmentRows=await JDRDB.getAllByIndex("items", "ownerCharacterId", id);
+  const c={...base,equipment:equipmentRows.filter(x=>!x.deleted)};
   $('#characterSheetTitle').textContent=c.name||'Personnage';
   $('#characterSheetBody').classList.toggle('compact-sheet',!!compact);
   const isL5r=profileKeyForCampaign()==='l5r1';
@@ -6797,10 +7168,12 @@ function renderEvents() {
 }
 
 function renderAlerts() {
-  const noteAlert = alerts[0];
-  noteAlert.title = `${state.notes.filter(n => !n.processed).length} note(s) non traitée(s)`;
-
-  $("#alertList").innerHTML = alerts.map(a => `
+  const dynamicAlerts=[];
+  const pendingNotes=state.notes.filter(n=>!n.processed&&!n.deleted).length;
+  if(pendingNotes) dynamicAlerts.push({type:"warning",icon:"⚠",title:`${pendingNotes} note(s) non traitée(s)`,detail:"Des notes rapides restent à traiter dans la campagne active."});
+  const stalePlots=(state.plots||[]).filter(p=>!p.deleted&&p.status==="active"&&p.stale===true);
+  if(stalePlots.length) dynamicAlerts.push({type:"info",icon:"ℹ",title:`${stalePlots.length} intrigue(s) à revoir`,detail:stalePlots.map(p=>p.title).join(" · ")});
+  $("#alertList").innerHTML = dynamicAlerts.length?dynamicAlerts.map(a => `
     <div class="alert-row ${a.type}">
       <div class="alert-icon">${a.icon}</div>
       <div class="row-main">
@@ -6808,7 +7181,7 @@ function renderAlerts() {
         <div class="row-sub">${esc(a.detail)}</div>
       </div>
     </div>
-  `).join("");
+  `).join(""):`<div class="row-sub">Aucune alerte pour la campagne active.</div>`;
 }
 
 function renderCampaignHeader() {
@@ -6816,6 +7189,14 @@ function renderCampaignHeader() {
     const labels={l5r1:"L5R / L5A 1e",dnd5:"D&D 5e / 5.5e",vampire2:"Vampire V2",ward:"W.A.R.D."};
     $("#campaignButton").textContent = "Aucune campagne";
     $("#dateChip").textContent = "—"; $("#timeChip").textContent = "—"; $("#locationChip").textContent = "Bibliothèque JDR"; $("#sessionChip").textContent = labels[selectedSystemKey()]||"JDR";
+    const metrics=$$(".metric-value"); if(metrics[0])metrics[0].textContent="—"; if(metrics[1])metrics[1].textContent="—"; if(metrics[2])metrics[2].textContent="—";
+    const sceneTitle=$(".situation-card h2"); if(sceneTitle)sceneTitle.textContent="Aucune campagne active";
+    const sceneStrip=$(".situation-card .scene-strip strong"); if(sceneStrip)sceneStrip.textContent="Aucune scène active";
+    const sessionTitle=$(".session-card h2"); if(sessionTitle)sessionTitle.textContent="Aucune séance";
+    const presentTitle=$("#dashboardView .card:nth-of-type(3) h2"); if(presentTitle)presentTitle.textContent="0 participant";
+    const plotTitle=$("#dashboardView .card:nth-of-type(4) h2"); if(plotTitle)plotTitle.textContent="0 intrigue active";
+    const assistantContext=$(".assistant-message.system span"); if(assistantContext)assistantContext.textContent="Aucun contexte de campagne actif";
+    renderAlerts();
     return;
   }
 
@@ -6853,6 +7234,13 @@ function renderCampaignHeader() {
     sessionStats[2].textContent = String(sessionEvents);
     sessionStats[3].textContent = String(sessionNotes);
   }
+  const sceneStrip=$(".situation-card .scene-strip strong"); if(sceneStrip) sceneStrip.textContent=state.scene?.title||"Aucune scène active";
+  const presentCount=(state.scene?.characterIds||[]).filter(id=>state.characters.some(c=>c.id===id&&!c.deleted)).length;
+  const presentTitle=$("#dashboardView .card:nth-of-type(3) h2"); if(presentTitle) presentTitle.textContent=`${presentCount} participant(s)`;
+  const activePlots=(state.plots||[]).filter(p=>!p.deleted&&p.status==="active");
+  const plotTitle=$("#dashboardView .card:nth-of-type(4) h2"); if(plotTitle) plotTitle.textContent=`${activePlots.length} intrigue(s) active(s)`;
+  const assistantContext=$(".assistant-message.system span"); if(assistantContext) assistantContext.textContent=[locationName(state.campaign.currentLocationId),state.session?`Séance ${state.session.number}`:null,state.scene?.title].filter(Boolean).join(" · ")||"Aucun contexte de campagne actif";
+  renderAlerts();
 }
 
 function applyState() {
@@ -8003,6 +8391,7 @@ async function openCharacterEditor(id = null, presetType = null) {
 
   $("#characterContextLabel").textContent = contextConfig("character").label;
   renderContextFields($("#characterContextEditor"), "character", context);
+  renderL5rAncestorCreationEditor();
   state.lastCharacterProfession = context.profession || null;
 
   if (context.profession && !c?.profession) contextChanged("character", "", false);
@@ -8020,6 +8409,7 @@ async function openCharacterEditor(id = null, presetType = null) {
     $("#systemSpecificEditor")?.querySelector('[data-system-key="schoolRank"]')?.addEventListener("change",rerenderL5rSpellsForRank);
   }
   renderSelectedTraits();
+  renderL5rAncestorCreationEditor();
 
   if (!c && state.editingEquipment.length === 0) {
     replaceStartingEquipmentForCurrentContext(true);
@@ -8042,6 +8432,7 @@ async function saveCharacterEntity() {
   const existing = state.characters.find(c => c.id === id);
   const name = $("#characterEditName").value.trim();
   if (!name) return showToast("Le nom du personnage est obligatoire.");
+  if (!l5rValidateCreationBudgetV02050()) return;
 
   const row = {
     ...(existing || {}),
@@ -8312,6 +8703,7 @@ $("#generateNpcProfileButton").addEventListener("click", applyGeneratedNpcProfil
 $("#recalculateSystemValuesButton").addEventListener("click", recalculateSystemValues);
 $("#randomTraitsButton").addEventListener("click", generateRandomCharacterTraits);
 $("#addPositiveTraitButton").addEventListener("click", () => addCatalogTrait("positive"));
+$("#l5rAncestorSelect")?.addEventListener("change", e => setL5rAncestorFromCreation(e.target.value));
 $("#addNegativeTraitButton").addEventListener("click", () => addCatalogTrait("negative"));
 $("#addCustomPositiveTraitButton").addEventListener("click", () => openCustomTraitModal("positive"));
 $("#addCustomNegativeTraitButton").addEventListener("click", () => openCustomTraitModal("negative"));
@@ -9168,14 +9560,24 @@ const L5R1_CRAB_CORPUS = {
  nemuranai:["Chikara — katana ancestral du Clan du Crabe (3g3), jade et acier ; pouvoirs contre l’Outremonde et protection contre la corruption","Yama — wakizashi ancestral (2g2) ; stabilité du porteur et résistance aux chutes/désarçonnements","Ketsuen — armure du Guerrier de l’Ombre ; forte protection, réduction des effets de blessures et résistance à la magie","Bourse merveilleuse de Yasuki Hohiro — procure les petites sommes nécessaires aux dépenses courantes du porteur, avec des limites précises","Forge ancestrale de Kaiu — forge sacrée permettant la création de katana Kaiu exceptionnels (3g3), réputés pratiquement inaltérables"],
  npcs:[
   "Hida Kisada — Grand Ours, daimyo/champion du clan ; Hida rang 5, figure militaire majeure",
+  "Hida — ancêtre",
   "Hida Yakamo — héritier de Kisada ; combattant massif, Hida rang 4",
   "Hida O-Ushi — fille de Kisada ; commandement de la Grande Muraille et tempérament offensif",
   "Hida Sukune — fils de Kisada ; stratège et intellectuel, davantage tourné vers l’étude de la guerre",
+  "Kuni — ancêtre",
   "Hida Amoro — berserker Hida rang 3 ; rage difficile à contenir",
   "Hida Tsuru — plus jeune frère de Kisada ; commandant de cavalerie et vétéran",
+  "Yasuki Fumoki — ancêtre",
+  "Kuni Yori",
+  "Kaiu — ancêtre",
   "Hiruma Kage — éclaireur Hiruma rang 4 ; survivant et spécialiste de l’Outremonde",
+  "Hida Tadaka — ancêtre",
+  "Hiruma — ancêtre",
   "Yasuki Taka — marchand Yasuki rang 5 ; chef économique et négociateur majeur",
-  "Kaiu Utsu — maître de siège Kaiu rang 5 ; responsable de travaux et défenses de la Grande Muraille"
+  "Kaiu Gineza — ancêtre",
+  "Kuni Osaku — ancêtre",
+  "Kaiu Utsu — maître de siège Kaiu rang 5 ; responsable de travaux et défenses de la Grande Muraille",
+  "Hida Banuken — ancêtre"
  ],
  archetypes:["Berserker Hida — feuille prête à jouer","Éclaireur Hiruma — feuille prête à jouer","Stratège Kaiu — feuille prête à jouer","Inquisitrice Kuni — feuille prête à jouer avec sorts","Contrebandier Yasuki — feuille prête à jouer"],
  history:["Fondation et mission du clan liées à Hida et à la défense contre Fu Leng et l’Outremonde.","Chute des terres Hiruma et transformation durable de la famille en éclaireurs/guerriers de reconnaissance.","Conflits historiques avec la Grue, notamment autour de territoires et des Yasuki.","La Grande Muraille Kaiu devient le pivot stratégique, culturel et politique du clan.","À l’époque décrite, Hida Kisada dirige un clan toujours mobilisé contre l’Outremonde et en tension avec plusieurs puissances de l’Empire."],
@@ -9809,7 +10211,7 @@ const L5R1_CLAN_CORPORA = {
   families:["Doji — cour, politique et culture","Kakita — duels, arts et artisanat","Asahina — tradition shugenja pacifiste et grimoires","Daidoji — branche militaire de la Grue","Yasuki — présence historique traitée dans l’histoire de la Grue"],
   schools:["École des courtisans Doji","École des gardes du corps Daidoji","Académie des artisans Kakita","Tradition des duellistes Kakita","École de shugenja Asahina"],
   rules:["Création de personnages spécifique Grue","Compétences et avantages/désavantages propres au supplément","Tables d’héritage","Mizu-do : art martial de la Grue","Grimoires de la famille Asahina","Fétiches et Nemuranai associés au clan"],
-  npcs:["Doji Satsume","Doji Hoturi","Doji Kuwanan","Doji Ameiko","Doji Shizue","Kakita Yoshi","Kakita Toshimoko","Asahina Tamako","Daidoji Uji"],
+  npcs:["Doji Satsume","Lady Doji — ancêtre","Doji Hoturi","Doji Hotei — ancêtre","Doji Kuwanan","Doji Taehime — ancêtre","Doji Ameiko","Kakita Rensei — ancêtre","Doji Shizue","Kakita Wayozu — ancêtre","Kakita Yoshi","Kakita Toshimoko","Kakita — ancêtre","Asahina Tamako","Asahina Yajinden — ancêtre","Daidoji Uji","Daidoji Yurei — ancêtre","Daidoji Masashigi — ancêtre"],
   gm:["Territoires, côtes, cours et domaines de la Grue","Culture de cour, esthétique, duel et réputation","Scénario Le masque de la vengeance","Idées d’aventure réutilisables"]
  },
  dragon:{
@@ -9818,7 +10220,7 @@ const L5R1_CLAN_CORPORA = {
   families:["Mirumoto — tradition bushi et niten","Togashi — ordre monastique et Ise Zumi","Agasha — shugenja et recherche élémentaire","Kitsuki — magistrats et enquêteurs"],
   schools:["École bushi Mirumoto","Tradition shugenja Agasha","École/méthode Kitsuki","Voie des Ise Zumi Togashi"],
   rules:["Création de personnages Dragon","Techniques et profils de familles","Kaze-do : art martial","Grimoire des Agasha","Règles et options pour jouer un Ise Zumi","Tatouages et capacités propres aux Ise Zumi","Dragons de Rokugan"],
-  npcs:["Personnalités du clan présentées avec fiches et historique dans le chapitre IV","Archétypes Dragon prêts à l’emploi dans le chapitre V"],
+  npcs:["Togashi Mitsu","Togashi Yama","Mirumoto — ancêtre","Togashi Yokuni","Mirumoto Kaijuko — ancêtre","Togashi Gaijutsu","Togashi Hoshi","Mirumoto Daini","Mirumoto Tokeru — ancêtre","Mirumoto Hitomi","Mirumoto Sukune","Agasha Nodotai — ancêtre","Agasha Tamori","Agasha Kitsuki — ancêtre","Kitsuki Yasu","Agasha — ancêtre"],
   gm:["Mysticisme, isolement et recherche de l’illumination","Conflit entre perception, preuve et vérité au sein des traditions Dragon","Recueil d’éléments de campagne et ressources Dragon"]
  },
  lion:{
@@ -9846,7 +10248,7 @@ const L5R1_CLAN_CORPORA = {
   families:["Bayushi — pouvoir politique, courtisans et bushi","Shosuro — acteurs, infiltration et traditions secrètes","Soshi — shugenja et magie subtile","Yogo — lignée marquée par sa malédiction"],
   schools:["Écoles de combat Bayushi","École de courtisans Bayushi","École Shosuro Butei / acteurs","Traditions Soshi","Traditions Yogo"],
   rules:["Création de personnages Scorpion","Compétences d’espionnage, imitation et manipulation","Avantages/désavantages propres au clan","Tables d’héritage","Voie de la trahison","Ninjutsu","Nemuranai","Magie Scorpion","Poisons"],
-  npcs:["Bayushi Aramoro","Bayushi Kachiko","Bayushi Shoju","Autres personnalités Bayushi, Shosuro, Soshi et Yogo du chapitre IV"],
+  npcs:["Bayushi Aramoro","Bayushi Kachiko","Bayushi Shoju","Bayushi Tangen","Bayushi Yojiro","Shosuro Hametsu","Shosuro Taberu","Soshi Bantaro","Yogo Junzo","Yogo Asami"],
   gm:["Espionnage, secrets, loyauté et trahison","Réseaux de cour et infiltration","Recueil d’éléments Scorpion","Scénario L’enfant des ténèbres"]
  },
  licorne:{
@@ -9860,8 +10262,108 @@ const L5R1_CLAN_CORPORA = {
  }
 };
 
-/* === V0.20.40 — PNJ des livres de clan de nouveau consultables === */
+/* === V0.20.49 — Bibliothèque Ancêtres L5R 1e — sept grands clans === */
+const L5R_ANCESTOR_CATALOG_V02048=[
+{name:"Mirumoto",clan:"Dragon",cost:15,restriction:"Bushi de la famille Mirumoto uniquement",effect:"Utilise les techniques de combat Mirumoto comme avec un rang de Maîtrise supérieur de 1.",source:"Référentiel maître L5R 1e v5.0 — §21.9.1 / La Voie du Dragon",selectable:true},
+ {name:"Mirumoto Kaijuko",clan:"Dragon",cost:4,restriction:"Dragon ; particulièrement adapté aux Mirumoto et courtisans",effect:"Ne se mariera jamais ; lance 1 dé supplémentaire aux jets de Courtisan ou de Séduction.",source:"Référentiel maître L5R 1e v5.0 — §21.9.2 / La Voie du Dragon",selectable:true},
+ {name:"Mirumoto Tokeru",clan:"Dragon",cost:3,restriction:"Dragon",effect:"Aucun jet d’Honneur pour la loyauté envers son seigneur ; il est presque impossible de le détourner de son devoir.",source:"Référentiel maître L5R 1e v5.0 — §21.9.3 / La Voie du Dragon",selectable:true},
+ {name:"Agasha Nodotai",clan:"Dragon",cost:3,restriction:"Dragon",effect:"Durant une bataille, peut modifier son engagement d’un niveau.",source:"Référentiel maître L5R 1e v5.0 — §21.9.4 / La Voie du Dragon",selectable:true},
+ {name:"Agasha Kitsuki",clan:"Dragon",cost:5,restriction:"Dragon ; particulièrement adapté aux Kitsuki",effect:"Peut dépenser 1 point de Vide pour neutraliser complètement les effets d’un poison.",source:"Référentiel maître L5R 1e v5.0 — §21.9.5 / La Voie du Dragon",selectable:true},
+ {name:"Agasha",clan:"Dragon",cost:8,restriction:"Shugenja conseillé ; surtout Agasha ou personnage très lié à la magie Dragon",effect:"Un shugenja bénéficie d’une augmentation gratuite chaque fois qu’il lance un sort.",source:"Référentiel maître L5R 1e v5.0 — §21.9.6 / La Voie du Dragon",selectable:true},
+ {name:"Shinjo",clan:"Licorne",cost:3,restriction:"Licorne",effect:"Une augmentation gratuite pour chercher sincèrement à comprendre une émotion, un problème nouveau, une créature inconnue, un objet gaijin, une coutume étrangère ou une ressource inhabituelle.",source:"Référentiel maître L5R 1e v5.0 — §16.1 / La Voie de la Licorne",selectable:true},
+ {name:"Shinjo Martera",clan:"Licorne",cost:10,restriction:"Licorne",effect:"Ne fait jamais de jet d’Honneur et ne peut agir consciemment de façon à perdre de l’Honneur sans rompre le lien karmique.",source:"Référentiel maître L5R 1e v5.0 — §16.2 / La Voie de la Licorne",selectable:true},
+ {name:"Moto Chai",clan:"Licorne",cost:7,restriction:"Licorne",effect:"Aux jets d’Équitation, garde tous les dés lancés ; reçoit un point de Vide supplémentaire lors d’un exploit athlétique.",source:"Référentiel maître L5R 1e v5.0 — §16.3 / La Voie de la Licorne",selectable:true},
+ {name:"Moto Soro",clan:"Licorne",cost:5,restriction:"Licorne",effect:"Peut ignorer les effets de ses blessures pendant un nombre de tours par jour égal à son Vide ; ces tours ne peuvent pas être consécutifs.",source:"Référentiel maître L5R 1e v5.0 — §16.4 / La Voie de la Licorne",selectable:true},
+ {name:"Otaku",clan:"Licorne",cost:5,restriction:"Licorne",effect:"Acquiert Éloquent et peut être compris de tous les mammifères non humains, sans les contrôler.",source:"Référentiel maître L5R 1e v5.0 — §16.5 / La Voie de la Licorne",selectable:true},
+ {name:"Otaku Shiko",clan:"Licorne",cost:4,restriction:"Personnage féminin du Clan de la Licorne uniquement",effect:"Peut dépenser 1 point de Vide pour ignorer les conséquences d’un nouveau niveau de blessures pendant un nombre de tours égal à son rang de Maîtrise.",source:"Référentiel maître L5R 1e v5.0 — §16.6 / La Voie de la Licorne",selectable:true},
+ {name:"Ide",clan:"Licorne",cost:4,restriction:"Licorne ; effet actif seulement sans arme ni armure",effect:"Sans arme ni armure, un adversaire doit gagner une opposition de Volonté contre le rang d’Honneur du personnage pour pouvoir l’attaquer ce tour.",source:"Référentiel maître L5R 1e v5.0 — §16.7 / La Voie de la Licorne",selectable:true},
+ {name:"Iuchi",clan:"Licorne",cost:3,restriction:"Licorne",effect:"Une fois par jour, peut utiliser son Vide à la place de n’importe quel Anneau pour lancer un sort.",source:"Référentiel maître L5R 1e v5.0 — §16.8 / La Voie de la Licorne",selectable:true},
+ {name:"Iuchi Atesoro",clan:"Licorne",cost:6,restriction:"Licorne",effect:"Lorsqu’il est ciblé par une flèche ou un projectile, l’assaillant considère qu’il effectue une manœuvre d’Esquive, même s’il est en Assaut.",source:"Référentiel maître L5R 1e v5.0 — §16.9 / La Voie de la Licorne",selectable:true},
+ {name:"Moto Sanjo",clan:"Licorne",cost:0,restriction:"Licorne / Moto ; ancêtre avantage-désavantage",effect:"Avertissement par rire dément lorsque des créatures de l’Outremonde sont proches ; dans l’Outremonde, ne compte jamais son meilleur dé, malus annulable 1 jour par jet d’Honneur ND 10.",source:"Référentiel maître L5R 1e v5.0 — §16.11 / La Voie de la Licorne",selectable:true}
+,
+ {name:"Kuni",clan:"Crabe",cost:4,restriction:"Clan du Crabe / famille Kuni",effect:"Pour déterminer s’il est atteint par la Souillure de l’Outremonde, lance deux fois les dés et conserve le meilleur résultat.",source:"Référentiel maître L5R 1e v5.0 — Ancêtres Crabe / La Voie du Crabe",selectable:true},
+ {name:"Yasuki Fumoki",clan:"Crabe",cost:3,restriction:"Clan du Crabe / tradition maritime Yasuki",effect:"Prévoit exactement le temps des prochaines 24 h ; bénéficie d’une augmentation gratuite aux jets liés à l’Agilité, l’équilibre, la stabilité ou les surfaces instables.",source:"Référentiel maître L5R 1e v5.0 — Ancêtres Crabe / La Voie du Crabe",selectable:true},
+ {name:"Hida",clan:"Crabe",cost:10,restriction:"Clan du Crabe / fondateur",effect:"Gagne 1 point de Vide supplémentaire par allié Crabe qui l’épaule au combat, avantage partagé par ces alliés ; subit aussi une blessure chaque fois qu’un de ces compagnons Crabe est blessé.",source:"Référentiel maître L5R 1e v5.0 — Ancêtres Crabe / La Voie du Crabe",selectable:true},
+ {name:"Hida Tadaka",clan:"Crabe",cost:4,restriction:"Clan du Crabe ; bénéficiaire au contact",effect:"Peut subir les dommages à la place d’un autre personnage au contact ; si le bénéficiaire n’est pas Crabe, celui-ci dépense 1 point de Vide à chaque utilisation.",source:"Référentiel maître L5R 1e v5.0 — Ancêtres Crabe / La Voie du Crabe",selectable:true},
+ {name:"Hiruma",clan:"Crabe",cost:5,restriction:"Clan du Crabe / famille Hiruma",effect:"Peut refaire n’importe quel jet en dépensant 1 point de Vide, un nombre de fois par jour égal à son rang de Vide.",source:"Référentiel maître L5R 1e v5.0 — Ancêtres Crabe / La Voie du Crabe",selectable:true},
+ {name:"Kaiu Gineza",clan:"Crabe",cost:1,restriction:"Clan du Crabe / Kaiu ; cible souillée",effect:"Avant les dommages, peut sacrifier jusqu’à son rang de Terre points de blessures ; une cible souillée subit au moins autant de dommages supplémentaires.",source:"Référentiel maître L5R 1e v5.0 — Ancêtres Crabe / La Voie du Crabe",selectable:true},
+ {name:"Kuni Osaku",clan:"Crabe",cost:6,restriction:"Clan du Crabe / Kuni ; lancement de sort",effect:"En lançant un sort, peut dépenser 1 point de Vide pour obtenir un nombre d’augmentations gratuites égal à son rang de Maîtrise.",source:"Référentiel maître L5R 1e v5.0 — Ancêtres Crabe / La Voie du Crabe",selectable:true},
+ {name:"Hida Banuken",clan:"Crabe",cost:2,restriction:"Clan du Crabe ; allié désigné avant l’initiative",effect:"Peut frapper en même temps qu’un allié désigné sans tenir compte de l’initiative ; l’allié peut réciproquement agir en même temps.",source:"Référentiel maître L5R 1e v5.0 — Ancêtres Crabe / La Voie du Crabe",selectable:true},
+ {name:"Dame Doji",clan:"Grue",cost:6,restriction:"Clan de la Grue ; lignée Doji probable",effect:"Commence avec toutes les compétences valorisantes au rang 1 sauf Équitation, Médecine, Connaissances et Enquête ; doit payer normalement le premier rang avant de progresser au rang 2.",source:"Référentiel maître L5R 1e v5.0 — Ancêtres Grue / La Voie de la Grue",selectable:true},
+ {name:"Doji Hotei",clan:"Grue",cost:4,restriction:"Grue / Doji",effect:"Au début d’un tour de combat, dépense 1 point de Vide pour ignorer ce tour les blessures reçues, qui prennent effet au tour suivant ; folie légère récurrente définie par le MJ.",source:"Référentiel maître L5R 1e v5.0 — Ancêtres Grue / La Voie de la Grue",selectable:true},
+ {name:"Doji Taehime",clan:"Grue",cost:5,restriction:"Grue / Doji",effect:"Dépense 1 point de Vide pour lancer rang de Vide dés supplémentaires en Sincérité, Manipulation ou Étiquette ; ne peut jamais révéler tout ce qu’il sait sur un sujet.",source:"Référentiel maître L5R 1e v5.0 — Ancêtres Grue / La Voie de la Grue",selectable:true},
+ {name:"Kakita Rensei",clan:"Grue",cost:5,restriction:"Grue / Kakita",effect:"Les dommages d’un coup porté ne peuvent être réduits, évités ou ignorés par une capacité post-impact ; armure, parade et esquive restent normales.",source:"Référentiel maître L5R 1e v5.0 — Ancêtres Grue / La Voie de la Grue",selectable:true},
+ {name:"Kakita Wayozu",clan:"Grue",cost:12,restriction:"Grue / Kakita Artisan",effect:"Une fois par semaine, dépense 2 Vide pour tenter n’importe quelle maya d’artisan ; sans la compétence lance Feu et garde 1, sinon Compétence + Feu et garde Feu.",source:"Référentiel maître L5R 1e v5.0 — Ancêtres Grue / La Voie de la Grue",selectable:true},
+ {name:"Kakita",clan:"Grue",cost:15,restriction:"Descendant direct de Kakita ; validation MJ forte",effect:"Une fois par jour, refait un jet raté en utilisant Iaijutsu à la place de la compétence ; +10 ND en défendant Empereur, Doji ou Hantei ; Ennemi juré : Lion sans gain de PP.",source:"Référentiel maître L5R 1e v5.0 — Ancêtres Grue / La Voie de la Grue",selectable:true},
+ {name:"Asahina Yajinden",clan:"Grue",cost:3,restriction:"Grue / Asahina ; option sombre, validation MJ",effect:"Une augmentation gratuite pour créer un fétiche ou objet magique ; ND des jets visant à le séduire ou le faire basculer vers les ténèbres réduit de 10.",source:"Référentiel maître L5R 1e v5.0 — Ancêtres Grue / La Voie de la Grue",selectable:true},
+ {name:"Daidoji Masashigi",clan:"Grue",cost:7,restriction:"Grue / Daidoji",effect:"Gagne une relation majeure au Clan du Crabe et +3 au ND pour être touché par niveau de Blessures reçu.",source:"Référentiel maître L5R 1e v5.0 — Ancêtres Grue / La Voie de la Grue",selectable:true},
+ {name:"Daidoji Yurei",clan:"Grue",cost:5,restriction:"Grue / Daidoji",effect:"Lors d’un jet Perception + Art de la guerre pour déterminer le vainqueur d’une bataille, lance un nombre de dés supplémentaires égal à son rang de Feu.",source:"Référentiel maître L5R 1e v5.0 — Ancêtres Grue / La Voie de la Grue",selectable:true},
+ {name:"Akodo",clan:"Lion",cost:10,restriction:"Clan du Lion / fondateur",effect:"Sur la table des tours de bataille, lance 2 dés et garde celui voulu ; Art de la guerre compte +1 rang, jusqu’à 6 ; Leader-né coûte 1 PP de moins.",source:"Référentiel maître L5R 1e v5.0 — §23.6.9 / La Voie du Lion",selectable:true},
+ {name:"Akodo Shinju",clan:"Lion",cost:2,restriction:"Clan du Lion",effect:"Reçoit toujours une opportunité héroïque sur la table de résolution des tours de bataille.",source:"Référentiel maître L5R 1e v5.0 — §23.6.9 / La Voie du Lion",selectable:true},
+ {name:"Ikoma",clan:"Lion",cost:2,restriction:"Clan du Lion / lignée Ikoma",effect:"Une fois par partie, peut poser au MJ une question sur la situation vécue ; le MJ répond oui ou non et ne peut pas mentir.",source:"Référentiel maître L5R 1e v5.0 — §23.6.9 / La Voie du Lion",selectable:true},
+ {name:"Kitsu",clan:"Lion",cost:8,restriction:"Clan du Lion / ancêtre fondateur Kitsu",effect:"Peut sentir les esprits comme un Kitsu sang-mêlé avec le sort Sensation.",source:"Référentiel maître L5R 1e v5.0 — §23.6.9 / La Voie du Lion",selectable:true},
+ {name:"Matsu Hitomi",clan:"Lion",cost:6,restriction:"Clan du Lion / figure Matsu",effect:"Une fois par jour, dépense 1 Vide pour refaire un jet d’attaque ou de dommages et garder le meilleur ; ne peut attaquer une personne à laquelle il est fortement lié.",source:"Référentiel maître L5R 1e v5.0 — §23.6.9 / La Voie du Lion",selectable:true},
+ {name:"Akodo Godaigo",clan:"Lion",cost:-2,restriction:"Clan du Lion ; ancêtre sombre",effect:"Anneaux et Gloire ne peuvent être supérieurs à l’Honneur ; si l’Honneur baisse, les valeurs concernées sont considérées égales à l’Honneur jusqu’à récupération.",source:"Référentiel maître L5R 1e v5.0 — §23.6.9 / La Voie du Lion",selectable:true},
+ {name:"Isawa Akuma",clan:"Phénix",cost:3,restriction:"Clan du Phénix ; restriction familiale non précisée",effect:"Contre les oni, bénéficie d’augmentations gratuites égales au rang de Vide ; reçoit Désavantage social niveau 1 sans gain de PP.",source:"Référentiel maître L5R 1e v5.0 — §24.14 / La Voie du Phénix",selectable:true},
+ {name:"Naka Kaeteru",clan:"Phénix",cost:14,restriction:"Shugenja",effect:"Compte comme ayant deux rangs de Vide de plus et ajoute 2 dés aux jets de Méditation liés à la méditation ; héritage perdu si Honneur tombe à 1 ou moins.",source:"Référentiel maître L5R 1e v5.0 — §24.14 / La Voie du Phénix",selectable:true},
+ {name:"Isawa Ijime",clan:"Phénix",cost:-3,restriction:"Clan du Phénix ; ancêtre néfaste",effect:"+1 dé aux énigmes, recherches et problèmes insolubles ; ND opposition +5, rapports sociaux +10, Vide effectif -1 et Méditation ND 40.",source:"Référentiel maître L5R 1e v5.0 — §24.14 / La Voie du Phénix",selectable:true},
+ {name:"Isawa Takao",clan:"Phénix",cost:2,restriction:"Clan du Phénix",effect:"+1 dé aux sorts du Feu ; contrepartie Impétueux, avec jets d’Honneur ND 35 si déjà acquis selon le référentiel.",source:"Référentiel maître L5R 1e v5.0 — §24.14 / La Voie du Phénix",selectable:true},
+ {name:"Shiba Toriko",clan:"Phénix",cost:1,restriction:"Clan du Phénix",effect:"Peut toujours utiliser les règles du karma s’il meurt en tentant d’empêcher un conflit.",source:"Référentiel maître L5R 1e v5.0 — §24.14 / La Voie du Phénix",selectable:true},
+ {name:"Shiba Kaigen",clan:"Phénix",cost:2,restriction:"Bushi uniquement",effect:"Obtient une action supplémentaire lorsqu’un shugenja proche dépense un point de Vide ; cette action supplémentaire ne peut pas servir à attaquer.",source:"Référentiel maître L5R 1e v5.0 — §24.14 / La Voie du Phénix",selectable:true},
+ {name:"Asako",clan:"Phénix",cost:4,restriction:"Clan du Phénix",effect:"Obtient l’avantage Alter ego avec un autre PJ avec accord du MJ ; Impétueux et peut devenir Oublié en cas de trahison.",source:"Référentiel maître L5R 1e v5.0 — §24.14 / La Voie du Phénix",selectable:true},
+ {name:"Asako Ingen",clan:"Phénix",cost:5,restriction:"Henshin / Asako recommandé",effect:"Compte comme ayant un rang de Maîtrise supplémentaire pour les énigmes ; effet spécialisé sur la voie Henshin.",source:"Référentiel maître L5R 1e v5.0 — §24.14 / La Voie du Phénix",selectable:true},
+ {name:"Asako Hanasaku",clan:"Phénix",cost:4,restriction:"Clan du Phénix",effect:"+1 dé aux jets liés aux substances, poisons, médecine et phénomènes étranges ; Volonté ND 20 pour résister à l’envie d’expérimenter une nouveauté.",source:"Référentiel maître L5R 1e v5.0 — §24.14 / La Voie du Phénix",selectable:true},
+ {name:"Kitsu Taiko",clan:"Phénix",cost:7,restriction:"Shugenja Lion ou Phénix uniquement",effect:"Choisit un élément ; lance et garde 1 dé supplémentaire aux sorts associés à cet élément.",source:"Référentiel maître L5R 1e v5.0 — §24.14 / La Voie du Phénix",selectable:true},
+ {name:"Bayushi",clan:"Scorpion",cost:5,restriction:"Clan du Scorpion",effect:"Lien karmique avec un autre personnage : chacun peut utiliser les points de Vide de l’autre ; si l’un meurt, l’autre ne peut plus jamais utiliser de Vide.",source:"Référentiel maître L5R 1e v5.0 — Ancêtres Scorpion / La Voie du Scorpion",selectable:true},
+ {name:"Bayushi Tesaguri",clan:"Scorpion",cost:2,restriction:"Clan du Scorpion",effect:"Reçoit toujours 50 % de koku en plus pour ses services et souvent des objets de meilleure qualité ; révèle tout secret à la première occasion.",source:"Référentiel maître L5R 1e v5.0 — Ancêtres Scorpion / La Voie du Scorpion",selectable:true},
+ {name:"Bayushi Tangen",clan:"Scorpion",cost:2,restriction:"Clan du Scorpion",effect:"Reçoit automatiquement Incapable de mentir ; nécessite 10 points de Réputation de moins pour atteindre le rang de Maîtrise suivant.",source:"Référentiel maître L5R 1e v5.0 — Ancêtres Scorpion / La Voie du Scorpion",selectable:true},
+ {name:"Shosuro Furuyari",clan:"Scorpion",cost:2,restriction:"Clan du Scorpion",effect:"Une augmentation gratuite avec Comédie, Rhétorique ou Déguisement ; Éloquent coûte 1 PP au lieu de 2.",source:"Référentiel maître L5R 1e v5.0 — Ancêtres Scorpion / La Voie du Scorpion",selectable:true},
+ {name:"Soshi Saibankan",clan:"Scorpion",cost:5,costLabel:"4 PP magistrat / 5 PP autre Scorpion",restriction:"Clan du Scorpion ; 4 PP pour magistrats, 5 PP pour les autres",effect:"Par jour, bénéficie d’un nombre d’augmentations gratuites égal à son rang de Maîtrise, utilisables en Enquête, Droit, Héraldique ou Histoire.",source:"Référentiel maître L5R 1e v5.0 — Ancêtres Scorpion / La Voie du Scorpion",selectable:true},
+ {name:"Yogo",clan:"Scorpion",cost:2,restriction:"Clan du Scorpion ; maho, contrôle MJ recommandé",effect:"Aptitude innée à la maho ; augmentations gratuites égales au rang de Maîtrise en Connaissance : maho ; pratiquer la maho ajoute autant de points de Souillure en plus du coût normal.",source:"Référentiel maître L5R 1e v5.0 — Ancêtres Scorpion / La Voie du Scorpion",selectable:true}
+
+];
+const L5R_ANCESTOR_NAMES_V02048=new Set(L5R_ANCESTOR_CATALOG_V02048.map(a=>a.name));
+function l5rIsAncestorIndexV02048(n){return !!n && (L5R_ANCESTOR_NAMES_V02048.has(n.name)||String(n.profile||"").startsWith("Ancêtre"));}
+function l5rAncestorCardV02048(a){return `<article class="entity-card"><div class="entity-head"><div><div class="card-kicker">ANCÊTRE · ${esc(a.clan)}</div><h3 class="entity-title">${esc(a.name)}</h3></div><span class="mini-badge">${a.selectable?esc(a.costLabel||`${a.cost} PP`):`À vérifier`}</span></div><div class="entity-description"><b>Effet :</b> ${esc(a.effect||"Mécanique à vérifier.")}<br><b>Restriction :</b> ${esc(a.restriction||"Selon source / validation MJ")}<br><b>Source :</b> ${esc(a.source||"Livre de clan L5R 1e")}</div></article>`;}
+
+/* === V0.20.47 — PNJ des livres de clan consolidés === */
 const L5R_BOOK_NPC_INDEX_V02032=[
+ // V0.20.46 — Dragon et Crabe : index nominatif vérifié chapitre Who’s Who.
+ {name:"Mirumoto",clan:"Dragon",book:"The Way of the Dragon — L5R 1st edition",section:"Who’s Who, ch.4",profile:"Ancêtre — profil du supplément."},
+ {name:"Togashi Yokuni",clan:"Dragon",book:"The Way of the Dragon — L5R 1st edition",section:"Who’s Who, ch.4",historicalKey:"togashi_yokuni"},
+ {name:"Togashi Mitsu",clan:"Dragon",book:"The Way of the Dragon — L5R 1st edition",section:"Who’s Who, ch.4",historicalKey:"togashi_mitsu"},
+ {name:"Togashi Yama",clan:"Dragon",book:"The Way of the Dragon — L5R 1st edition",section:"Who’s Who, ch.4",sourceState:"named"},
+ {name:"Mirumoto Kaijuko",clan:"Dragon",book:"The Way of the Dragon — L5R 1st edition",section:"Who’s Who, ch.4",profile:"Ancêtre — profil du supplément."},
+ {name:"Togashi Gaijutsu",clan:"Dragon",book:"The Way of the Dragon — L5R 1st edition",section:"Who’s Who, ch.4"},
+ {name:"Togashi Hoshi",clan:"Dragon",book:"The Way of the Dragon — L5R 1st edition",section:"Who’s Who, ch.4"},
+ {name:"Mirumoto Daini",clan:"Dragon",book:"The Way of the Dragon — L5R 1st edition",section:"Who’s Who, ch.4"},
+ {name:"Mirumoto Tokeru",clan:"Dragon",book:"The Way of the Dragon — L5R 1st edition",section:"Who’s Who, ch.4",profile:"Ancêtre — profil du supplément."},
+ {name:"Mirumoto Hitomi",clan:"Dragon",book:"The Way of the Dragon — L5R 1st edition",section:"Who’s Who, ch.4",historicalKey:"mirumoto_hitomi"},
+ {name:"Mirumoto Sukune",clan:"Dragon",book:"The Way of the Dragon — L5R 1st edition",section:"Who’s Who, ch.4"},
+ {name:"Agasha Nodotai",clan:"Dragon",book:"The Way of the Dragon — L5R 1st edition",section:"Who’s Who, ch.4",profile:"Ancêtre — profil du supplément."},
+ {name:"Agasha Tamori",clan:"Dragon",book:"The Way of the Dragon — L5R 1st edition",section:"Who’s Who, ch.4",historicalKey:"agasha_tamori"},
+ {name:"Agasha Kitsuki",clan:"Dragon",book:"The Way of the Dragon — L5R 1st edition",section:"Who’s Who, ch.4",profile:"Ancêtre — profil du supplément."},
+ {name:"Kitsuki Yasu",clan:"Dragon",book:"The Way of the Dragon — L5R 1st edition",section:"Who’s Who, ch.4"},
+ {name:"Agasha",clan:"Dragon",book:"The Way of the Dragon — L5R 1st edition",section:"Who’s Who, ch.4",profile:"Ancêtre — profil du supplément."},
+ {name:"Hida Kisada",clan:"Crabe",book:"The Way of the Crab — L5R 1st edition",section:"Who’s Who, ch.4",historicalKey:"hida_kisada"},
+ {name:"Hida",clan:"Crabe",book:"The Way of the Crab — L5R 1st edition",section:"Who’s Who, ch.4",profile:"Ancêtre — profil du supplément."},
+ {name:"Hida Yakamo",clan:"Crabe",book:"The Way of the Crab — L5R 1st edition",section:"Who’s Who, ch.4",historicalKey:"hida_yakamo"},
+ {name:"Hida O-Ushi",clan:"Crabe",book:"The Way of the Crab — L5R 1st edition",section:"Who’s Who, ch.4"},
+ {name:"Hida Sukune",clan:"Crabe",book:"The Way of the Crab — L5R 1st edition",section:"Who’s Who, ch.4"},
+ {name:"Kuni",clan:"Crabe",book:"The Way of the Crab — L5R 1st edition",section:"Who’s Who, ch.4",profile:"Ancêtre — profil du supplément."},
+ {name:"Hida Amoro",clan:"Crabe",book:"The Way of the Crab — L5R 1st edition",section:"Who’s Who, ch.4"},
+ {name:"Hida Tsuru",clan:"Crabe",book:"The Way of the Crab — L5R 1st edition",section:"Who’s Who, ch.4"},
+ {name:"Yasuki Fumoki",clan:"Crabe",book:"The Way of the Crab — L5R 1st edition",section:"Who’s Who, ch.4",profile:"Ancêtre — profil du supplément."},
+ {name:"Kuni Yori",clan:"Crabe",book:"The Way of the Crab — L5R 1st edition",section:"Who’s Who, ch.4"},
+ {name:"Kaiu",clan:"Crabe",book:"The Way of the Crab — L5R 1st edition",section:"Who’s Who, ch.4",profile:"Ancêtre — profil du supplément."},
+ {name:"Hiruma Kage",clan:"Crabe",book:"The Way of the Crab — L5R 1st edition",section:"Who’s Who, ch.4"},
+ {name:"Hida Tadaka",clan:"Crabe",book:"The Way of the Crab — L5R 1st edition",section:"Who’s Who, ch.4",profile:"Ancêtre — profil du supplément."},
+ {name:"Hiruma",clan:"Crabe",book:"The Way of the Crab — L5R 1st edition",section:"Who’s Who, ch.4",profile:"Ancêtre — profil du supplément."},
+ {name:"Yasuki Taka",clan:"Crabe",book:"The Way of the Crab — L5R 1st edition",section:"Who’s Who, ch.4"},
+ {name:"Kaiu Gineza",clan:"Crabe",book:"The Way of the Crab — L5R 1st edition",section:"Who’s Who, ch.4",profile:"Ancêtre — profil du supplément."},
+ {name:"Kuni Osaku",clan:"Crabe",book:"The Way of the Crab — L5R 1st edition",section:"Who’s Who, ch.4",profile:"Ancêtre — profil du supplément."},
+ {name:"Kaiu Utsu",clan:"Crabe",book:"The Way of the Crab — L5R 1st edition",section:"Who’s Who, ch.4"},
+ {name:"Hida Banuken",clan:"Crabe",book:"The Way of the Crab — L5R 1st edition",section:"Who’s Who, ch.4",profile:"Ancêtre — profil du supplément."},
  {name:"Akodo Kage",clan:"Lion",book:"The Way of the Lion — L5R 1st edition",section:"Who’s Who, ch.4",historicalKey:"akodo_kage"},
  {name:"Akodo",clan:"Lion",book:"The Way of the Lion — L5R 1st edition",section:"Who’s Who, ch.4",profile:"Ancêtre — profil du supplément."},
  {name:"Akodo Toturi",clan:"Lion",book:"The Way of the Lion — L5R 1st edition",section:"Who’s Who, ch.4",historicalKey:"toturi"},
@@ -9929,12 +10431,30 @@ const L5R_BOOK_NPC_INDEX_V02032=[
  {name:"Kakita Toshimoko",clan:"Grue",book:"La Voie de la Grue — L5R 1re édition",section:"Personnalités"},
  {name:"Asahina Tamako",clan:"Grue",book:"La Voie de la Grue — L5R 1re édition",section:"Personnalités"},
  {name:"Daidoji Uji",clan:"Grue",book:"La Voie de la Grue — L5R 1re édition",section:"Personnalités",historicalKey:"daidoji_uji"},
+ // V0.20.46 — Grue : ancêtres manquants du Who’s Who.
+ {name:"Lady Doji",clan:"Grue",book:"The Way of the Crane — L5R 1st edition",section:"Who’s Who, ch.4",profile:"Ancêtre — profil du supplément."},
+ {name:"Doji Hotei",clan:"Grue",book:"The Way of the Crane — L5R 1st edition",section:"Who’s Who, ch.4",profile:"Ancêtre — profil du supplément."},
+ {name:"Doji Taehime",clan:"Grue",book:"The Way of the Crane — L5R 1st edition",section:"Who’s Who, ch.4",profile:"Ancêtre — profil du supplément."},
+ {name:"Kakita Rensei",clan:"Grue",book:"The Way of the Crane — L5R 1st edition",section:"Who’s Who, ch.4",profile:"Ancêtre — profil du supplément."},
+ {name:"Kakita Wayozu",clan:"Grue",book:"The Way of the Crane — L5R 1st edition",section:"Who’s Who, ch.4",profile:"Ancêtre — profil du supplément."},
+ {name:"Kakita",clan:"Grue",book:"The Way of the Crane — L5R 1st edition",section:"Who’s Who, ch.4",profile:"Ancêtre — profil du supplément."},
+ {name:"Asahina Yajinden",clan:"Grue",book:"The Way of the Crane — L5R 1st edition",section:"Who’s Who, ch.4",profile:"Ancêtre — profil du supplément."},
+ {name:"Daidoji Yurei",clan:"Grue",book:"The Way of the Crane — L5R 1st edition",section:"Who’s Who, ch.4",profile:"Ancêtre — profil du supplément."},
+ {name:"Daidoji Masashigi",clan:"Grue",book:"The Way of the Crane — L5R 1st edition",section:"Who’s Who, ch.4",profile:"Ancêtre — profil du supplément."},
  {name:"Bayushi Aramoro",clan:"Scorpion",book:"La Voie du Scorpion — L5R 1re édition",section:"Personnalités",historicalKey:"bayushi_aramoro"},
  {name:"Bayushi Kachiko",clan:"Scorpion",book:"La Voie du Scorpion — L5R 1re édition",section:"Personnalités",historicalKey:"bayushi_kachiko"},
- {name:"Bayushi Shoju",clan:"Scorpion",book:"La Voie du Scorpion — L5R 1re édition",section:"Personnalités",historicalKey:"bayushi_shoju"}
+ {name:"Bayushi Shoju",clan:"Scorpion",book:"La Voie du Scorpion — L5R 1re édition",section:"Personnalités",historicalKey:"bayushi_shoju"},
+ // V0.20.46 — Scorpion : Who’s Who complété.
+ {name:"Bayushi Tangen",clan:"Scorpion",book:"The Way of the Scorpion — L5R 1st edition",section:"Who’s Who, ch.4"},
+ {name:"Bayushi Yojiro",clan:"Scorpion",book:"The Way of the Scorpion — L5R 1st edition",section:"Who’s Who, ch.4"},
+ {name:"Shosuro Hametsu",clan:"Scorpion",book:"The Way of the Scorpion — L5R 1st edition",section:"Who’s Who, ch.4"},
+ {name:"Shosuro Taberu",clan:"Scorpion",book:"The Way of the Scorpion — L5R 1st edition",section:"Who’s Who, ch.4"},
+ {name:"Soshi Bantaro",clan:"Scorpion",book:"The Way of the Scorpion — L5R 1st edition",section:"Who’s Who, ch.4"},
+ {name:"Yogo Junzo",clan:"Scorpion",book:"The Way of the Scorpion — L5R 1st edition",section:"Who’s Who, ch.4"},
+ {name:"Yogo Asami",clan:"Scorpion",book:"The Way of the Scorpion — L5R 1st edition",section:"Who’s Who, ch.4"}
 ];
 
-/* === V0.20.40 — Profils mécaniques PNJ 1e vérifiés === */
+/* === V0.20.41 — Profils mécaniques PNJ 1e vérifiés === */
 const L5R_BOOK_NPC_PROFILES_V02034={
  "Doji Satsume":{source:"The Way of the Crane, p.76",school:"Kakita Iaijutsu",rank:5,honor:5,glory:9.5,rings:{Air:5,Earth:5,Fire:8,Water:3,Void:5},traits:{Reflexes:5,Stamina:5,Agility:8,Strength:3,Awareness:5,Willpower:5,Intelligence:8,Perception:3},advantages:["Allies (Hantei XXXVIII)","Cadence","Clear Thinker","Social Position (Crane Clan Champion)","Social Position (Emerald Champion)","Inheritance (Shukujo)"],disadvantages:["Driven (strengthen Crane political power)","Lost Love (Doji Teinko)"],skills:{"Archery":2,"Battle":4,"Courtier":5,"Defense":5,"Etiquette":5,"Heraldry":5,"Horsemanship":2,"Hunting":5,"Iaijutsu":5,"Kenjutsu":4,"Meditation":5,"Painting":3,"Shintao":4,"Sincerity":4,"Tessen":2}},
  "Kakita Toshimoko":{source:"The Way of the Crane, p.87",school:"Kakita Iaijutsu",rank:5,honor:3.6,glory:7.0,rings:{Air:4,Earth:4,Fire:7,Water:4,Void:8},traits:{Reflexes:6,Stamina:4,Agility:7,Strength:4,Awareness:4,Willpower:4,Intelligence:7,Perception:4},advantages:["Ancestor (Kakita)","Strength of the Earth (2)","True Friend (Doji Hoturi)","Quick","Kakita Blade (Kandaisa)","Cadence"],disadvantages:["Sworn Enemy (Fox Clan)","Bad Reputation (Hedonist)"],skills:{"Acrobatics":3,"Archery":2,"Athletics":4,"Courtier":4,"Etiquette":5,"Heraldry":3,"Iaijutsu":6,"Kenjutsu":4,"Lore: Bushido":5,"Meditation":5,"Naginata":4,"Oratory":1,"Shintao":5,"Sincerity":2,"Tea Ceremony":2}},
@@ -9960,6 +10480,45 @@ const L5R_BOOK_NPC_PROFILES_V02034={
  "Bayushi Shoju":{source:"The Way of the Scorpion, p.56",school:"Bayushi Bushi",rank:5,honor:2.5,glory:9.5,rings:{Air:5,Earth:3,Fire:3,Water:2,Void:6},traits:{Reflexes:5,Stamina:3,Agility:3,Strength:2,Awareness:6,Willpower:5,Intelligence:5,Perception:5},advantages:["Blackmail","Clear Thinker","Great Destiny"],disadvantages:["Benten's Curse","Nemesis (Doji Hoturi)","Lame (Left arm)","Soft-Hearted","True Love (Bayushi Kachiko)","Unluck","Weakness (Strength)"],skills:{"Acting":4,"Archery":3,"Battle":2,"Courtier":3,"Defense":5,"History":4,"Iaijutsu":5,"Kenjutsu":5,"Law":5,"Poison":5,"Sincerity":5,"Shintao":4,"Stealth":5}},
  "Isawa Tomo":{source:"The Way of the Phoenix, p.76",school:"Isawa Tensai (Water)",rank:5,honor:2.1,glory:4.1,rings:{Air:3,Earth:4,Fire:3,Water:6,Void:5},traits:{Reflexes:5,Stamina:4,Agility:3,Strength:6,Awareness:3,Willpower:4,Intelligence:3,Perception:6},advantages:["Crafty","Luck (2)","Social Position (Master of Water)"],disadvantages:["Obligation (owes life to Yogo Shidachi)"],skills:{"Calligraphy":5,"Craft: Sailing":2,"Cipher":3,"Dance":3,"Defense":2,"History":3,"Lore: Scorpion Clan":2,"Mizu-do":1,"Poison":4,"Meditation":4,"Shintao":5,"Theology":2},spells:["All Water spells"]},
  "Shiba Ujimitsu":{source:"The Way of the Phoenix, p.86",school:"Shiba Bushi",rank:5,honor:4.9,glory:8.3,rings:{Air:6,Earth:5,Fire:4,Water:5,Void:5},traits:{Reflexes:6,Stamina:5,Agility:4,Strength:3,Awareness:6,Willpower:5,Intelligence:4,Perception:5},advantages:["Ally (Doji Satsume)","Ancestor (all Shiba ancestors)","Irreproachable","Soul of the Kami"],disadvantages:["Dark Secret (wife and daughter's deaths)","Small"],skills:{"Calligraphy":3,"Archery":5,"Defense":4,"Etiquette":4,"Horse Archery":2,"Kenjutsu":5,"Manipulation":2,"Meditation":4,"Naginata":4,"Shintao":4,"Tea Ceremony":3}}
+,
+ "Doji Shizue":{source:"The Way of the Crane, p.84",school:"Kakita Artisan",rank:3,honor:2.5,glory:3.0,rings:{Air:3,Earth:2,Fire:4,Water:2,Void:4},traits:{Reflexes:3,Stamina:2,Agility:4,Strength:2,Awareness:3,Willpower:2,Intelligence:5,Perception:4},advantages:["Precise Memory","Voice","Benten's Blessing","Kharmic Tie (Matsu Hiroru, unknown to her)","Luck (2)"],disadvantages:["Lame (Right Leg)","Soft-Hearted","Small"],skills:{"Calligraphy":3,"Courtier":3,"Etiquette":3,"Investigation":5,"Knife":2,"Lore: Myth and Legend":4,"Manipulation":4,"Meditation":3,"Oratory":3,"Poetry":3,"Political Maneuvering":2,"Shintao":3,"Storytelling":5},special:["Artisan: Storytelling Rank 2","Artisan: Poetry Rank 1"]},
+ "Matsu Agetoki":{source:"The Way of the Lion, p.72",school:"Matsu Bushi",rank:4,honor:2.6,glory:4.5,rings:{Air:4,Earth:5,Fire:3,Water:2,Void:3},traits:{Reflexes:4,Stamina:5,Agility:5,Strength:3,Awareness:4,Willpower:5,Intelligence:3,Perception:2},advantages:["Absolute Direction","Large","Perfect Balance"],disadvantages:["Benten's Curse","Overconfident","Proud"],skills:{"Animal Husbandry":3,"Archery":4,"Athletics":3,"Battle":3,"Etiquette":1,"Hand to Hand":1,"History":1,"Horsemanship":5,"Hunting":2,"Kenjutsu":2,"Lore: Horses":4}},
+ "Ikoma Ujiaki":{source:"The Way of the Lion, pp.68-69",school:"Ikoma Bard",rank:5,honor:1.3,glory:6.4,rings:{Air:4,Earth:4,Fire:3,Water:4,Void:3},traits:{Reflexes:4,Stamina:4,Agility:3,Strength:4,Awareness:6,Willpower:5,Intelligence:6,Perception:4},advantages:["Major Allies (many)","Ancestor (Ikoma)","Ear of the Emperor","Heart of Vengeance (Crane)","Read Lips"],disadvantages:["Bad Reputation (Temper)","Brash","Nemesis (Kakita Yoshi)","Overconfident","Permanent Wound","Vanity"],skills:{"Bard":2,"Bo Stick":3,"Courtier":5,"Defense":2,"Gambling":2,"Heraldry":3,"Intimidation":5,"Investigation":3,"Kenjutsu":2,"Law":4,"Lore: Underworld":4,"Manipulation":5,"Oratory":3,"Rhetoric":3,"Sincerity":4}},
+ "Shinjo Hanari":{source:"The Way of the Unicorn, p.66",school:"Shinjo Bushi",rank:4,honor:2.4,glory:6.9,rings:{Air:3,Earth:4,Fire:3,Water:3,Void:3},traits:{Reflexes:4,Stamina:4,Agility:4,Strength:4,Awareness:3,Willpower:4,Intelligence:3,Perception:3},advantages:["Quick","Way of the Land (Unicorn)","Social Position (Sensei)"],disadvantages:["Sworn Enemy (Hida Tsuru)"],skills:{"Heraldry":3,"History: Rokugan":3,"Horse Archery":4,"Horsemanship":4,"Hunting":4,"Iaijutsu":3,"Kenjutsu":3,"Naginata":2,"Weaponsmith (Bowyer/Fletcher)":4}}
+,
+ "Isawa Kaede":{source:"The Way of the Phoenix, p.72",school:"Isawa Ishi",rank:4,honor:4.7,glory:6.2,rings:{Air:4,Earth:3,Fire:2,Water:4,Void:7},traits:{Reflexes:4,Stamina:3,Agility:2,Strength:4,Awareness:4,Willpower:3,Intelligence:3,Perception:5},advantages:["Chosen by the Oracles (Void)","Clear Thinker","Great Destiny (Oracle of Void)","Ishiken-do"],disadvantages:["Dark Secret (Her birth)","Soft-Hearted"],skills:{"Advanced Medicine":2,"Calligraphy":2,"Etiquette":2,"History":5,"Kagaku":2,"Meditation":5,"Research":3,"Shintao":5,"Tea Ceremony":3,"Lore: Dragon Clan":2,"Lore: Shugenja":4,"Lore: Void":5,"Theology":3},spells:["All Void spells"]},
+ "Bayushi Yojiro":{source:"The Way of the Scorpion, pp.58-59",school:"Bayushi Courtier",rank:4,honor:3.7,glory:4.9,rings:{Air:4,Earth:3,Fire:3,Water:3,Void:4},traits:{Reflexes:4,Stamina:3,Agility:4,Strength:3,Awareness:5,Willpower:3,Intelligence:3,Perception:3},advantages:["Allies (Lion Clan)","Benten's Blessing","Read Lips","Voice"],disadvantages:["Junshin","Reputation (Honest)","Soft-Hearted","Unluck"],skills:{"Courtier":4,"Etiquette":3,"Investigation":3,"Law":2,"Sincerity":4,"Seduction":3,"Poison":2}},
+ "Iuchi Daiyu":{source:"The Way of the Unicorn, pp.73-74",school:"Iuchi Shugenja",rank:4,honor:3.4,glory:7.9,rings:{Air:3,Earth:3,Fire:3,Water:2,Void:4},traits:{Reflexes:3,Stamina:3,Agility:3,Strength:2,Awareness:4,Willpower:4,Intelligence:4,Perception:2},advantages:["Inner Gift (Speak with animals)","Way of the Land"],disadvantages:[],skills:{"Astrology":3,"Calligraphy":4,"Kenjutsu":3,"Lore: Prophecies":4,"Lore: Woodland Animal":4,"Medicine":2,"Meditation":3,"Shintao":5,"Theology":4},spells:["Benevolent Protection of Shinsei","Calling the Elements","Elemental Ward","Hands of Jurojin","Accounts of Shorihotsu","Benten's Touch","Cloak of Night","Command the Mind","Quiescence of Air","Wind-Borne Speed","Wind-Borne Slumbers","Yari of Air","Fist of Osano-Wo","Fury of Osano-Wo","Inflame","Teleportation","Roaming the Wide Plains","When Two Become One","Yuki's Blessing","The World is Not Heavy"]}
+
+,
+ "Hida Kisada":{source:"The Way of the Crab, p.60",school:"Hida Bushi",rank:5,honor:2,glory:9,rings:{Air:3,Earth:9,Fire:5,Water:3,Void:4},traits:{Reflexes:3,Stamina:9,Agility:5,Strength:6,Awareness:3,Willpower:9,Intelligence:5,Perception:3},advantages:["Crab Hands","Clear Thinker","Large","Magic Resistance (6)","Strength of the Earth (8)"],disadvantages:["Brash"],skills:{"Heraldry":1,"History":2,"Hunting":3,"Law":3,"Shintao":3,"Athletics":2,"Battle":5,"Defense":5,"Hand to Hand":5,"Intimidation":4,"Kenjutsu":4,"Shadowlands Lore":5,"Tetsubo":5,"Wrestling":5}},
+ "Hida Yakamo":{source:"The Way of the Crab, p.63",school:"Hida Bushi",rank:4,honor:2,glory:8.3,rings:{Air:2,Earth:7,Fire:4,Water:3,Void:4},traits:{Reflexes:4,Stamina:7,Agility:4,Strength:5,Awareness:2,Willpower:7,Intelligence:4,Perception:3},advantages:["Ancestor (Hida)","Crab Hands","Great Destiny","Strength of the Earth (4)"],disadvantages:["Brash","Nemesis (Mirumoto Hitomi)","Unlucky (3)"],skills:{"Hunting":3,"Athletics":4,"Battle":3,"Defense":5,"Hand to Hand":4,"Iaijutsu":2,"Intimidation":3,"Kenjutsu":3,"Shadowlands Lore":3,"Tetsubo":5,"Wrestling":5}},
+ "Hida Sukune":{source:"The Way of the Crab, p.65",school:"Hida Bushi",rank:2,honor:2,glory:5.9,rings:{Air:2,Earth:2,Fire:2,Water:2,Void:2},traits:{Reflexes:2,Stamina:2,Agility:2,Strength:2,Awareness:3,Willpower:2,Intelligence:2,Perception:4},advantages:["Great Destiny"],disadvantages:["Low Pain Threshold","Weakness"],skills:{"Etiquette":1,"Heraldry":1,"Battle":4,"Defense":2,"Hand to Hand":2,"Tetsubo":3,"Shadowlands Lore":2}},
+ "Kuni Yori":{source:"The Way of the Crab, p.70",school:"Kuni Shugenja",rank:5,honor:2,glory:8.3,rings:{Air:3,Earth:5,Fire:4,Water:3,Void:4},traits:{Reflexes:2,Stamina:5,Agility:4,Strength:3,Awareness:3,Willpower:5,Intelligence:4,Perception:3},advantages:["Clear Thinker","Great Destiny"],disadvantages:["Benten's Curse"],skills:{"Calligraphy":4,"Medicine":3,"Sincerity":2,"Defense":2,"Intimidation":3,"Meditation":3,"Shadowlands Lore":5,"Stealth":3,"Theology":2,"Knife":5,"Torture":4},spells:["Sense","Commune","Summon","Counterspell","Benevolent Protection of Shinsei","Earth's Stagnation","Biting Steel","Jade Strike","The Path to Inner Peace","Amaterasu's Blessing","Tomb of Jade","Fist of Osano-Wo","By the Light of Lord Moon","Cloak of Night","Mists of Illusion","Fear","Minor Binding","Major Binding"]},
+ "Yasuki Taka":{source:"The Way of the Crab, p.73",school:"Yasuki Merchant",rank:5,honor:1,glory:2.7,rings:{Air:3,Earth:2,Fire:2,Water:2,Void:3},traits:{Reflexes:3,Stamina:2,Agility:2,Strength:2,Awareness:6,Willpower:2,Intelligence:4,Perception:5},advantages:["Absolute Direction","Clear Thinker","Blackmail (many varied people)","Luck (3)","Read Lips","Voice"],disadvantages:["Small"],skills:{"Acting":3,"Bo Stick":1,"Gambling":3,"Stealth":2,"Courtier":4,"Bard":3,"Heraldry":3,"Sincerity":4,"Commerce":5}}
+
+,
+ "Togashi Mitsu":{source:"The Way of the Dragon, p.54",school:"Togashi Ise Zumi",rank:3,honor:2.3,glory:6.4,rings:{Air:3,Earth:4,Fire:4,Water:3,Void:3},traits:{Reflexes:3,Stamina:5,Agility:5,Strength:3,Awareness:3,Willpower:4,Intelligence:4,Perception:3},advantages:["Ambidextrous","Clear Thinker","Great Destiny","Magic Resistance","Quick"],disadvantages:["Brash"],skills:{"Athletics":3,"Medicine":2,"Shintao":4,"Defense":4,"Hand to Hand":4,"Wrestling":3},special:["Tattoos: Centipede, Crow, Dragon, Monkey, Tiger"]},
+ "Mirumoto Hitomi":{source:"The Way of the Dragon, p.63",school:"Mirumoto Bushi",rank:3,honor:2.0,glory:8.0,rings:{Air:2,Earth:2,Fire:2,Water:2,Void:2},traits:{Reflexes:5,Stamina:4,Agility:5,Strength:3,Awareness:2,Willpower:2,Intelligence:2,Perception:2},advantages:["Ambidextrous","Benten's Blessing","Death Trance","Great Destiny","Perfect Balance","Quick"],disadvantages:["Brash","Driven","Kharmic Tie (Hida Yakamo)","Sworn Enemy (Hida Yakamo)","Unluck"],skills:{"Archery":1,"Defense":3,"Kenjutsu":5,"Meditation":1,"Lore: Shugenja":1,"Iaijutsu":5,"Horsemanship":2,"Shintao":1,"Athletics":4,"Hand-to-Hand":3}},
+ "Agasha Tamori":{source:"The Way of the Dragon, p.65",school:"Agasha Shugenja",rank:5,honor:2.8,glory:8.0,rings:{Air:4,Earth:3,Fire:4,Water:2,Void:4},traits:{Reflexes:4,Stamina:3,Agility:4,Strength:2,Awareness:4,Willpower:3,Intelligence:4,Perception:2},advantages:["Clear Thinker","Magic Resistance"],disadvantages:["Small"],skills:{"Shintao":3,"History":5,"Calligraphy":5,"Meditation":5,"Kenjutsu":2,"Nazodo":3},spells:["Sense","Commune","Summon","Transform","Benevolent Protection of Shinsei","Elemental Ward","Biting Steel","The Fires that Cleanse","The Fury of Osano-Wo","Katana of Fire","Castle of Water","Sympathetic Energies","Torrential Rain","The Ties That Bind","Fires From the Forge","Tomb of Jade","Calling the Elements","Heart of the Inferno"]}
+,
+ "Togashi Hoshi":{source:"The Way of the Dragon, pp.60-61",school:"Mirumoto Bushi",rank:5,honor:3.0,glory:0.0,rings:{Air:7,Earth:7,Fire:7,Water:7,Void:7},traits:{Reflexes:7,Stamina:7,Agility:7,Strength:7,Awareness:7,Willpower:7,Intelligence:7,Perception:7},advantages:[],disadvantages:[],skills:{"Archery":3,"Defense":4,"Kenjutsu":5,"Meditation":4,"Lore: Shugenja":4,"Battle":3,"Shintao":4},special:["Demi-dragon : dégâts à mains nues 7g4.","Après plus de sept siècles d’existence, Hoshi est considéré comme ayant 1 dans toute compétence non listée ci-dessus." ]},
+ "Akodo Kage":{source:"The Way of the Lion, p.74",school:"Akodo Bushi",rank:5,honor:4.2,glory:6.2,rings:{Air:5,Earth:6,Fire:4,Water:4,Void:3},traits:{Reflexes:5,Stamina:6,Agility:4,Strength:4,Awareness:7,Willpower:6,Intelligence:6,Perception:6},advantages:["Natural Leader","Major Allies (unknown)","Blackmail (many)","Crafty"],disadvantages:["Dark Secret (Kolat Master)","Dependents (Toturi, Hiroru)","Proud","Sworn Enemies (unknown)"],skills:{"Kenjutsu":5,"Athletics":3,"Hand-to-Hand":5,"Defense":4,"Battle":4,"Investigation":2,"Shintao":3,"Acting":4,"Commerce":4,"Courtier":2,"Etiquette":2,"Law":2,"Intimidation":2,"Manipulation":5,"Oratory":2,"Sincerity":3,"Lore: Bushido":2,"Lore: Burning Sands":1}},
+ "Isawa Uona":{source:"The Way of the Phoenix, pp.74-75",school:"Isawa Tensai (Air)",rank:3,honor:4.1,glory:2.0,rings:{Air:4,Earth:2,Fire:4,Water:3,Void:3},traits:{Reflexes:6,Stamina:2,Agility:4,Strength:3,Awareness:4,Willpower:2,Intelligence:4,Perception:3},advantages:["Benten's Blessing","Inheritance (Tsangusuri: Feather of the Crane)","Wealthy (7)"],disadvantages:["Meddler","Overconfident","Vanity"],skills:{"Athletics":1,"Calligraphy":3,"Courtier":4,"Heraldry":4,"History":2,"Investigation":3,"Manipulation":3,"Meditation":2,"Shintao":3,"Spellcraft":2,"Theology":2},spells:["All Air spells","Other Core RPG spells at GM discretion, focused on beauty and investigation"]},
+ "Iuchi Karasu":{source:"The Way of the Unicorn, pp.72-73",school:"Iuchi Shugenja",rank:3,honor:2.2,glory:6.5,rings:{Air:2,Earth:3,Fire:2,Water:3,Void:3},traits:{Reflexes:2,Stamina:3,Agility:2,Strength:3,Awareness:2,Willpower:4,Intelligence:3,Perception:3},advantages:["Ally (Kuni Yori)"],disadvantages:["Permanent Wound","Dark Secret","Benten's Curse"],skills:{"Defense":3,"Herbalism":3,"Horsemanship":2,"Hunting":4,"Lore: Shadowlands":4,"Calligraphy":3,"Medicine":3,"Meditation":3,"Sai":3},spells:["Not This Day","Dance of the Wind","Ride Through the Night","Tomb of Jade","Jade Strike","Fires From Within","The Burning Kiss of Lady Sun","The Four Winds' Favor","Gate to Nowhere","Heart of the Inferno","The Ties That Bind"]},
+ "Horiuchi Shoan":{source:"The Way of the Unicorn, p.75",school:"Iuchi Shugenja",rank:1,honor:2.9,glory:7.0,rings:{Air:3,Earth:2,Fire:3,Water:3,Void:2},traits:{Reflexes:3,Stamina:2,Agility:3,Strength:3,Awareness:3,Willpower:2,Intelligence:4,Perception:4},advantages:["Clear Thinker","Social Position (Iuchi Daimyo)"],disadvantages:["Reputation: Shy","Small","Lost Love"],skills:{"Calligraphy":3,"Etiquette":4,"Herbalism":3,"History: Land of the Winds":4,"History: Rokugan":3,"Horsemanship":2,"Kenjutsu":1,"Lore: Wizard Island":3,"Poetry":4,"Shintao":2,"Singing":3,"Storytelling":4},spells:["Castle of Water","Speed of the Waterfall","Path to Inner Peace","Evil Ward","Amaterasu's Blessing","Benevolent Protection of Shinsei"]}
+
+,
+ "Togashi Gaijutsu":{source:"The Way of the Dragon, pp.58-59",school:"Togashi Ise Zumi",rank:5,rings:{Air:3,Earth:3,Fire:4,Water:3,Void:3},traits:{Reflexes:4,Stamina:3,Agility:4,Strength:3,Awareness:3,Willpower:3,Intelligence:4,Perception:3},skills:{"Artisan: Tattooing":5,"Tea Ceremony":4,"Hand to Hand":1,"Meditation":4,"Nazodo":5,"Shintao":5},special:["Maître tatoueur Togashi ; bloc 1e vérifié. Le scan disponible ne donne pas de valeur explicite d’Honneur/Gloire dans le passage mécanique exploitable : elles ne sont pas inventées."]},
+ "Matsu Hiroru":{source:"The Way of the Lion, p.73",school:"Matsu Bushi",rank:4,honor:1.2,glory:1.5,rings:{Air:4,Earth:3,Fire:3,Water:4,Void:2},traits:{Reflexes:4,Stamina:3,Agility:4,Strength:4,Awareness:4,Willpower:3,Intelligence:3,Perception:5},advantages:["Blackmail (several)","Crafty","Major Enemy (Doji Kuwanan)","Quick"],disadvantages:["Dark Secret (Isawa Nosuriko)"],skills:{"Athletics":3,"Battle":5,"Defense":4,"Hand to Hand":3,"Hunting":5,"Kenjutsu":5,"Knife":4,"Ninjutsu":4,"Poison":4,"Shintao":3,"Stealth":5},special:["Profil 1e du livre de clan conservé séparément des adaptations et profils ultérieurs."]},
+ "Shosuro Hametsu":{source:"The Way of the Scorpion, pp.53-54",school:"Shosuro Assassin",rank:5,honor:0.6,glory:8.4,rings:{Air:3,Earth:2,Fire:2,Water:2,Void:5},traits:{Reflexes:3,Stamina:2,Agility:2,Strength:2,Awareness:3,Willpower:2,Intelligence:4,Perception:4},advantages:[],disadvantages:["Bad Reputation","Small"],skills:{"Explosives":4,"Leadership":5,"Locksmith":4,"Ninjutsu":4,"Poison":5,"Sleight of Hand":4,"Stealth":5}},
+ "Shosuro Taberu":{source:"The Way of the Scorpion, p.54",school:"Bayushi Courtier",rank:3,honor:0.9,glory:5.8,rings:{Air:3,Earth:2,Fire:5,Water:2,Void:5},traits:{Reflexes:3,Stamina:2,Agility:5,Strength:2,Awareness:5,Willpower:2,Intelligence:5,Perception:4},advantages:["Ally (Ide Tadaji)","Read Lips","Voice"],disadvantages:["Meddler"],skills:{"Courtier":4,"Defense":2,"Etiquette":4,"Investigation":2,"Kenjutsu":2,"Law":5,"Sincerity":4,"Seduction":5,"Forgery":4}},
+ "Bayushi Tangen":{source:"The Way of the Scorpion, p.57",school:"Bayushi Bushi",rank:2,honor:2.5,glory:9.5,rings:{Air:3,Earth:2,Fire:2,Water:3,Void:3},traits:{Reflexes:3,Stamina:2,Agility:2,Strength:3,Awareness:3,Willpower:2,Intelligence:2,Perception:3},advantages:["Luck"],disadvantages:["Brash","Gullible"],skills:{"Archery":2,"Defense":2,"Iaijutsu":3,"Kenjutsu":3,"Poison":2,"Sincerity":1,"Stealth":1}},
+ "Soshi Bantaro":{source:"The Way of the Scorpion, p.62",school:"Soshi Shugenja",rank:3,honor:0.5,glory:7.4,rings:{Air:5,Earth:2,Fire:1,Water:2,Void:3},traits:{Reflexes:5,Stamina:2,Agility:1,Strength:2,Awareness:5,Willpower:2,Intelligence:1,Perception:4},advantages:["Higher Purpose (Ambition)","Shadow Brand"],disadvantages:["Brash","Dark Secret (Father’s death)","Bad Reputation (Overconfident)","Weakness (Fire)"],skills:{"Calligraphy":5,"Courtier":3,"Lore: Maho":2,"Sincerity":3,"Meditation":4,"Theology":5,"Shintao":4,"Herbalism":4,"Law":3}},
+ "Yogo Junzo":{source:"The Way of the Scorpion, p.63",school:"Yogo Shugenja",rank:3,honor:1.1,glory:8.8,rings:{Air:6,Earth:4,Fire:3,Water:3,Void:2},traits:{Reflexes:6,Stamina:4,Agility:3,Strength:3,Awareness:7,Willpower:4,Intelligence:3,Perception:3},advantages:["Crafty","Great Destiny","Strength of the Earth"],disadvantages:["Bad Reputation (Temperamental)","Insensitive","Phobia (Women)","Yogo Curse"],skills:{"Calligraphy":5,"History":4,"Lore: Shadowlands":3,"Lore: Maho":3,"Meditation":3,"Shintao":5,"Theology":3}},
+ "Yogo Asami":{source:"The Way of the Scorpion, pp.64-65",school:"Shosuro Assassin",rank:2,honor:1.2,glory:1.2,rings:{Air:5,Earth:2,Fire:2,Water:2,Void:2},traits:{Reflexes:5,Stamina:2,Agility:2,Strength:2,Awareness:5,Willpower:2,Intelligence:2,Perception:4},advantages:["Benten’s Blessing"],disadvantages:["Small","True Love (Aramoro)"],skills:{"Disguise":4,"Explosives":1,"Locksmith":2,"Mimic":5,"Ninjutsu":3,"Poison":5,"Sleight of Hand":4,"Stealth":4}}
+
+
 };
 
 const L5R_BOOK_NPC_VERSION_NOTES_V02037={
@@ -9976,11 +10535,6 @@ const L5R_BOOK_NPC_VERSION_NOTES_V02037={
  "Daidoji Uji":"La fiche affichée est celle de The Way of the Crane p.90. Les versions Hidden Emperor/Jade Crane restent distinctes.",
  "Shiba Ujimitsu":"La fiche affichée est celle de The Way of the Phoenix p.86. Les versions Clan War/Imperial Histories restent distinctes."
 
-,
- "Doji Shizue":{source:"The Way of the Crane, p.84",school:"Kakita Artisan",rank:3,honor:2.5,glory:3.0,rings:{Air:3,Earth:2,Fire:4,Water:2,Void:4},traits:{Reflexes:3,Stamina:2,Agility:4,Strength:2,Awareness:3,Willpower:2,Intelligence:5,Perception:4},advantages:["Precise Memory","Voice","Benten's Blessing","Kharmic Tie (Matsu Hiroru, unknown to her)","Luck (2)"],disadvantages:["Lame (Right Leg)","Soft-Hearted","Small"],skills:{"Calligraphy":3,"Courtier":3,"Etiquette":3,"Investigation":5,"Knife":2,"Lore: Myth and Legend":4,"Manipulation":4,"Meditation":3,"Oratory":3,"Poetry":3,"Political Maneuvering":2,"Shintao":3,"Storytelling":5},special:["Artisan: Storytelling Rank 2","Artisan: Poetry Rank 1"]},
- "Matsu Agetoki":{source:"The Way of the Lion, p.72",school:"Matsu Bushi",rank:4,honor:2.6,glory:4.5,rings:{Air:4,Earth:5,Fire:3,Water:2,Void:3},traits:{Reflexes:4,Stamina:5,Agility:5,Strength:3,Awareness:4,Willpower:5,Intelligence:3,Perception:2},advantages:["Absolute Direction","Large","Perfect Balance"],disadvantages:["Benten's Curse","Overconfident","Proud"],skills:{"Animal Husbandry":3,"Archery":4,"Athletics":3,"Battle":3,"Etiquette":1,"Hand to Hand":1,"History":1,"Horsemanship":5,"Hunting":2,"Kenjutsu":2,"Lore: Horses":4}},
- "Ikoma Ujiaki":{source:"The Way of the Lion, pp.68-69",school:"Ikoma Bard",rank:5,honor:1.3,glory:6.4,rings:{Air:4,Earth:4,Fire:3,Water:4,Void:3},traits:{Reflexes:4,Stamina:4,Agility:3,Strength:4,Awareness:6,Willpower:5,Intelligence:6,Perception:4},advantages:["Major Allies (many)","Ancestor (Ikoma)","Ear of the Emperor","Heart of Vengeance (Crane)","Read Lips"],disadvantages:["Bad Reputation (Temper)","Brash","Nemesis (Kakita Yoshi)","Overconfident","Permanent Wound","Vanity"],skills:{"Bard":2,"Bo Stick":3,"Courtier":5,"Defense":2,"Gambling":2,"Heraldry":3,"Intimidation":5,"Investigation":3,"Kenjutsu":2,"Law":4,"Lore: Underworld":4,"Manipulation":5,"Oratory":3,"Rhetoric":3,"Sincerity":4}},
- "Shinjo Hanari":{source:"The Way of the Unicorn, p.66",school:"Shinjo Bushi",rank:4,honor:2.4,glory:6.9,rings:{Air:3,Earth:4,Fire:3,Water:3,Void:3},traits:{Reflexes:4,Stamina:4,Agility:4,Strength:4,Awareness:3,Willpower:4,Intelligence:3,Perception:3},advantages:["Quick","Way of the Land (Unicorn)","Social Position (Sensei)"],disadvantages:["Sworn Enemy (Hida Tsuru)"],skills:{"Heraldry":3,"History: Rokugan":3,"Horse Archery":4,"Horsemanship":4,"Hunting":4,"Iaijutsu":3,"Kenjutsu":3,"Naginata":2,"Weaponsmith (Bowyer/Fletcher)":4}}
 };
 function l5rBookNpcProfileV02034(name){return L5R_BOOK_NPC_PROFILES_V02034[name]||null;}
 window.L5R_BOOK_NPC_PROFILES_V02034=L5R_BOOK_NPC_PROFILES_V02034;
@@ -10004,7 +10558,7 @@ function l5rBookNpcHistoricalV02032(npc){
  return L5R_HISTORICAL_NPCS.find(x=>x.key===npc.historicalKey)||null;
 }
 function l5rBookNpcAvailabilityV02032(npc){
- const h=l5rBookNpcHistoricalV02032(npc),ctx=typeof getL5rCampaignHistoricalContext==="function"?getL5rCampaignHistoricalContext():{enabled:false};
+ const h=l5rBookNpcHistoricalV02032(npc),ctx=typeof l5rCampaignHistoricalContext==="function"?l5rCampaignHistoricalContext(state?.campaign):{enabled:false};
  if(!h||!ctx?.enabled)return {label:"Consultable — chronologie non appliquée",warning:false};
  const y=Number(ctx.year); if(!Number.isFinite(y))return {label:"Consultable — année non définie",warning:false};
  const before=h.activeFrom!=null&&y<h.activeFrom, after=h.activeTo!=null&&y>h.activeTo;
@@ -10049,13 +10603,27 @@ function renderL5rRulesLibrary(){
  const host=$("#placeholderView .empty-state"); if(!host)return;
  const cards=Object.entries(L5R1_CLAN_CORPORA).map(([key,c])=>`<article class="entity-card"><div class="entity-head"><div><div class="card-kicker">LIVRE DE CLAN</div><h3 class="entity-title">${esc(c.name)}</h3></div><span class="mini-badge">${esc(c.source.includes("(EN)")?"EN":"FR")}</span></div><div class="entity-description">${esc(c.coverage.slice(0,5).join(" · "))}</div><div class="entity-actions"><button class="btn primary l5r-clan-open" data-clan="${key}">Ouvrir le corpus</button></div></article>`).join("");
  host.innerHTML=`<div class="workspace-head"><div><div class="eyebrow">L5R / L5A — 1re édition</div><h1>▥ Règles et corpus</h1><p>Bibliothèque globale accessible sans campagne. Les livres de clan sont séparés du contenu propre aux campagnes.</p></div></div>
- <div class="workspace-list"><article class="entity-card"><div class="entity-head"><div><div class="card-kicker">BIBLIOTHÈQUE PERMANENTE</div><h3 class="entity-title">PNJ des livres L5R 1e</h3></div><span class="mini-badge">${L5R_BOOK_NPC_INDEX_V02032.length} entrées</span></div><div class="entity-description">Personnalités nominatives indexées depuis les suppléments. Les fiches restent consultables même hors période.</div><div class="entity-actions"><button class="btn primary" id="l5r-book-npcs-open">Ouvrir les PNJ</button></div></article><article class="entity-card"><div class="entity-head"><div><div class="card-kicker">BIBLIOTHÈQUE PERMANENTE</div><h3 class="entity-title">Sorts L5R 1e</h3></div><span class="mini-badge">${L5R_SPELL_CATALOG.length} entrées</span></div><div class="entity-description">Catalogue consultable et filtrable + console de résolution destinée au MJ. Les deux vues utilisent la même base structurée.</div><div class="entity-actions"><button class="btn primary" id="l5r-spells-open">Ouvrir la bibliothèque</button><button class="btn secondary" id="l5r-spells-mj-open">Console MJ</button></div></article><article class="entity-card"><div class="entity-head"><div><div class="card-kicker">LIVRE DE CLAN</div><h3 class="entity-title">Clan du Crabe</h3></div><span class="mini-badge">FR</span></div><div class="entity-description">Corpus Crabe détaillé : création, écoles, magie, Nemuranai, PNJ, histoire, lieux, stratégie et scénario.</div><div class="entity-actions"><button class="btn primary" id="l5r-crab-open">Ouvrir le corpus</button></div></article>${cards}</div>`;
+ <div class="workspace-list"><article class="entity-card"><div class="entity-head"><div><div class="card-kicker">BIBLIOTHÈQUE PERMANENTE</div><h3 class="entity-title">Ancêtres L5R 1e</h3></div><span class="mini-badge">${L5R_ANCESTOR_CATALOG_V02048.length} mécaniques vérifiés</span></div><div class="entity-description">Avantages d’Ancêtre distincts des PNJ. Les entrées avec coût et effet vérifiés deviennent des choix de création PJ/PNJ L5R.</div><div class="entity-actions"><button class="btn primary" id="l5r-ancestors-open">Ouvrir les Ancêtres</button></div></article><article class="entity-card"><div class="entity-head"><div><div class="card-kicker">BIBLIOTHÈQUE PERMANENTE</div><h3 class="entity-title">PNJ des livres L5R 1e</h3></div><span class="mini-badge">${L5R_BOOK_NPC_INDEX_V02032.filter(n=>!l5rIsAncestorIndexV02048(n)).length} PNJ</span></div><div class="entity-description">Personnalités nominatives indexées depuis les suppléments. Les fiches restent consultables même hors période.</div><div class="entity-actions"><button class="btn primary" id="l5r-book-npcs-open">Ouvrir les PNJ</button></div></article><article class="entity-card"><div class="entity-head"><div><div class="card-kicker">BIBLIOTHÈQUE PERMANENTE</div><h3 class="entity-title">Sorts L5R 1e</h3></div><span class="mini-badge">${L5R_SPELL_CATALOG.length} entrées</span></div><div class="entity-description">Catalogue consultable et filtrable + console de résolution destinée au MJ. Les deux vues utilisent la même base structurée.</div><div class="entity-actions"><button class="btn primary" id="l5r-spells-open">Ouvrir la bibliothèque</button><button class="btn secondary" id="l5r-spells-mj-open">Console MJ</button></div></article><article class="entity-card"><div class="entity-head"><div><div class="card-kicker">LIVRE DE CLAN</div><h3 class="entity-title">Clan du Crabe</h3></div><span class="mini-badge">FR</span></div><div class="entity-description">Corpus Crabe détaillé : création, écoles, magie, Nemuranai, PNJ, histoire, lieux, stratégie et scénario.</div><div class="entity-actions"><button class="btn primary" id="l5r-crab-open">Ouvrir le corpus</button></div></article>${cards}</div>`;
+ $("#l5r-ancestors-open")?.addEventListener("click",()=>{
+   const indexed=L5R_BOOK_NPC_INDEX_V02032.filter(l5rIsAncestorIndexV02048);
+   const verified=new Map(L5R_ANCESTOR_CATALOG_V02048.map(a=>[a.name,a]));
+   const rows=[...L5R_ANCESTOR_CATALOG_V02048,...indexed.filter(n=>!verified.has(n.name)).map(n=>({name:n.name,clan:n.clan,cost:null,restriction:"À vérifier",effect:"Coût et effet mécanique 1e à extraire avant sélection.",source:n.book,selectable:false}))].sort((a,b)=>a.clan.localeCompare(b.clan)||a.name.localeCompare(b.name));
+   const clans=["Tous",...Array.from(new Set(rows.map(x=>x.clan))).sort()];
+   host.innerHTML=`<div class="workspace-head"><div><div class="eyebrow">L5R 1e · Création PJ/PNJ</div><h2>Ancêtres</h2><p>Les Ancêtres sont des avantages de création, distincts des PNJ historiques. Une entrée non vérifiée reste non sélectionnable.</p></div></div><div class="entity-card"><div class="filter-row"><label><b>Clan</b><select id="l5rAncestorClanFilter">${clans.map(x=>`<option>${esc(x)}</option>`).join("")}</select></label><label><b>État</b><select id="l5rAncestorStateFilter"><option value="all">Tous</option><option value="ready">Sélectionnables</option><option value="pending">À vérifier</option></select></label><label><b>Nom</b><input id="l5rAncestorNameFilter" placeholder="Rechercher un Ancêtre"></label></div><p class="muted"><b>${rows.filter(x=>x.selectable).length}</b> Ancêtres avec coût/effet vérifiés sur <b>${rows.length}</b> entrées actuellement identifiées.</p></div><div id="l5rAncestorGrid" class="workspace-list"></div><p><button class="btn secondary" id="l5r-ancestors-back">Retour aux règles</button></p>`;
+   const draw=()=>{const clan=$("#l5rAncestorClanFilter")?.value||"Tous",st=$("#l5rAncestorStateFilter")?.value||"all",q=($("#l5rAncestorNameFilter")?.value||"").trim().toLowerCase();const out=rows.filter(a=>(clan==="Tous"||a.clan===clan)&&(st==="all"||(st==="ready"&&a.selectable)||(st==="pending"&&!a.selectable))&&(!q||a.name.toLowerCase().includes(q)));$("#l5rAncestorGrid").innerHTML=out.map(l5rAncestorCardV02048).join("")||`<p class="muted">Aucun Ancêtre.</p>`;};
+   $("#l5rAncestorClanFilter")?.addEventListener("change",draw);$("#l5rAncestorStateFilter")?.addEventListener("change",draw);$("#l5rAncestorNameFilter")?.addEventListener("input",draw);$("#l5r-ancestors-back")?.addEventListener("click",renderL5rRulesLibrary);draw();
+ });
  $("#l5r-book-npcs-open")?.addEventListener("click",()=>{
-   const clans=["Tous",...Array.from(new Set(L5R_BOOK_NPC_INDEX_V02032.map(x=>x.clan).filter(Boolean))).sort()];
+   const npcRows=L5R_BOOK_NPC_INDEX_V02032.filter(n=>!l5rIsAncestorIndexV02048(n));
+   const clans=["Tous",...Array.from(new Set(npcRows.map(x=>x.clan).filter(Boolean))).sort()];
    host.innerHTML=`<div class="workspace-head"><div><div class="eyebrow">L5R 1e</div><h2>PNJ des livres</h2><p>Fiches mécaniques issues des suppléments 1e lorsqu’elles ont été vérifiées.</p></div></div>
-   <div class="entity-card"><div class="filter-row"><label><b>Clan</b><select id="l5rNpcClanFilter">${clans.map(x=>`<option>${esc(x)}</option>`).join("")}</select></label><label><b>Profil</b><select id="l5rNpcProfileFilter"><option value="all">Tous</option><option value="full">Profil 1e récupéré</option><option value="ancestor">Ancêtres / profils spéciaux</option><option value="missing">À extraire</option></select></label><label><b>Nom</b><input id="l5rNpcNameFilter" placeholder="Rechercher un PNJ"></label></div><p class="muted"><b>${L5R_BOOK_NPC_INDEX_V02032.filter(n=>l5rBookNpcProfileV02034(n.name)).length}</b> profils mécaniques 1e récupérés sur <b>${L5R_BOOK_NPC_INDEX_V02032.length}</b> entrées nominatives.</p></div>
+   <div class="entity-card"><div class="filter-row"><label><b>Clan</b><select id="l5rNpcClanFilter">${clans.map(x=>`<option>${esc(x)}</option>`).join("")}</select></label><label><b>Profil</b><select id="l5rNpcProfileFilter"><option value="all">Tous</option><option value="full">Profil 1e récupéré</option><option value="missing">À extraire</option></select></label><label><b>Nom</b><input id="l5rNpcNameFilter" placeholder="Rechercher un PNJ"></label></div><p class="muted"><b>${npcRows.filter(n=>l5rBookNpcProfileV02034(n.name)).length}</b> profils mécaniques 1e récupérés sur <b>${npcRows.length}</b> PNJ (Ancêtres exclus).</p></div>
    <div id="l5rGlobalNpcGrid" class="workspace-list"></div><p><button class="btn secondary" id="l5r-rules-back">Retour aux règles</button></p>`;
-   const draw=()=>{const clan=$("#l5rNpcClanFilter")?.value||"Tous",pf=$("#l5rNpcProfileFilter")?.value||"all",q=($("#l5rNpcNameFilter")?.value||"").trim().toLowerCase();const rows=L5R_BOOK_NPC_INDEX_V02032.filter(n=>(clan==="Tous"||n.clan===clan)&&(pf==="all"||l5rBookNpcSourceStateV02038(n).key===pf||(pf==="missing"&&l5rBookNpcSourceStateV02038(n).key==="named"))&&(!q||n.name.toLowerCase().includes(q))).sort((a,b)=>(a.clan||"").localeCompare(b.clan||"")||a.name.localeCompare(b.name));$("#l5rGlobalNpcGrid").innerHTML=rows.map(n=>{const a=l5rBookNpcAvailabilityV02032(n),p=l5rBookNpcProfileV02034(n.name);return `<button class="btn secondary l5r-global-npc-open" data-npc="${esc(n.name)}"><b>${esc(n.name)}</b> — ${esc(n.clan)}${p?` · ${esc(p.school)} ${esc(p.rank)}`:" · profil à extraire"}${a.warning?" · hors période":""}</button>`;}).join("")||`<p class="muted">Aucun PNJ.</p>`;$$(".l5r-global-npc-open").forEach(b=>b.addEventListener("click",()=>{const name=b.dataset.npc;host.innerHTML=l5rBookNpcCardV02032(name)+`<p><button class="btn secondary" id="l5r-global-npcs-back">Retour aux PNJ</button></p>`;$("#l5r-global-npcs-back")?.addEventListener("click",()=>renderL5rRulesLibrary());}));};
+   const savedNpcFilters=state.l5rNpcLibraryFilters||{clan:"Tous",profile:"all",query:""};
+   if($("#l5rNpcClanFilter")&&clans.includes(savedNpcFilters.clan)) $("#l5rNpcClanFilter").value=savedNpcFilters.clan;
+   if($("#l5rNpcProfileFilter")) $("#l5rNpcProfileFilter").value=savedNpcFilters.profile||"all";
+   if($("#l5rNpcNameFilter")) $("#l5rNpcNameFilter").value=savedNpcFilters.query||"";
+   const draw=()=>{const clan=$("#l5rNpcClanFilter")?.value||"Tous",pf=$("#l5rNpcProfileFilter")?.value||"all",rawQ=($("#l5rNpcNameFilter")?.value||"").trim(),q=rawQ.toLowerCase();state.l5rNpcLibraryFilters={clan,profile:pf,query:rawQ};const rows=npcRows.filter(n=>(clan==="Tous"||n.clan===clan)&&(pf==="all"||l5rBookNpcSourceStateV02038(n).key===pf||(pf==="missing"&&l5rBookNpcSourceStateV02038(n).key==="named"))&&(!q||n.name.toLowerCase().includes(q))).sort((a,b)=>(a.clan||"").localeCompare(b.clan||"")||a.name.localeCompare(b.name));$("#l5rGlobalNpcGrid").innerHTML=rows.map(n=>{const a=l5rBookNpcAvailabilityV02032(n),p=l5rBookNpcProfileV02034(n.name);return `<button class="btn secondary l5r-global-npc-open" data-npc="${esc(n.name)}"><b>${esc(n.name)}</b> — ${esc(n.clan)}${p?` · ${esc(p.school)} ${esc(p.rank)}`:" · profil à extraire"}${a.warning?" · hors période":""}</button>`;}).join("")||`<p class="muted">Aucun PNJ.</p>`;$$(".l5r-global-npc-open").forEach(b=>b.addEventListener("click",()=>{const name=b.dataset.npc;host.innerHTML=l5rBookNpcCardV02032(name)+`<p><button class="btn secondary" id="l5r-global-npcs-back">Retour aux PNJ</button></p>`;$("#l5r-global-npcs-back")?.addEventListener("click",()=>{renderL5rRulesLibrary();$("#l5r-book-npcs-open")?.click();});}));};
    $("#l5rNpcClanFilter")?.addEventListener("change",draw);$("#l5rNpcProfileFilter")?.addEventListener("change",draw);$("#l5rNpcNameFilter")?.addEventListener("input",draw);$("#l5r-rules-back")?.addEventListener("click",renderL5rRulesLibrary);draw();
  });
  $("#l5r-spells-open")?.addEventListener("click",renderL5rSpellLibrary);
@@ -10134,7 +10702,7 @@ viewTitles.bestiary='Bestiaire';
 // V0.20.10 — L5R 1e : catalogue de sorts étendu, provenance/catégories d’accès, correction des Maîtrises du Vide et contrôle des quotas de départ par école.
 
 
-/* === V0.20.40 — L5R 1e : fin Air + Vide/Ishiken dans la console MJ === */
+/* === V0.20.41 — L5R 1e : fin Air + Vide/Ishiken dans la console MJ === */
 const L5R_SPELL_MJ_MECHANICS_V02013 = {
  "Tornade":{target:"Une cible ; +1 cible par augmentation",resistance:"Opposition Air du shugenja / Terre de la cible à chaque action",effectSummary:"Protège le shugenja des projectiles de la cible ; en cas d’échec de la cible, elle perd l’équilibre et est déplacée de 3 m par tour."},
  "Tranquillité de l’Air":{target:"Zone autour du shugenja",area:"Rayon 1,5 m ; +1 m par augmentation",effectSummary:"Crée une zone silencieuse où aucun sort ne peut être lancé.",special:"Avec deux augmentations : bulle atténuant les sons entrants/sortants tout en permettant de parler."},
@@ -10166,7 +10734,7 @@ window.L5R_SPELL_MJ_MECHANICS_V02013=L5R_SPELL_MJ_MECHANICS_V02013;
 
 
 
-/* === V0.20.40 — L5R 1e : Vide complémentaire + Terre collectée === */
+/* === V0.20.41 — L5R 1e : Vide complémentaire + Terre collectée === */
 const L5R_SPELL_MJ_MECHANICS_V02014={
 "Contempler le Vide":{target:"Lanceur",effectSummary:"Permet d’utiliser 1 point de Vide supplémentaire dans un même tour ; +1 point utilisable par augmentation.",voidSpell:true},
 "Vents du changement":{target:"Lanceur ou cible avec Shintao 2+",effectSummary:"Accorde temporairement une compétence non maîtrisée au rang 2.",restrictions:"N’améliore pas une compétence déjà possédée.",voidSpell:true},
@@ -10190,7 +10758,7 @@ Object.assign(window.L5R_SPELL_MJ_MECHANICS_V02012||{},L5R_SPELL_MJ_MECHANICS_V0
 window.L5R_SPELL_MJ_MECHANICS_V02014=L5R_SPELL_MJ_MECHANICS_V02014;
 
 
-/* === V0.20.40 — L5R 1e : sorts collectés Eau, Feu et Air === */
+/* === V0.20.41 — L5R 1e : sorts collectés Eau, Feu et Air === */
 const L5R_SPELL_MJ_MECHANICS_V02015={
 "Bénédiction d’Inari":{target:"Nourriture créée",effectSummary:"Crée par rang d’Eau assez de nourriture simple pour une personne pendant une semaine.",restrictions:"Aliments rokugani basiques à cuisiner ; pas d’épices, sel, banquet ou mets raffinés."},
 "Derrière le voile du sommeil":{target:"Une personne connue",range:"Sans limite pratique dans Rokugan",effectSummary:"Transmet un court message par le rêve ; si la cible est éveillée, le message attend son sommeil."},
@@ -10229,7 +10797,7 @@ Object.assign(window.L5R_SPELL_MJ_MECHANICS_V02012||{},L5R_SPELL_MJ_MECHANICS_V0
 window.L5R_SPELL_MJ_MECHANICS_V02015=L5R_SPELL_MJ_MECHANICS_V02015;
 
 
-/* === V0.20.40 — L5R 1e : assistant MJ de recherche/création de sorts === */
+/* === V0.20.41 — L5R 1e : assistant MJ de recherche/création de sorts === */
 const L5R_SPELL_RESEARCH_MODIFIERS_V02016=[
  {id:"school_focus",label:"École axée sur l’élément",value:-5},
  {id:"school_no_element",label:"École n’enseignant pas cet élément",value:5},
@@ -10298,7 +10866,7 @@ window.L5R_SPELL_RESEARCH_POLICY_V02016=L5R_SPELL_RESEARCH_POLICY_V02016;
 window.L5R_RESEARCH_EXAMPLE_CRYSTAL_PRISON_V02016=L5R_RESEARCH_EXAMPLE_CRYSTAL_PRISON_V02016;
 
 
-/* === V0.20.40 — L5R 1e : Kuni/Crabe + contexte de lancement shugenja === */
+/* === V0.20.41 — L5R 1e : Kuni/Crabe + contexte de lancement shugenja === */
 const L5R_KUNI_SPELL_RULES_V02017={
  territorialRule:{
    label:"Désolations Kuni",
@@ -10341,7 +10909,7 @@ window.l5rSpellContextModifierV02017=l5rSpellContextModifierV02017;
 window.l5rShugenjaCastingSnapshotV02017=l5rShugenjaCastingSnapshotV02017;
 
 
-/* === V0.20.40 — L5R 1e : filtrage strict des sorts par rang === */
+/* === V0.20.41 — L5R 1e : filtrage strict des sorts par rang === */
 function l5rSpellRequiredMasteryV02018(spell){
  const n=Number(spell?.mastery ?? spell?.masteryRank ?? spell?.rank ?? 0);
  return Number.isFinite(n)&&n>0?n:null;
@@ -10392,7 +10960,7 @@ window.l5rSpellChoicesForShugenjaV02018=l5rSpellChoicesForShugenjaV02018;
 window.l5rSpellRankBucketsV02018=l5rSpellRankBucketsV02018;
 
 
-/* === V0.20.40 — L5R 1e : rang + école + éléments + sorts connus === */
+/* === V0.20.41 — L5R 1e : rang + école + éléments + sorts connus === */
 const L5R_SHUGENJA_STARTING_SPELL_RULES_V02019={
  iuchi:{common:["Sensation","Communion","Invocation"],distribution:{Eau:3,Feu:2,Terre:1}},
  agasha:{common:["Sensation","Communion","Invocation"],distribution:{Feu:3,Terre:2,Air:1}},
@@ -10461,7 +11029,7 @@ window.l5rLaunchableSpellsV02019=l5rLaunchableSpellsV02019;
 window.l5rSpellLearningCandidatesV02019=l5rSpellLearningCandidatesV02019;
 
 
-/* === V0.20.40 — Correctif canon L5R 1e : Maîtrise des sorts + tatouages Ise Zumi ===
+/* === V0.20.41 — Correctif canon L5R 1e : Maîtrise des sorts + tatouages Ise Zumi ===
    En 1e, le niveau de Maîtrise du sort sert notamment à la maîtrise innée et n'est pas
    un simple filtre "sort <= rang d'école" pour les parchemins de départ. Les écoles
    imposent leur répartition de sorts de départ. */
@@ -10499,7 +11067,7 @@ window.l5rIseZumiTattooLimitV02022=l5rIseZumiTattooLimitV02022;
 window.l5rTattooAccessV02022=l5rTattooAccessV02022;
 
 
-/* === V0.20.40 — Effets de sorts L5R 1e consolidés ===
+/* === V0.20.41 — Effets de sorts L5R 1e consolidés ===
    Les entrées ci-dessous complètent les sorts du livre de base / exemple de recherche
    dont le catalogue structuré ne portait encore que les métadonnées. Les autres effets
    sont récupérés des fiches mécaniques V0.20.12–17 déjà sourcées. */
@@ -10558,7 +11126,7 @@ window.l5rSpellMechanicsUnifiedV02024=l5rSpellMechanicsUnifiedV02024;
 window.L5R_SPELL_EFFECTS_CANON_V02024=L5R_SPELL_EFFECTS_CANON_V02024;
 
 
-/* === V0.20.40 — Fiches de résolution complètes : métadonnées MJ documentées === */
+/* === V0.20.41 — Fiches de résolution complètes : métadonnées MJ documentées === */
 const L5R_SPELL_BASE_DETAILS_V02025={
 "Sensation":{concentration:"Inutile",raises:"Précision, temps d’incantation",target:"Matière, objet ou phénomène associé à l’élément choisi"},
 "Communion":{concentration:"Soutenue",raises:"Importance/précision des informations, temps d’incantation",target:"Esprit élémentaire proche",restriction:"Une question de base ; réponse selon la nature de l’esprit"},
@@ -10640,7 +11208,7 @@ window.l5rSpellMechanicsCompleteV02025=l5rSpellMechanicsCompleteV02025;
 window.L5R_SPELL_BASE_DETAILS_V02025=L5R_SPELL_BASE_DETAILS_V02025;
 
 
-/* === V0.20.40 — Audit sorts + objets adaptés === */
+/* === V0.20.41 — Audit sorts + objets adaptés === */
 function l5rItemAdaptationAuditV02026(item){
  const adapted=item?.status==="adapted-1e";
  if(!adapted)return {adapted:false,sourceStatus:item?.status==="canon-1e"?"Canon 1e":"Référence",mechanicsStatus:"Source directe",warning:""};
@@ -10674,7 +11242,7 @@ window.l5rSpellOperationalAuditV02026=l5rSpellOperationalAuditV02026;
 window.L5R_OBJECT_AUDIT_V02026=L5R_OBJECT_AUDIT_V02026;
 
 
-/* === V0.20.40 — Validation raisonnée des conversions d’objets vers L5R 1e === */
+/* === V0.20.41 — Validation raisonnée des conversions d’objets vers L5R 1e === */
 const L5R_ADAPTATION_AMBIGUOUS_V02027=new Set(["adapt4_agasha_kitsuki_armor", "adapt4_armor_five", "adapt4_destinys_anvil", "adapt4_ikoma_anvil", "adapt4_indomitable_mutsuhito", "adapt4_kaiu_smithing_tools", "adapt4_ounos_heart", "adapt4_shield_moto_gaheris", "adapt4_shosuro_blackened_armor", "adapt4_sting_tsuruchi_kabuto", "adapt4_tsunetomo_dai_tsuchi", "adapt4_void_crystal", "adapt4_void_mask", "adapt_emmao_amulet"]);
 function l5rItemConversionStatusV02027(item){
  if(item?.status!=="adapted-1e")return {code:"canon-or-native",label:item?.status==="canon-1e"?"Canon 1e":"Référence",validated:true};
@@ -10701,7 +11269,7 @@ window.l5rItemConversionStatusV02027=l5rItemConversionStatusV02027;
 window.l5rItemConversionPrinciplesV02027=l5rItemConversionPrinciplesV02027;
 
 
-/* === V0.20.40 — Adaptations 1e supplémentaires, dérivées de l'effet source documenté === */
+/* === V0.20.41 — Adaptations 1e supplémentaires, dérivées de l'effet source documenté === */
 const L5R_ITEM_CONVERSIONS_V02028={
  adapt4_golden_samurai_armor:{
   status:"validated-adaptation",
@@ -10731,7 +11299,7 @@ for(const item of L5R1_ITEM_CORPUS){
 window.L5R_ITEM_CONVERSIONS_V02028=L5R_ITEM_CONVERSIONS_V02028;
 
 
-/* === V0.20.40 — Conversion sourcée supplémentaire : Armure de Toturi === */
+/* === V0.20.41 — Conversion sourcée supplémentaire : Armure de Toturi === */
 const L5R_ITEM_CONVERSIONS_V02029={
  adapt4_toturi_armor:{
   status:"validated-adaptation",
@@ -10747,7 +11315,7 @@ for(const item of L5R1_ITEM_CORPUS){
 window.L5R_ITEM_CONVERSIONS_V02029=L5R_ITEM_CONVERSIONS_V02029;
 
 
-/* === V0.20.40 — Traçabilité des preuves pour les adaptations de Nemuranai === */
+/* === V0.20.41 — Traçabilité des preuves pour les adaptations de Nemuranai === */
 const L5R_ITEM_EVIDENCE_V02030={
  adapt4_armor_five:{existence:"confirmée",power:"non récupéré",conversion:"bloquée",source:"The Book of Earth (4e), p.139"},
  adapt4_kaiu_smithing_tools:{existence:"confirmée",power:"non récupéré",conversion:"bloquée",source:"The Book of Earth (4e), p.145"},
@@ -10780,7 +11348,7 @@ window.L5R_ITEM_EVIDENCE_V02030=L5R_ITEM_EVIDENCE_V02030;
 window.l5rItemEvidenceV02030=l5rItemEvidenceV02030;
 
 
-/* === V0.20.40 — Vérification croisée des sources : corrections et validations === */
+/* === V0.20.41 — Vérification croisée des sources : corrections et validations === */
 const L5R_ITEM_SOURCE_VERIFICATION_V02031={
  adapt_isawas_helm:{
   source:"Magic of Rokugan, p.79 ; Prayers and Treasures, p.150",
