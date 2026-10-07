@@ -673,3 +673,348 @@ Structure interne et fonctionnement portable inchangés.
 - REC-06 : suppression des alertes de démonstration et remplacement des compteurs/contexte statiques par les données de la campagne active, avec états vides.
 - REC-07 : les fiches de sorts dont les champs mécaniques restent non documentés portent maintenant le statut visible « Fiche incomplète ». Aucun chiffre manquant n’est inventé.
 - Garde-fou : aucune restriction générale Maîtrise du sort ≤ rang d’école n’a été ajoutée.
+
+
+## V0.20.89 — Kiho des suppléments L5R 1e : La Voie de la Grue
+- Base : V0.20.58 (corrections recette Work).
+- Le Cœur perçant est catalogué comme Kiho officiel de supplément accordé automatiquement au Bushi Kakita au Rang 2.
+- Acquisition d'école gratuite et hors quota de Kiho ordinaires ; aucune Maîtrise ni mécanique non documentée n'est inventée.
+- La fiche affiche un statut documentaire lorsque la mécanique complète reste à vérifier dans la source.
+- Mizu-dō reste distinct des Kiho : aucune manœuvre Mizu-dō n'est reclassée comme Kiho sans source explicite.
+- Les 39 Kiho de The Way of Shinsei et la séparation PJ RAW / PNJ simplifié restent inchangés.
+
+
+## V0.20.89 — Kiho et suppléments de clan
+- Recoupement des suppléments Dragon, Phénix, Scorpion, Licorne, Crabe et Lion.
+- Pas de duplication artificielle du catalogue des 39 Kiho de *The Way of Shinsei*.
+- Ajout d’un registre de provenance/accès pour Ise Zumi, Henshin, Sodan-Senzo et Tsukai-Sagasu.
+- Les capacités propres de ces voies restent distinctes des Kiho.
+- Les affinités de clan des Kiho de Shinsei sont conservées comme réductions de Maîtrise.
+- Le Cœur perçant reste le cas d’octroi d’école Kakita Rang 2, gratuit et hors quota.
+
+
+## V0.20.89 — Écoles et voies spéciales L5R 1e
+- Sélecteurs : Tensai Isawa, Henshin Asako, Sodan-Senzo Kitsu, Chasseur de sorciers Kuni.
+- Ise Zumi : règles de tatouages renforcées.
+- Tensai : élément, quota 2+1 et spécialisation.
+- Henshin : non-shugenja et mystères élémentaires distincts aux rangs 1–4.
+- Sodan-Senzo : Kitsu sang pur, magie ancestrale séparée.
+- Chasseur Kuni : non-shugenja, équipement et rang 1 documentés.
+- HTML portable resynchronisé avec app.js et db.js.
+
+
+## V0.20.89 — Progression des voies spéciales L5R 1e
+- Chasseur Kuni : techniques rangs 1 à 5.
+- Tensai : progression calculée des augmentations gratuites et du malus de ND.
+- Henshin : mystères rangs 1 à 4, énigmes et Fushihai rang 5.
+- Sodan-Senzo : invocation des ancêtres, ND, durée et limites.
+- Ise Zumi : acquisition des tatouages par rang et limites.
+- Ishiken : progression séparée du Tensai ; aucune technique absente des sources n'est inventée.
+
+
+## V0.20.89 — Familles impériales L5R 1e
+- Miya : bonus familial Intelligence +1, particularité de Statut social, école des shisha, compétences, équipement et Honneur.
+- Shisha Miya : techniques rangs 1 à 5 intégrées dans la progression et les fiches.
+- Seppun et Otomo restent sélectionnables comme familles impériales ; leurs mécaniques non encore suffisamment documentées sont explicitement marquées « Fiche incomplète » au lieu d’être inventées.
+- Réductions impériales documentées : Invitation à la cour 1 PP pour Miya/Otomo/Seppun ; Inoffensif 2 PP pour Miya.
+
+## V0.20.89 — Corrections prioritaires recette Work V0.20.58
+- V58-01 : PJ/PNJ et équipement enregistrables dans la bibliothèque globale sans campagne.
+- V58-02 : fiches D&D 2014/2024, Vampire V2 et W.A.R.D. enrichies avec leurs données de jeu et équipement.
+- D&D 2024 : classes/niveaux du multiclassage visibles en consultation.
+- Vampire V2 : Génération, Humanité/Voie, Volonté, Sang et Disciplines visibles.
+- W.A.R.D. : agence/statut, expertise, Volonté actuelle/permanente, Humanité, SM actuelle/référence, RM, stress et PV visibles.
+- V58-03 : quotas de sorts L5R bloquants uniquement en création réglementée PJ ; dérogation MJ persistante avec motif obligatoire.
+- V58-04 : section Ancêtre L5R masquée explicitement hors L5R.
+
+## V0.20.89 — Fin des corrections Work + D&D 2024 + retour AD&D
+- V58-05 : les sorts sans mécanique structurée sont explicitement marqués « Fiche incomplète ».
+- V58-06 : suppression de l’injection automatique de scènes de démonstration.
+- V58-07 : éditions par défaut corrigées pour D&D 2014, D&D 2024/5.5, Vampire et AD&D.
+- V58-08 : hors campagne, le bouton portant le nom du JDR ouvre la Bibliothèque JDR ; en campagne il ouvre les séances.
+- D&D 2024 : sous-classe conservée pour chaque classe du multiclassage et blocage au-delà de 20 niveaux.
+- AD&D 2e : système de nouveau visible dans les sélecteurs et profil structurel restauré. Le module reste marqué en reprise jusqu’à réintégration des classes, PV, limites de sorts appris et emplacements.
+
+## V0.20.89 — AD&D 2e fonctionnel
+- Classes cœur : Guerrier, Rôdeur, Paladin, Magicien, Magicien spécialiste, Clerc, Druide, Voleur et Barde.
+- Races cœur sélectionnables : Humain, Nain, Elfe, Gnome, Demi-elfe et Halfelin.
+- PV : dé de vie propre au groupe/classe, jet aléatoire mémorisé par niveau, bonus de Constitution, puis gain fixe après la limite de dés de vie.
+- THAC0 calculé par groupe et niveau.
+- Magie : tables d’emplacements Magicien, Prêtre, Barde, Paladin et Rôdeur jusqu’au niveau 20.
+- Magicien : niveau maximal de sort, chance d’apprentissage et maximum de sorts connus par niveau selon Intelligence.
+- Distinction explicite entre sorts connus dans le grimoire et emplacements mémorisables.
+- Fiche de consultation AD&D avec classe, niveau, PV, THAC0, magie et historique des PV.
+
+
+## V0.20.89 — L5R voies spéciales et audit impérial
+- Le résumé d’accès Kiho des voies spéciales est maintenant affiché dans la fiche L5R.
+- Chasseur de sorciers Kuni : rappel sourcé d’Intuition +1, Honneur 1,5, Athlétisme ou Discrétion et deux compétences de bugei au choix.
+- Progression Miya Shisha existante maintenant affichée dans la fiche personnage.
+- Invitation à la cour : coût impérial réduit explicité.
+- Seppun et Otomo restent explicitement marqués incomplets ; aucune mécanique non sourcée n’est inventée.
+
+
+## V0.20.89 — normalisation multi-systèmes
+- Correction du classement AD&D : AD&D est désormais détecté avant D&D dans la normalisation canonique.
+- `profileKeyForCampaign()` réutilise la normalisation centrale au lieu de maintenir une seconde logique divergente.
+- `systemDefaultTheme()` réutilise également cette normalisation ; AD&D conserve volontairement le thème fantasy D&D sans devenir un profil D&D 5e.
+- Ajout d’un contexte de lieu propre à la clé AD&D afin d’éviter le repli sur le contexte générique.
+- Audit statique transversal ajouté : profils, contextes personnage/lieu, thèmes, fiches et sélecteurs des cinq systèmes.
+
+
+## V0.20.89 — L5R audit documentaire impérial et clans mineurs
+- Ajout d’un référentiel structuré des avantages impériaux documentés.
+- Invitation à la cour : 2 PP, coût réduit à 1 PP pour Otomo, Seppun ou Miya ; invitation pour le personnage et jusqu’à six membres de sa suite.
+- Protection impériale : 10 PP, Honneur initial ≥ 3 et validation MJ ; effets d’Honneur/Gloire documentés affichés sans extrapolation.
+- Les informations impériales vérifiées sont affichées dans les fiches Miya, Seppun et Otomo.
+- Registre des lacunes étendu aux clans mineurs Mante, Renard, Blaireau et Mille-Pattes.
+- Les écoles Seppun/Otomo et les formations mécaniques des quatre clans mineurs restent volontairement incomplètes tant qu’un bloc 1e exploitable n’est pas disponible.
+
+
+## V0.20.89 — audit documentaire sorts et PNJ L5R
+- Ajout d’un audit calculé du catalogue de sorts : nombre total, effets documentés et effets réellement manquants.
+- Les champs conditionnels (portée, zone, résistance, dégâts) ne sont pas faussement comptés comme obligatoires.
+- Ajout d’un audit calculé des PNJ des livres : profils mécaniques 1e récupérés, ancêtres/profils spéciaux et blocs encore à extraire.
+- Correction du filtre PNJ `À extraire` : l’état interne est désormais `missing`, conforme à la valeur du filtre UI.
+- Le bandeau de la bibliothèque PNJ affiche les trois compteurs documentaires.
+- Les profils déjà présents, notamment Hida Kisada et Mirumoto Hitomi, sont conservés sans modification.
+- Aucun nouveau profil PNJ et aucune mécanique de sort non présente dans les sources du projet n’ont été inventés.
+
+
+## V0.20.89 — backlog PNJ L5R 1e
+- Audit des entrées PNJ restant sans bloc mécanique complet : 22 entrées à la base de cette passe.
+- Ajout d’un backlog calculé, trié par clan, qui conserve nom, livre, section et niveau de documentation disponible.
+- Documentation partielle vérifiée intégrée pour Hida O-Ushi, Hida Amoro, Hida Tsuru, Hiruma Kage et Kaiu Utsu.
+- Hida Amoro est documenté comme Hida/berserker rang 3 ; Hiruma Kage comme Hiruma rang 4 ; Kaiu Utsu comme Kaiu rang 5.
+- Ces informations partielles apparaissent dans leur fiche sans être présentées comme des profils mécaniques complets.
+- Les 17 autres entrées restent explicitement en attente d’un bloc RPG 1e exploitable.
+- Aucun Anneau, Trait, Honneur, Gloire, compétence, avantage ou désavantage manquant n’est extrapolé.
+
+
+## V0.20.89 — D&D unifié, édition par personnage
+- La campagne possède désormais un seul système `D&D` : l’édition n’est plus fixée au niveau de la campagne.
+- Chaque PJ D&D enregistre `rulesEdition` : `2014` (D&D 5e) ou `2024` (D&D 5.5).
+- Chaque PNJ D&D utilise le même mécanisme ; le MJ peut choisir 2014 ou 2024 sur sa fiche sans créer deux PNJ.
+- Les règles communes restent dans le profil D&D partagé ; les branches 2014/2024 existantes sont sélectionnées par `rulesEdition`.
+- AD&D 2e est retiré des sélecteurs de JDR et de campagne.
+- Les anciennes campagnes/données identifiées AD&D sont routées vers la famille D&D afin d’éviter une rupture d’accès ; aucune nouvelle campagne AD&D ne peut être créée.
+- Lors de l’enregistrement d’une campagne D&D, `gameSystem` est normalisé à `D&D` et le champ d’édition de campagne est vidé.
+
+
+## V0.20.89 — D&D hybride 5e / 5.5 sans perte de données
+- Un même PJ ou PNJ D&D conserve un noyau commun et deux variantes internes `2014` / `2024`.
+- Le changement d’édition sauvegarde les choix propres à l’édition quittée puis restaure ceux de l’édition choisie.
+- Sont isolés par édition notamment : sous-classe, sorts, données 2024 de multiclassage/origine/maîtrises d’armes et modèle de créature 2014.
+- Les caractéristiques, compétences, identité, profession, équipement et données communes restent partagés.
+- La fiche de consultation détermine désormais l’édition depuis le personnage consulté, et non depuis l’état de l’éditeur courant.
+- Le PNJ reste une seule entité : le MJ peut le basculer 2014 ↔ 2024 sans duplication.
+
+
+## V0.20.89 — consolidation persistance et contexte
+- Correction d’une régression : l’enregistrement d’une campagne ne lit plus l’éditeur système d’un personnage.
+- Les actions strictement liées à une campagne (note rapide, événement, temps/date et lieu courant) sont maintenant protégées lorsque seule la bibliothèque JDR est ouverte.
+- L’archivage/restauration d’un personnage de bibliothèque fonctionne sans campagne active.
+- Export campagne porté au format 1.1 avec métadonnées de schéma ; une campagne D&D est exportée sous le système unique `D&D`.
+- À l’import, les anciennes campagnes D&D/AD&D sont normalisées vers `D&D` et les personnages hérités reçoivent une édition 2014 par défaut, sauf indication explicite 2024/5.5.
+- Les messages de sauvegarde de notes/événements reflètent le backend réellement utilisé (IndexedDB, localStorage ou mémoire).
+
+
+## V0.20.89 — déroulement de partie : séance, scène, lieu et temps
+- Une scène enregistrée avec le statut `Active` devient réellement la scène courante et synchronise son lieu/date/heure lorsqu’ils sont renseignés.
+- Lors d’un changement de scène, l’ancienne scène active est terminée et reçoit une heure de fin ; la nouvelle scène est rattachée à la séance active.
+- L’activation d’une séance repositionne la date de campagne sur sa date de début lorsqu’elle est renseignée et élimine une scène courante appartenant à une autre séance.
+- Terminer une séance termine aussi la scène active et nettoie `currentSessionId` et `currentSceneId`.
+- Au rechargement, les références courantes vers séance/scène terminée, archivée ou lieu inexistant sont automatiquement nettoyées.
+- Le sélecteur de changement de scène masque les scènes terminées/abandonnées et trie les scènes disponibles.
+
+
+## V0.20.89 — présence et déplacements dans une scène
+- Une scène distingue désormais les participants prévus (`characterIds`) des personnages réellement présents (`presentCharacterIds`).
+- À l’activation, les participants prévus deviennent présents ; si le lieu est synchronisé, leur localisation est mise à jour.
+- La scène active propose des commandes rapides `Arrivée` / `Départ` pour chaque participant prévu.
+- Une arrivée place le personnage dans le lieu de la scène ; un départ le retire de la présence sans supprimer sa participation prévue.
+- Si la fiche d’un personnage le déplace vers un autre lieu, il est automatiquement retiré de la présence de la scène active.
+- Le tableau de bord affiche les personnages réellement présents dans la scène, et non plus simplement tous les participants prévus.
+- Au rechargement, la présence est réconciliée avec les personnages archivés et leur localisation réelle.
+
+
+## V0.20.89 — journal automatique de scène et socle Combat
+- Ajout d’un enregistreur central d’événements structurés dans le journal de campagne.
+- Types prévus : narration, début/fin de scène, arrivée/départ, déplacement, temps, rencontre, découverte et événements de combat.
+- Activation/fin de scène, arrivée/départ de personnage, déplacement du groupe et changements de date/heure génèrent désormais automatiquement des événements.
+- La fin de séance génère également son événement chronologique avant nettoyage du contexte courant.
+- La saisie manuelle d’événement utilise le même format structuré.
+- Chaque événement peut porter séance, scène, lieu, personnages, source, importance et futur `combatId`.
+- L’export 1.1 déclare désormais `structuredTimeline` et `combatEventReady` pour préparer l’intégration du gestionnaire de combats.
+
+
+## V0.20.89 — première intégration du gestionnaire de combat
+- Nouveau moteur de combat commun accessible depuis `Combats`, sans créer une seconde bibliothèque de personnages.
+- Une rencontre peut être lancée depuis les personnages réellement présents dans la scène active.
+- Initiative persistante et modifiable, ordre déterministe avec priorité PJ en cas d’égalité, round et tour actif.
+- Santé/PV courant et maximum séparés ; combattants à 0 marqués hors combat et sautés au passage de tour.
+- Ajout en cours de combat d’un PJ/PNJ existant ou d’un adversaire libre.
+- Fenêtre Joueurs séparée : ordre, portraits, noms et tour actif, sans exposer les contrôles MJ ni les valeurs techniques de santé.
+- La fenêtre Joueurs suit les révisions du combat via stockage local.
+- Fin de combat : réinjection de l’état de santé dans les personnages de campagne et création d’un événement `combat_end`.
+- Début de combat et nouveaux rounds alimentent le journal structuré V0.20.77 avec `combatId`.
+- Le constructeur D&D 2014 historique est conservé dans le code ; cette version pose le moteur multisystème commun avant adaptation fine des règles D&D, Vampire, L5R et W.A.R.D.
+
+
+## V0.20.89 — adaptateurs de combat par système
+- D&D : PV et initiative DEX raccordés ; édition 2014/2024 lue sur chaque personnage.
+- L5R 1e : blessures converties en réserve restante pour le suivi puis reconverties en dégâts subis à la fin ; initiative existante/Réflexes utilisée sans inventer une nouvelle règle.
+- Vampire V2 : Santé, Sang et Volonté suivis séparément ; initiative basée sur les données déjà présentes (Astuce + Vigilance).
+- W.A.R.D. : PV, Volonté et Santé mentale suivis ; initiative laissée manuelle tant qu’aucune formule canonique explicite n’est intégrée.
+- Fin de combat : chaque ressource modifiée est réinjectée dans la fiche du personnage correspondant.
+- Les événements structurés de début/round/fin de combat restent liés au combat, à la scène et à la séance.
+
+
+## V0.20.89 — récupération automatique du combat depuis la scène
+- Le lancement d’un combat depuis une scène active récupère automatiquement les PJ et PNJ réellement présents.
+- Les créatures/adversaires explicitement rattachés à la scène sont également intégrables via `scene.creatures` / `scene.combatCreatures`.
+- Pour D&D, une composition de rencontre associée à la scène (`scene.dndEncounter`) est prioritaire ; à défaut, le constructeur de rencontre D&D courant peut alimenter le lancement.
+- Les combattants sont dédupliqués lors de la synchronisation.
+- Un combat déjà actif propose `Ajouter les nouveaux présents` afin d’intégrer les arrivées et renforts de la scène sans réinitialiser rounds, PV ou initiative.
+- Les personnages présents dans la scène restent distincts des combattants engagés : une fois le combat lancé, le roster du combat est autonome jusqu’à une synchronisation volontaire.
+
+
+## V0.20.89 — composition détaillée des scènes et préparation du combat
+- Chaque PJ/PNJ de scène dispose maintenant d’un statut de présence, d’un indicateur `Combat` et d’un camp (PJ/allié, adversaire, neutre).
+- Présence et engagement sont distincts : un témoin, diplomate, otage ou PNJ neutre peut rester dans la scène sans entrer dans l’initiative.
+- L’éditeur de scène accepte des créatures/adversaires propres à la scène avec nom/profil, quantité, camp, groupe et statut engagé.
+- Le lancement du combat importe uniquement les PJ/PNJ/créatures marqués engagés.
+- Les camps et groupes des créatures sont transmis au gestionnaire de combat.
+- Les scènes existantes restent compatibles : par défaut les PJ sont engagés ; les PNJ sans configuration explicite restent neutres et non engagés.
+
+
+## V0.20.89 — structure des lieux et déplacements
+- Nouvelle vue arborescente des lieux fondée sur `parentLocationId`, avec profondeur et nombre de personnages présents par lieu.
+- Déplacement de groupe vers un lieu depuis la vue Lieux.
+- Trois sources de déplacement : personnages présents dans la scène, tous les PJ actifs, ou sélection manuelle PJ/PNJ.
+- Bouton rapide `Déplacer le groupe ici` sur chaque lieu.
+- Chaque personnage conserve son `currentLocationId`; aucun stockage parallèle n’est créé.
+- Un déplacement hors du lieu de la scène retire automatiquement le personnage de la présence effective de cette scène.
+- Chaque déplacement produit un événement structuré `movement` avec origine(s), destination et personnages concernés.
+- Ce socle est volontairement générique et prépare l’intégration ultérieure d’un module cartographique/itinéraires sans prétendre reprendre un code source externe qui n’a pas été retrouvé.
+
+
+## V0.20.89 — moteur de voyage Rokugan V34 + socle multi-univers
+- Intégration réelle d’un noyau de `rokugan-map-tool-v34-regions-pdf-audit.zip`, retrouvé dans le dossier Drive L5R.
+- 394 segments du réseau routier V34 sont embarqués sous forme de graphe réduit ; 93 destinations nommées sont exposées.
+- Calibration conservée : `0,093587 km/pixel`.
+- Les profils V34 de vitesse de groupe, multiplicateurs de type de route, rythmes et météo sont conservés.
+- Calcul d’itinéraire par Dijkstra pondéré sur le temps estimé ; restitution distance, durée, nombre de segments et étapes nommées.
+- L’intégration sépare le moteur des données d’univers : le réseau Rokugan n’est activé que pour L5R.
+- Pour D&D, Vampire, W.A.R.D. et les autres systèmes, un calculateur générique configurable (distance, vitesse, coefficient terrain/conditions) est disponible sans imposer les hypothèses de Rokugan.
+- La carte raster, les plans architecturaux, le mobilier 3D et les données documentaires V34 ne sont pas encore embarqués dans Assistant JDR : cette version porte d’abord le moteur de voyage.
+
+
+## V0.20.89 — adaptateur Monde/Voyage
+- Nouvelle interface interne `WORLD_TRAVEL_ADAPTERS_V2084` : Assistant JDR appelle un moteur de voyage adapté au système au lieu de coder le monde directement dans la campagne.
+- L5R utilise l’adaptateur `rokugan-v34`, raccordé au réseau et aux règles réellement extraits de Rokugan Map Tool V34.
+- Les autres univers utilisent l’adaptateur générique en attendant un module spécialisé ; ils ne reçoivent aucune hypothèse géographique de Rokugan.
+- Un résultat de voyage normalisé peut maintenant être appliqué à la campagne : destination, voyageurs, distance, durée et horloge.
+- L’application d’un voyage déplace les personnages, met à jour le lieu courant de campagne, avance la date/heure et journalise déplacement + temps de voyage.
+- Une destination Rokugan absente de la campagne est créée comme lieu importé par le module de voyage, ce qui permet de raccorder progressivement le monde externe à la structure locale.
+- Si l’arrivée correspond au lieu de la scène active, les voyageurs sont réintégrés à sa présence effective.
+
+
+## V0.20.89 — voyage journalier Rokugan
+- Exploitation supplémentaire du véritable Rokugan Map Tool V34 : 173 infrastructures de voyage avec position, services, niveau de confiance et caractère approximatif.
+- Plan journalier d'un itinéraire calculé : nombre de jours, distance moyenne quotidienne, météo et étape utile proche.
+- Météo quotidienne générable selon les pondérations saisonnières V34 (printemps, été, automne, hiver) ou conservée fixe.
+- Affichage des risques météo V34 et des services d'étape : hébergement, ravitaillement, écurie, relais, soutien officiel et cols/passes.
+- Les services inférés/probables restent explicitement signalés comme aides MJ ; ils ne sont pas transformés en faits canoniques.
+- Le résultat journalier reste attaché au résultat normalisé de voyage : cette couche pourra être remplacée par une infrastructure moderne pour W.A.R.D. et Vampire sans modifier le cœur de campagne.
+
+
+## V0.20.89 — voyage interactif persistant
+- Un voyage peut désormais être démarré puis progressé journée par journée.
+- L’état courant est enregistré directement dans la campagne (`activeTravelV2086`) : destination, voyageurs, jour atteint, kilomètres parcourus/restants, plan quotidien, statut, date/heure de départ.
+- Commandes : démarrer, journée suivante, interrompre pour une scène, reprendre et terminer.
+- Chaque journée validée avance l’horloge de campagne et produit un événement de temps ; l’arrivée déplace réellement les voyageurs vers la destination.
+- Les risques météo, contrôles, relais et incidents sont présentés comme propositions MJ. Ils ne créent aucune scène ni événement canonique automatiquement.
+- `Interrompre pour une scène` suspend le voyage puis ouvre le sélecteur de scène ; le voyage reste reprenable après la scène.
+- Le modèle persistant est volontairement générique et pourra être alimenté par un futur adaptateur Monde moderne W.A.R.D./Vampire.
+
+
+## V0.20.89 — étapes jouables et continuité de voyage
+- Les voyageurs possèdent maintenant un état de transit persistant : `travelStateV2087`, affiché comme « En voyage » avec étape/destination.
+- Chaque journée atteinte peut être rattachée à une halte V34 ; une étape absente de la campagne est créée comme lieu de voyage avec provenance et caractère approximatif conservés.
+- Les propositions d’incident disposent de trois actions MJ : ignorer, valider comme événement, ou créer une scène.
+- Ignorer ne crée aucun événement canonique. Valider crée explicitement un événement de rencontre. Créer une scène suspend le voyage et préremplit l’éditeur avec date, heure, voyageurs, lieu/halte et proposition.
+- Le voyage conserve un historique interne : départ, journées terminées, propositions ignorées, incidents validés, demandes de scène, reprises et arrivée.
+- Après une scène, le voyage suspendu reste disponible et peut être repris sans perdre sa progression.
+- À l’arrivée, l’état « en voyage » est retiré et les personnages sont placés à destination par le mécanisme V0.20.86.
+
+
+## V0.20.89 — audit de régression Rokugan et référentiels
+
+Cette version corrige une régression réelle apparue lors de l’intégration du voyage.
+
+### Voyage Rokugan
+- Le moteur V0.20.83 n’exposait que 93 lieux nommés et son graphe de 394 segments / 246 nœuds était réparti en 14 composantes déconnectées. Certaines paires départ/destination pouvaient donc ne produire aucun itinéraire.
+- Le planificateur utilise désormais les 329 lieux du corpus Rokugan Map Tool V34 : 326 lieux officiels et 3 lieux de campagne.
+- Les lieux hors nœud routier sont raccordés au réseau par des connecteurs locaux assistés.
+- Les composantes routières disjointes peuvent être reliées par des « liaisons non cartographiées à confirmer », pénalisées et explicitement signalées comme approximatives. Elles restent une aide MJ et non un fait canonique.
+- Le gestionnaire final du bouton « Calculer l’itinéraire » remplace la chaîne de listeners superposés V0.20.83–V0.20.87 afin d’éviter les doubles traitements.
+
+### Lieux et plans
+- Le gestionnaire de lieux L5R propose un référentiel V34 séparé et recherchable de 329 lieux.
+- Un lieu de référence peut être ajouté à la campagne sans transformer sa provenance en donnée inventée.
+- 74 noms/alias sont identifiés dans le moteur V34 comme disposant d’un plan spécifique. Les autres lieux peuvent recevoir un plan adaptatif dans le projet cartographique V34.
+- L’Assistant permet de mémoriser l’URL ou le chemin local du projet Rokugan Map Tool V34 puis de l’ouvrir lorsque le plan détaillé est nécessaire. Le projet V34 ne supportant pas actuellement de deep-link de lieu, l’ouverture se fait sur son interface générale.
+
+### PNJ
+- Audit statique V0.20.66 → V0.20.87 : les constantes PNJ historiques de l’Assistant n’avaient pas été supprimées, mais plusieurs référentiels n’étaient plus visibles dans l’interface.
+- 51 PNJ de référence L5R sont désormais exposés à partir des registres PNJ campagne/univers, du registre Dragon v1.2, des fiches/dossiers de la délégation Dragon et du registre PNJ du Rokugan Map Tool V34.
+- Ces références ne deviennent des PNJ de campagne qu’après import explicite.
+
+### Règles
+- Le référentiel Drive L5R de règles de base v6 est de nouveau visible en complément de la bibliothèque L5R déjà intégrée.
+- Le référentiel maître L5R 1e v5.0 est identifié comme source maître et peut être ouvert depuis l’écran Règles.
+- Les écrans Règles D&D, Vampire V2 et W.A.R.D. ne restent plus de simples pages vides : ils exposent les référentiels/profils déjà intégrés dans le moteur.
+- Aucun corpus manquant n’est inventé.
+
+### Factions W.A.R.D.
+- Le Drive W.A.R.D. a été recontrôlé avant restauration.
+- Autorités vérifiées au 5 octobre 2026 : Livre V29.123 ; Standard de développement des factions V1.11 ; Bible factions V1.90 ; Registre des factions validées V1.7.
+- Le registre V1.7 distingue notamment France / DAE, Consortium Obsidienne et Vatican / CUSTODIA comme VALIDÉ(E)S — PROTÉGÉ(E)S, et Vael’na comme TERMINÉE — GEL STRUCTUREL / CHRONOLOGIE CONTRÔLÉE en attente de réintégration.
+- La vue Factions affiche la liste actuellement câblée dans l’Assistant tout en indiquant explicitement que le corpus W.A.R.D. complet reste gouverné par les référentiels maîtres du Drive.
+
+- Les boutons de la vue W.A.R.D. permettent d’ouvrir directement le Standard factions V1.11, la Bible factions V1.90 et le Registre validé V1.7 pour consulter le corpus complet sans le recopier partiellement dans l’application.
+
+
+## V0.20.89 — consolidation après contrôle de régression
+
+### Routage Rokugan
+- Le moteur n’assemble plus systématiquement les 14 composantes routières V34 avant le calcul.
+- Il cherche d’abord un trajet sur le réseau réellement connecté.
+- Si départ et destination restent séparés, une seule liaison assistée est créée entre leurs deux composantes, par la paire de nœuds géographiquement la plus proche. Cela évite les chaînes de ponts virtuels traversant des composantes sans rapport.
+- Le planificateur propose maintenant deux modes explicites : « Réseau V34 recommandé » et « Direct / hors réseau (estimation MJ) ».
+- Le mode direct est signalé comme estimation : il ne garantit ni route, ni col, ni pont, ni droit de passage.
+- Le résultat routier affiche systématiquement l’alternative directe indicative. Un facteur de détour supérieur à 2,75 déclenche un avertissement invitant le MJ à contrôler la carte.
+- Shinden Yuisho reste volontairement non calculable automatiquement tant que le corpus V34 ne lui fournit pas de coordonnées.
+
+### Plans Rokugan
+- Les lieux de campagne correspondant à un lieu disposant d’un plan spécifique V34 reçoivent directement un bouton « ★ Plan détaillé V34 ».
+- Ce bouton ouvre le projet Rokugan Map Tool V34 configuré par l’utilisateur. Le projet V34 ne disposant pas actuellement d’un deep-link stable vers un lieu précis, l’ouverture se fait sur son interface générale.
+- Le référentiel des 329 lieux et les 74 noms/alias de plans spécifiques sont conservés.
+
+### W.A.R.D. — factions et autorités
+- Le dossier Drive « factions validées » a été relu le 7 octobre 2026 : 73 fichiers, représentant 61 factions distinctes à leur version numérique maximale.
+- Les 61 factions sont maintenant indexées localement dans l’écran Factions avec recherche, version et bouton vers le dossier source.
+- La liste de sélection « Appartenance factionnelle » de création/modification W.A.R.D. contient désormais ces 61 factions, tout en préservant les identifiants historiques W.A.R.D., MAJESTIC, DAE, CUSTODIA, KAGAMI et Consortium Obsidienne.
+- Autorités courantes contrôlées : Livre de base V29.130 ; Standard Factions V1.11 ; Registre factions V1.9 ; Bible factions V1.90 ; État de reprise global V1.63.
+- L’écran Règles W.A.R.D. ouvre directement chacune de ces autorités.
+
+### D&D 5e / 5.5
+- L’écran Règles expose désormais les référentiels réellement présents dans l’application : éditions 2014/2024, 11 espèces 2024, 16 historiques, 12 classes, sous-classes 2014 et 2024, sorts par classe et niveau, équipement, bestiaire et objets magiques.
+- Le choix 2014 / 2024 reste propre à chaque personnage.
+
+### Vampire V2
+- L’écran Règles expose désormais les 7 clans intégrés et leurs Disciplines, les 10 Disciplines, les 9 voies/Humanité, les niveaux de santé, les professions/couvertures, archétypes rapides et niveaux de PNJ déjà utilisés par le moteur.
+
+### Version affichée
+- Le titre de l’application a été remis en cohérence : « Assistant JDR — V0.20.89 — Consolidation Rokugan & référentiels ».
