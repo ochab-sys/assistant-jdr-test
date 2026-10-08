@@ -2929,3 +2929,99 @@ body[data-game-theme="vampire"] #characterEditModal .extra-section {
     grid-template-columns: 1fr;
   }
 }
+
+
+/* V0.20.91 — fresque photo de suivi combat MJ */
+.combat-fresco-v2091{
+  margin:14px 0 18px;
+  border:1px solid var(--line, #d7d1c2);
+  border-radius:16px;
+  background:var(--panel, #f7f4ec);
+  padding:14px;
+  overflow:hidden;
+}
+.combat-fresco-heading-v2091{
+  display:flex;
+  align-items:flex-end;
+  justify-content:space-between;
+  gap:16px;
+  margin-bottom:12px;
+}
+.combat-fresco-turn-v2091{
+  font-size:.85rem;
+  letter-spacing:.05em;
+  text-transform:uppercase;
+  text-align:right;
+}
+.combat-fresco-track-v2091{
+  display:flex;
+  gap:12px;
+  overflow-x:auto;
+  padding:4px 2px 10px;
+  scrollbar-width:thin;
+}
+.combat-fresco-card-v2091{
+  flex:0 0 156px;
+  min-width:156px;
+  border:1px solid var(--line, #d7d1c2);
+  border-radius:14px;
+  padding:10px;
+  background:var(--surface, #fffdf8);
+  text-align:center;
+  position:relative;
+}
+.combat-fresco-card-v2091.active{
+  box-shadow:0 0 0 3px rgba(31,112,90,.18);
+  border-color:var(--accent, #1f705a);
+}
+.combat-fresco-card-v2091.active::before{
+  content:"TOUR ACTIF";
+  position:absolute;
+  top:-9px;
+  left:50%;
+  transform:translateX(-50%);
+  background:var(--accent, #1f705a);
+  color:#fff;
+  padding:3px 8px;
+  border-radius:999px;
+  font-size:.58rem;
+  font-weight:800;
+  letter-spacing:.08em;
+  white-space:nowrap;
+}
+.combat-fresco-card-v2091.out{opacity:.45}
+.combat-fresco-photo-v2091{
+  width:92px;
+  height:112px;
+  margin:0 auto 8px;
+  border-radius:12px;
+  object-fit:cover;
+  overflow:hidden;
+  background:rgba(0,0,0,.08);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+.combat-fresco-photo-v2091 img{width:100%;height:100%;object-fit:cover}
+.combat-fresco-initials-v2091{
+  font-weight:800;
+  font-size:1.6rem;
+  color:var(--muted, #6e6a60);
+}
+.combat-fresco-name-v2091{
+  font-weight:800;
+  line-height:1.15;
+  overflow-wrap:anywhere;
+}
+.combat-fresco-meta-v2091{
+  margin-top:6px;
+  font-size:.72rem;
+  line-height:1.25;
+  color:var(--muted, #6e6a60);
+}
+@media(max-width:760px){
+  .combat-fresco-heading-v2091{align-items:flex-start;flex-direction:column}
+  .combat-fresco-turn-v2091{text-align:left}
+  .combat-fresco-card-v2091{flex-basis:132px;min-width:132px}
+  .combat-fresco-photo-v2091{width:78px;height:96px}
+}

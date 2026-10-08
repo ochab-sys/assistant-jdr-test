@@ -1,3 +1,45 @@
+# Assistant JDR — V0.20.91
+
+## V0.20.91 — Consolidation Work & fresques combat
+
+Version corrective issue du compte rendu Work V0.20.90. Cette passe regroupe plusieurs corrections au lieu de les étaler sur plusieurs versions.
+
+### Corrections principales
+- V2090-01 : les boutons d’avancement rapide du temps (+5/+15/+30/+60 min) utilisent désormais la même logique de calendrier que le voyage. Le passage de minuit avance réellement la date, y compris en fin de mois et d’année.
+- V2090-02 : D&D conserve un brouillon séparé pour 2014 et 2024. Le changement d’édition mémorise l’édition réellement rendue avant que le sélecteur ne change, ce qui évite le retour intempestif au niveau 1. Niveau, sous-classe, PV, sorts et progression propre à chaque édition sont conservés ; l’équipement reste commun à la fiche et n’est plus réinitialisé par une bascule.
+- V2090-03 : les quatre commandes +PJ / +PNJ (liste et actions rapides) ouvrent maintenant systématiquement le type demandé.
+- V2090-04 : les champs directs Initiative, Santé/PV/Blessures et ressources système sont persistés dès la saisie puis validés au changement de champ. Le tri d’initiative se met à jour sans changer artificiellement le combattant actif.
+- Combat Vampire : la lecture d’une compétence accepte les deux formes historiques de stockage (tableau ou dictionnaire), évitant une erreur lors du calcul d’initiative.
+
+### Fresques de combat avec portraits
+- Une fresque MJ est affichée au-dessus des cartes de combat : portraits, ordre, combattant actif, initiative et ressource de santé.
+- Le bouton « Fresque joueurs » ouvre un second écran entièrement visuel et synchronisé.
+- Sur l’écran Joueurs, aucune donnée technique n’est exposée : pas de PV, initiative, dégâts, jets ou fiche. Les combattants sont représentés par portrait + nom, l’ordre est donné par la disposition, avec Round et « AU TOUR DE ».
+- Les portraits enregistrés dans les fiches sont utilisés ; sinon les initiales servent de remplacement.
+- Synchronisation par stockage local + `postMessage`, avec mise à jour immédiate lors d’un changement de tour ou de ressource.
+
+### Voyage et import
+- L’arrivée normale d’un voyage interactif se déclenche automatiquement à la fin de la dernière journée : état `completed`, déplacement des voyageurs et lieu courant mis à jour.
+- L’import JSON remappe maintenant aussi les références imbriquées : voyage actif/terminé, personnages, lieux d’étape/destination, présence de scène, configuration de combat de scène et snapshots d’historique.
+- Le fichier de recette `REC90_L5R_export_test.json` a été importé dans les tests avec conservation des 2 personnages, 2 lieux, 2 scènes, 10 événements, 1 note et 25 entrées d’historique, avec références internes remappées.
+
+### PNJ L5R de référence
+- Un PNJ de référence narratif importé ne prétend plus disposer d’une mécanique certifiée si le registre local n’embarque pas effectivement ses caractéristiques/compétences.
+- L’import précise que les statistiques doivent être vérifiées dans le dossier source et évite l’import en double par nom.
+
+### Tests effectués
+- +1 h depuis 1120-04-03 23:00 → 1120-04-04 00:00.
+- +5/+15/+30/+60 minutes autour de minuit, fin de mois et fin d’année.
+- D&D réel via l’interface : niveau 3 + Champion, 2014 → 2024 → 2014, retour correct ; sauvegarde/rechargement conserve variantes 2014 et 2024.
+- +PJ / +PNJ : boutons de liste et actions rapides contrôlés.
+- Combat L5R : saisie directe 25/32 → dégâts 7/32 ; initiative 15 réordonnée ; combattant actif conservé.
+- Fresque MJ et Fresque joueurs : portraits/initiales, Round, AU TOUR DE et synchronisation contrôlés ; aucune donnée technique détectée dans la fenêtre Joueurs.
+- Fin de combat D&D, Vampire et W.A.R.D. : ressources réinjectées et combat effacé.
+- Import JSON L5R de recette : structure et références internes validées.
+- Voyage normal jusqu’à la dernière journée : arrivée automatique validée.
+- Contrôles visuels du combat/fresque en 1363, 900 et 700 px sans débordement global de page.
+
+
 # Assistant JDR — V0.20.90
 
 ## V0.20.90 — Corrections recette Work V0.20.89
