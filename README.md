@@ -1,3 +1,41 @@
+# Assistant JDR — V0.20.90
+
+## V0.20.90 — Corrections recette Work V0.20.89
+
+Version corrective uniquement, issue du compte rendu de recette Work des 7–8 octobre 2026.
+
+### Corrections bloquantes / majeures
+- V2089-01 : restauration de la sauvegarde PJ/PNJ. `systemDataToSave` est désormais construit depuis l’éditeur système avant l’écriture en base.
+- D&D : la sauvegarde conserve les variantes d’édition 2014/2024 et le brouillon d’une fiche non encore enregistrée survit à un aller-retour 2014 → 2024 → 2014.
+- V2089-02 : `incrementGameDate()` gère maintenant les dates `AAAA-MM-JJ`, les dates `JJ/MM/AAAA`, les fins de mois, les fins d’année et les années anciennes utilisées en JDR. Une date narrative inconnue n’est plus modifiée arbitrairement.
+- Fin de combat : remplacement de l’appel inexistant `loadCampaignData()` par le rechargement réel de la campagne active.
+
+### Corrections moyennes
+- V2089-03 : le panneau « PNJ de référence L5R » est rendu de façon idempotente ; recherches et changements de filtre ne cumulent plus les anciens panneaux.
+- V2089-04 : grille du combat ramenée à deux colonnes sur bureau, une colonne lorsque l’espace se réduit ; champs, noms longs et contrôles restent contenus dans leurs cartes.
+- V2089-05 : pour L5R, « Dégâts subis » est recalculé depuis santé restante / maximum. Le changement d’initiative réordonne immédiatement la liste tout en conservant le combattant actif.
+- V2089-06 : les 14 objets de créatures accidentellement inclus dans l’ancien tableau d’objets magiques D&D ne sont plus proposés comme équipements anonymes. Le catalogue utilisable comporte 33 objets magiques nommés.
+- V2089-07 : les services et niveaux de confiance V34 sont traduits dans l’interface (`Hébergement`, `Relais`, `Écurie`, `Ravitaillement`, `Appui officiel`, etc.).
+
+### Clarifications de voyage
+- Une proposition d’incident indique explicitement la journée concernée.
+- « Terminer maintenant » avant la fin d’un voyage demande une confirmation unique et précise que les journées restantes ne sont pas ajoutées silencieusement au calendrier.
+- Une fin anticipée est enregistrée comme décision MJ dans l’historique du voyage.
+
+### Contrôles réalisés
+- Création de personnages L5R, D&D 2014, Vampire V2 et W.A.R.D. : OK.
+- Coexistence D&D 2014 / 2024 dans la même campagne : OK.
+- Aller-retour non enregistré D&D 2014 → 2024 → 2014 : choix conservés.
+- Persistance simulée par rechargement localStorage : personnages des quatre systèmes retrouvés.
+- Export de campagne D&D avec personnages 2014 et 2024 : données d’édition conservées.
+- Fin de combat L5R : blessures réinjectées, combat effacé, rechargement sans `loadCampaignData`.
+- Dates : 1120-04-03 +1, fin de mois, fin d’année, année bissextile, format français et compteur « Jour N » contrôlés.
+- Panneau PNJ répété et filtré : un seul panneau.
+- Combat à deux noms longs en 1363×936 : aucun débordement horizontal de carte.
+- Plan quotidien Rokugan : métadonnées techniques brutes absentes de l’affichage.
+- `node --check` requis avant livraison sur `app.js`, `db.js` et les scripts embarqués.
+
+
 
 ## V0.20.57 — L5R 1e : fiches complètes des Kiho de La Voie de Shinsei
 - Complète les 39 Kiho déjà catalogués depuis *The Way of Shinsei* avec une règle mécanique paraphrasée exploitable en jeu : activation, Vide, jets/oppositions, durée, limitations et effets chiffrés lorsqu’ils sont attestés.

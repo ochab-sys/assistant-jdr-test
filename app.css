@@ -2860,3 +2860,72 @@ body[data-game-theme="vampire"] #characterEditModal .extra-section {
 /* V0.20.78 */
 #placeholderView .entity-card.archived{opacity:.55}
 #placeholderView .workspace-head .entity-actions{display:flex;gap:.5rem;flex-wrap:wrap}
+
+
+/* V0.20.90 — cartes de combat adaptatives */
+.combat-view-v2090 .workspace-list {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 290px), 1fr));
+}
+.combat-view-v2090 .workspace-list .entity-card {
+  min-width: 0;
+  overflow: hidden;
+}
+.combat-view-v2090 .workspace-list .entity-card .entity-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+.combat-view-v2090 .workspace-list .entity-card .entity-head > div:first-child {
+  min-width: 0;
+  flex: 1 1 180px;
+}
+.combat-view-v2090 .workspace-list .entity-card .entity-title {
+  overflow-wrap: anywhere;
+  word-break: normal;
+  hyphens: auto;
+}
+.combat-view-v2090 .workspace-list .entity-card .system-values-grid {
+  flex: 1 1 250px;
+  min-width: 0;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.combat-view-v2090 .workspace-list .entity-card .system-value-field {
+  min-width: 0;
+}
+.combat-view-v2090 .workspace-list .entity-card input,
+.combat-view-v2090 .workspace-list .entity-card select,
+.combat-view-v2090 .workspace-list .entity-card button {
+  max-width: 100%;
+  box-sizing: border-box;
+}
+@media (max-width: 760px) {
+  .combat-view-v2090 .workspace-list .entity-card .system-values-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+
+/* V0.20.90 — priorité sur la grille générique 3 colonnes du placeholder */
+#placeholderView.combat-view-v2090 .workspace-list {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+#placeholderView.combat-view-v2090 .workspace-list .entity-card .entity-head {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+#placeholderView.combat-view-v2090 .workspace-list .entity-card .system-values-grid {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+@media (max-width: 980px) {
+  #placeholderView.combat-view-v2090 .workspace-list {
+    grid-template-columns: 1fr;
+  }
+}
