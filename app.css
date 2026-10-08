@@ -3025,3 +3025,112 @@ body[data-game-theme="vampire"] #characterEditModal .extra-section {
   .combat-fresco-card-v2091{flex-basis:132px;min-width:132px}
   .combat-fresco-photo-v2091{width:78px;height:96px}
 }
+
+
+/* V0.20.92 — confinement du gestionnaire de combat dans la largeur réellement disponible */
+#placeholderView.combat-view-v2092,
+#placeholderView.combat-view-v2092 > .empty-state,
+#placeholderView.combat-view-v2092 .workspace-head,
+#placeholderView.combat-view-v2092 .workspace-list,
+#placeholderView.combat-view-v2092 .entity-card,
+#placeholderView.combat-view-v2092 .entity-head,
+#placeholderView.combat-view-v2092 .system-values-grid {
+  min-width:0;
+  max-width:100%;
+  box-sizing:border-box;
+}
+#placeholderView.combat-view-v2092 > .empty-state {
+  overflow-x:hidden;
+}
+#placeholderView.combat-view-v2092 .workspace-head {
+  width:100%;
+  max-width:100%;
+  flex-wrap:wrap;
+  align-items:flex-start;
+}
+#placeholderView.combat-view-v2092 .workspace-head > div {
+  min-width:0;
+  max-width:100%;
+  flex:1 1 260px;
+}
+#placeholderView.combat-view-v2092 .workspace-head .entity-actions {
+  min-width:0;
+  max-width:100%;
+  flex:0 1 auto;
+  justify-content:flex-end;
+  flex-wrap:wrap;
+}
+#placeholderView.combat-view-v2092 .workspace-list {
+  width:100%;
+  max-width:100%;
+  grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr));
+}
+#placeholderView.combat-view-v2092 .workspace-list > .entity-card {
+  overflow:hidden;
+}
+#placeholderView.combat-view-v2092 .workspace-list > .entity-card .entity-head {
+  display:grid;
+  grid-template-columns:minmax(0,1fr);
+  gap:10px;
+  width:100%;
+}
+#placeholderView.combat-view-v2092 .workspace-list > .entity-card .entity-head > div:first-child {
+  min-width:0;
+  max-width:100%;
+}
+#placeholderView.combat-view-v2092 .workspace-list > .entity-card .entity-title,
+#placeholderView.combat-view-v2092 .workspace-list > .entity-card .row-sub,
+#placeholderView.combat-view-v2092 .workspace-list > .entity-card .system-note {
+  overflow-wrap:anywhere;
+  word-break:normal;
+}
+#placeholderView.combat-view-v2092 .workspace-list > .entity-card .system-values-grid {
+  width:100%;
+  grid-template-columns:repeat(auto-fit,minmax(min(100%,145px),1fr));
+}
+#placeholderView.combat-view-v2092 .workspace-list > .entity-card .system-value-field,
+#placeholderView.combat-view-v2092 .workspace-list > .entity-card input,
+#placeholderView.combat-view-v2092 .workspace-list > .entity-card select,
+#placeholderView.combat-view-v2092 .workspace-list > .entity-card button {
+  min-width:0;
+  max-width:100%;
+}
+#placeholderView.combat-view-v2092 .combat-fresco-v2091 {
+  width:100%;
+  max-width:100%;
+  min-width:0;
+  overflow:hidden;
+}
+#placeholderView.combat-view-v2092 .combat-fresco-track-v2091 {
+  width:100%;
+  max-width:100%;
+  min-width:0;
+  overflow-x:auto;
+  overflow-y:hidden;
+  overscroll-behavior-inline:contain;
+}
+.combat-fresco-card-v2091.unverified {
+  border-style:dashed;
+}
+.combat-fresco-warning-v2092 {
+  margin-top:6px;
+  padding:5px 6px;
+  border-radius:8px;
+  font-size:.68rem;
+  line-height:1.2;
+  font-weight:700;
+  background:rgba(176,112,32,.10);
+}
+.combat-unverified-v2092 {
+  margin:8px 0 0;
+  text-align:left;
+}
+@media (max-width:900px) {
+  #placeholderView.combat-view-v2092 .workspace-head .entity-actions {
+    width:100%;
+    justify-content:flex-start;
+  }
+  #placeholderView.combat-view-v2092 .workspace-list {
+    grid-template-columns:1fr;
+  }
+}

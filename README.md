@@ -1,6 +1,58 @@
-# Assistant JDR — V0.20.91
+# Assistant JDR — V0.20.92
 
-## V0.20.91 — Consolidation Work & fresques combat
+## V0.20.92 — Corrections finales avant gel
+
+Version corrective issue de la recette Work V0.20.91.
+
+### V2091-01 — PV D&D 2014 / 2024
+- La fin de combat met désormais à jour la variante d'édition réellement utilisée par le combattant.
+- Les PV finaux sont écrits dans `editionVariants["2014"]` ou `editionVariants["2024"]` selon l'édition du combat.
+- La valeur racine de la fiche est mise à jour lorsque cette édition est également l'édition active du personnage.
+- L'autre variante reste intacte.
+- Le journal de fin de combat contient un bilan lisible des ressources finales par personnage.
+
+Tests ciblés :
+- 2024 : 21/31 → combat à 11 → variante 2024 = 11, variante 2014 reste 19.
+- 2014 : 19/24 → combat à 13 → variante 2014 = 13, variante 2024 reste 11, sous-classe Champion conservée.
+- Réouverture de la fiche et bascule 2024 → 2014 → 2024 : les PV courants de chaque variante restent distincts.
+
+### V2091-02 — Débordement du panneau de combat MJ
+- Le panneau central, son en-tête, ses cartes, ses grilles de valeurs et ses commandes sont maintenant contraints à la largeur utile.
+- Les cartes passent automatiquement en une seule colonne lorsque l'espace central est réduit.
+- Les noms longs et notes peuvent revenir à la ligne.
+- Seul le ruban de la fresque MJ conserve un défilement horizontal indépendant.
+- Contrôles effectués à 1363, 900 et 700 px avec assistant par défaut, replié et étendu : aucun débordement global du panneau ou de la page.
+
+### V2091-03 — Effectifs de début de combat
+- Le résumé de démarrage est calculé à partir des combattants réellement créés, avec ou sans scène active.
+- Test sans scène : 1 PJ + 3 PNJ donne `1 PJ · 3 PNJ · 0 créature(s) engagée(s)`.
+
+### Fresques de combat
+- Fresque MJ conservée avec portraits, ordre, initiative, santé/blessures et tour actif.
+- Les PNJ importés comme références narratives non certifiées sont signalés côté MJ par un avertissement visible.
+- La Fresque joueurs reste strictement non technique : portraits/noms/ordre visuel/round/tour actif, sans PV, blessures, santé, initiative, statistiques ou avertissement mécanique.
+- Un portrait PNG réel a été contrôlé dans la fresque MJ ; la synchronisation de la fenêtre Joueurs reste active.
+
+### Import JSON / historique technique
+- L'identifiant de la campagne source participe maintenant au remappage profond.
+- Les snapshots `previousValue` / `newValue`, les clés d'objets et les `entityId` de l'historique technique sont remappés lorsqu'ils référencent une entité persistante importée.
+- Test sur `REC90_L5R_export_test.json` : 25 entrées d'historique importées et 0 ancien identifiant persistant retrouvé dans la copie.
+- Les identifiants purement historiques non persistants (par exemple un ancien identifiant de combat ou d'étape interne sans entité importable correspondante) restent des traces de provenance.
+
+### Voyage
+- Le message obsolète « Tu peux terminer le voyage » a été supprimé du parcours normal.
+- La dernière journée est suivie automatiquement de l'arrivée et du message final de voyage terminé.
+- La fin anticipée MJ reste volontairement distincte et conserve sa confirmation.
+
+### Contrôles techniques
+- `node --check` sur `js/app.js` et `js/db.js`.
+- Vérification de tous les scripts JavaScript embarqués dans le HTML portable.
+- Structure ZIP inchangée : `jdr-assistant/index.html`, `README.md`, `css/app.css`, `js/app.js`, `js/db.js`.
+
+
+# Assistant JDR — V0.20.92
+
+## V0.20.92 — Consolidation Work & fresques combat
 
 Version corrective issue du compte rendu Work V0.20.90. Cette passe regroupe plusieurs corrections au lieu de les étaler sur plusieurs versions.
 
