@@ -3134,3 +3134,18 @@ body[data-game-theme="vampire"] #characterEditModal .extra-section {
     grid-template-columns:1fr;
   }
 }
+
+/* V0.20.93 — résumés live du combat et état de filtre */
+.combat-live-summary-v2093{
+  margin-top:8px;
+  padding-top:8px;
+  border-top:1px dashed var(--line, #d7d1c2);
+  overflow-wrap:anywhere;
+}
+.compact-empty-v2093{
+  padding:18px;
+  border:1px dashed var(--line, #d7d1c2);
+  border-radius:12px;
+  text-align:left;
+}
+.compact-empty-v2093 .btn{margin-top:10px}

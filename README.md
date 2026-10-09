@@ -1,6 +1,59 @@
-# Assistant JDR — V0.20.92
+# Assistant JDR — V0.20.93
 
-## V0.20.92 — Corrections finales avant gel
+## V0.20.93 — Stabilisation finale Work
+
+Version corrective issue de la recette Work V0.20.92. Aucune nouvelle règle de jeu n'est ajoutée.
+
+### V2092-01 — Réouverture de la Fresque joueurs
+- La fenêtre Joueurs n'est plus réécrite à chaque clic.
+- Première ouverture : le document et son script sont initialisés une seule fois.
+- Clics suivants : la fenêtre est simplement remise au premier plan et reçoit le combat courant par `postMessage`.
+- Changement de campagne ou de combat : la même fenêtre suit le nouveau combat sans redéclaration JavaScript.
+- Si l'onglet MJ perd sa référence JavaScript mais que la fenêtre nommée existe encore, l'initialisation V0.20.93 est détectée et réutilisée.
+- Une fenêtre provenant d'une ancienne version est fermée puis recréée dans un contexte neuf au lieu d'être réécrite.
+- Fermeture manuelle puis réouverture : une fenêtre propre est recréée.
+
+Tests navigateur : première ouverture, deuxième clic même combat, changement de tour, changement de campagne avec fenêtre ouverte, nouveau clic, perte simulée de la référence côté MJ, fermeture puis réouverture. Aucune exception dans la console MJ ou la console Joueurs.
+
+### V2092-02 — Ressources combat affichées en retard
+- L'objet combat persistant devient la source unique des résumés affichés pendant le combat.
+- À chaque saisie, l'état est enregistré puis le champ, le résumé de carte et la fresque MJ sont synchronisés immédiatement.
+- Un rendu complet reste effectué au commit du champ afin de préserver le tri d'initiative et la navigation clavier.
+- Les anciens textes dérivés de Sang / Volonté / Santé mentale sont remplacés, pas empilés.
+
+Tests ciblés :
+- L5R : 25/32 restant → `Dégâts subis 7/32`, fresque 25/32.
+- D&D : 11/23 PV, fresque 11/23.
+- Vampire : Santé 5/7, Sang 6/10, Volonté 2/4 affichés immédiatement.
+- W.A.R.D. : PV 7/12, Volonté 3/6, Santé mentale 51/65 dans le champ et le résumé ; fresque MJ 7/12 immédiatement.
+
+### Fresque Joueurs
+- Confidentialité conservée : la fenêtre n'affiche pas PV, Santé, Blessures, Volonté, initiative ou statistiques.
+- Synchronisation du combattant actif et changement de campagne contrôlés.
+- Portraits / initiales et noms restent les seules informations propres aux combattants.
+
+### Combat MJ / petites largeurs
+- Contrôle en 1363, 900 et 700 px avec plusieurs noms longs : aucun débordement global de page ou de panneau.
+- Seul le ruban de fresque conserve son défilement horizontal indépendant.
+
+### Recherche Personnages
+- Une recherche ou un filtre sans résultat affiche désormais `Aucun résultat pour ce filtre` et un bouton pour effacer les critères.
+- Lors d'un changement de campagne, la recherche textuelle et le filtre sont remis à leur état normal afin de ne pas masquer les personnages de la nouvelle campagne.
+
+### Voyage
+- Le double message de fin normale est supprimé : une seule notification de fin de voyage reste affichée après l'arrivée automatique.
+- Pour une fin anticipée, l'écran distingue maintenant les journées réellement jouées des journées prévues : par exemple `2 journées jouées / 5 prévues`, avec le nombre de journées non jouées et l'indication que le calendrier n'a pas été avancé pour celles-ci.
+
+### Contrôles de non-régression
+- Les corrections V0.20.92 sont conservées : PV D&D par variante, effectifs de début de combat, remappage JSON/historique, signalement MJ des PNJ narratifs non certifiés et arrivée automatique de voyage.
+- `node --check` exécuté sur `js/app.js` et `js/db.js`.
+- Tous les scripts JavaScript embarqués du HTML portable sont vérifiés avant livraison.
+- Structure ZIP inchangée : `jdr-assistant/index.html`, `README.md`, `css/app.css`, `js/app.js`, `js/db.js`.
+
+
+# Assistant JDR — V0.20.93
+
+## V0.20.93 — Corrections finales avant gel
 
 Version corrective issue de la recette Work V0.20.91.
 
@@ -50,9 +103,9 @@ Tests ciblés :
 - Structure ZIP inchangée : `jdr-assistant/index.html`, `README.md`, `css/app.css`, `js/app.js`, `js/db.js`.
 
 
-# Assistant JDR — V0.20.92
+# Assistant JDR — V0.20.93
 
-## V0.20.92 — Consolidation Work & fresques combat
+## V0.20.93 — Consolidation Work & fresques combat
 
 Version corrective issue du compte rendu Work V0.20.90. Cette passe regroupe plusieurs corrections au lieu de les étaler sur plusieurs versions.
 
