@@ -1,3 +1,68 @@
+# Assistant JDR — V0.20.95
+
+## V0.20.95 — Finition avant base stable
+
+Version corrective issue de la recette Work V0.20.94. Aucun nouveau module de jeu n'est ajouté.
+
+### V2094-01 — libellés de sous-classes D&D 2024
+- Les sous-classes canoniques conservent leur identifiant mécanique dans les données (`champion`) tout en affichant leur libellé utilisateur (`Champion`) dans le bloc Multiclassage 2024.
+- La lecture du formulaire reconnaît indifféremment l'identifiant ou le libellé et réenregistre l'identifiant canonique.
+- Une sous-classe personnalisée qui ne correspond pas au catalogue reste libre et conserve exactement sa saisie.
+- Test : `Champion` → affiché `Champion`, stocké `champion`, toujours affiché `Champion` après rechargement.
+- Test libre : `École de l’Ombre` sur une seconde classe conservé après 10 cycles 2014↔2024.
+
+### V2094-02 — résumé unique des ressources de combat
+- Le bloc de résumé live ajouté en V0.20.93 n'est plus dupliqué sous la carte.
+- Une seule ligne regroupe désormais le maximum et les informations système utiles.
+- Contrôles :
+  - L5R : `Dégâts subis 7/32` présent une seule fois ;
+  - Vampire : `Sang 6/10` et `Volonté 2/4` présents une seule fois ;
+  - W.A.R.D. : `Volonté 3/6` et `Santé mentale 51/65` présents une seule fois ;
+  - D&D : édition `2024` présente une seule fois dans le résumé de carte.
+- Aucun changement de persistance des ressources.
+
+### Équipement D&D 2024 — Trousse de soins
+- Le catalogue d'équipement est maintenant rafraîchi immédiatement lors d'un changement d'édition 2014↔2024.
+- Cela évite qu'un libellé du catalogue 2014 reste affiché alors que le bouton Ajouter consulte déjà le catalogue 2024.
+- `Trousse de soins` est explicitement disponible dans le catalogue D&D 2024.
+- Test réel : sélection 2024 → Ajouter → présence immédiate dans l'inventaire → Enregistrer → rechargement → objet toujours présent → export JSON contenant l'objet avec `rules.edition = "2024"`.
+
+### Export / import propre D&D
+- Aller-retour réel avec `REC94_DND_cycle_10.json`.
+- Avant/après : 1 personnage, 6 objets, mêmes collections de scènes/événements pour ce fichier.
+- `editionVariants` reste à un seul niveau après import puis réexport.
+- 2014 : niveau 3, Champion, PV conservés.
+- 2024 : niveau 4, Champion, héritage et dons conservés.
+- Taille du `systemData` réexporté : 1829 octets sur le fichier Work utilisé.
+- L'ancien historique contaminé des versions précédentes n'est pas purgé automatiquement.
+
+### Stabilité supplémentaire
+- 10 nouveaux cycles 2014 → 2024 → 2014 avec sauvegarde/rechargement.
+- Personnage multiclassé incluant une sous-classe libre accentuée.
+- `editionVariants` : toujours 1.
+- Taille du `systemData` : 2029 octets à chacun des 10 points de contrôle.
+- Trousse de soins toujours présente après les cycles et dans l'export.
+
+### Contrôle visuel
+- Vérification navigateur à 1363, 900 et 700 px sur le panneau de combat.
+- Aucun débordement horizontal global de page, zone principale ou panneau.
+
+### Points volontairement non transformés dans cette version
+- Aucun effacement automatique des anciennes copies contaminées conservées dans l'historique technique : elles restent des traces historiques tant que le contrat de restauration n'est pas redéfini.
+- La préparation quotidienne des sorts du Magicien, distincte de son grimoire, n'est pas ajoutée par cette version de finition ; elle reste un sujet de recette/fonctionnalité générale D&D.
+- AD&D et les autres bibliothèques complètes ne sont pas modifiés par cette passe.
+
+### Contrôles techniques
+- `node --check` sur `js/app.js` et `js/db.js`.
+- Vérification de tous les scripts JavaScript embarqués.
+- Structure interne ZIP inchangée :
+  - `jdr-assistant/index.html`
+  - `jdr-assistant/README.md`
+  - `jdr-assistant/css/app.css`
+  - `jdr-assistant/js/app.js`
+  - `jdr-assistant/js/db.js`
+
+
 # Assistant JDR — V0.20.94
 
 ## V0.20.94 — Stabilisation D&D et voyages
