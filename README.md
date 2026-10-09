@@ -1,3 +1,79 @@
+# Assistant JDR — V0.20.94
+
+## V0.20.94 — Stabilisation D&D et voyages
+
+Version corrective issue de la recette Work V0.20.93. Aucun nouveau module fonctionnel n'est ajouté.
+
+### V2093-03 — récursion `editionVariants` D&D
+- Les snapshots d'édition 2014 et 2024 ne peuvent plus contenir eux-mêmes `editionVariants`.
+- Le conteneur existe uniquement au premier niveau de `systemData`.
+- `dndEditionVariant`, `dndMergeEditionVariant`, `dndPersistEditionVariant`, le brouillon d'éditeur, la sauvegarde et la réinjection des PV de combat passent tous par la même normalisation.
+- Les fiches déjà contaminées par les versions précédentes sont automatiquement réparées au chargement ou à l'ouverture du personnage.
+- La réparation conserve les deux branches de premier niveau et l'état racine actif ; elle ne restaure pas d'anciennes copies internes.
+- Les anciens champs textuels 2024 accidentellement stockés comme `0` sont normalisés en chaîne vide sans inventer de contenu.
+
+Test sur l'export Work `REC93_DND_apres_2_cycles.json` :
+- avant : 127 conteneurs `editionVariants`, `systemData` ≈ 83 172 octets ;
+- après réparation : 1 conteneur de premier niveau, aucun conteneur imbriqué, `systemData` ≈ 2,2 Ko ;
+- niveaux, sous-classes, PV et historiques de PV courants des deux variantes conservés.
+
+Test de stabilité :
+- 10 cycles 2014 → 2024 → 2014 avec sauvegarde et rechargement à chaque cycle ;
+- nombre de conteneurs `editionVariants` : toujours 1 ;
+- aucune variante imbriquée ;
+- taille du `systemData` de la fiche de test : stable sur les 10 cycles ;
+- niveau 3 + Champion + PV 2014 conservés ;
+- niveau 4, héritage, dons et PV 2024 conservés ;
+- test complémentaire Magicien : historiques de PV, sorts et sorts personnalisés distincts et conservés après 10 cycles.
+
+### V2093-01 — champs textuels D&D 2024
+- `classSubclass_N` est désormais un champ texte.
+- `heritage` est désormais un champ texte.
+- `featsText` est désormais un champ texte.
+- Les chaînes accentuées et listes de dons ne sont plus converties en nombre.
+- Les anciens `0` issus du mauvais type numérique sont nettoyés à l'ouverture/normalisation.
+
+Test :
+- sous-classe `Champion` acceptée ;
+- héritage `Lignée féerique — Éléa` accepté ;
+- dons `Chanceux ; Robuste ; Alerte` acceptés ;
+- sauvegarde/rechargement et bascule d'édition conservent les chaînes.
+
+### PV D&D après combat
+- La normalisation plate est également appliquée lors de la réinjection de fin de combat.
+- Test 2024 : 21/31 → 11/31, variante 2014 inchangée à 19.
+- Test 2014 : 19/24 → 13/24, variante 2024 reste à 11, Champion conservé.
+- Après ces combats, `editionVariants` reste à un seul niveau.
+
+### V2093-02 — badge « Lieu actuel »
+- Toute arrivée de voyage force désormais le rafraîchissement immédiat de la liste des lieux et du bandeau d'état.
+- Test aller normal : Kyuden Doji reçoit immédiatement le badge, Otosan Uchi le perd.
+- Test retour terminé de façon anticipée : Otosan Uchi reçoit immédiatement le badge, Kyuden Doji le perd.
+- Aucun changement de vue ni rechargement n'est nécessaire.
+- Les commandes Journée suivante / Interrompre / Reprendre / Terminer sont masquées et désactivées quand le voyage est terminé.
+
+### Non-régression
+Les correctifs V0.20.93 restent conservés :
+- Fresque joueurs réutilisable sans réécriture récursive de la fenêtre ;
+- synchronisation immédiate des ressources MJ ;
+- filtre Personnages réinitialisé lors d'un changement de campagne ;
+- message de voyage final unique ;
+- fin anticipée distinguant journées jouées / prévues ;
+- fresques MJ/Joueurs et confidentialité joueurs ;
+- import JSON et remappage historique ;
+- effectifs de début de combat.
+
+### Contrôles techniques
+- `node --check` sur `js/app.js` et `js/db.js`.
+- Vérification des scripts JavaScript embarqués dans le HTML portable.
+- Structure ZIP inchangée :
+  - `jdr-assistant/index.html`
+  - `jdr-assistant/README.md`
+  - `jdr-assistant/css/app.css`
+  - `jdr-assistant/js/app.js`
+  - `jdr-assistant/js/db.js`
+
+
 # Assistant JDR — V0.20.93
 
 ## V0.20.93 — Stabilisation finale Work
