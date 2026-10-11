@@ -3163,3 +3163,20 @@ body[data-game-theme="vampire"] #characterEditModal .extra-section {
     min-width: 610px;
   }
 }
+
+
+/* V0.20.97 — aptitudes D&D 2024 groupées par classe */
+.dnd-class-feature-groups-v2097 {
+  display: grid;
+  gap: 12px;
+  margin-top: 10px;
+}
+.dnd-class-feature-group-v2097 {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px;
+  min-width: 0;
+}
+.dnd-class-feature-group-v2097 .system-feature-list {
+  margin-top: 8px;
+}

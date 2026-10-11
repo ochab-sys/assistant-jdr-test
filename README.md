@@ -1,3 +1,92 @@
+# Assistant JDR — V0.20.97
+
+## V0.20.97 — Aptitudes D&D 2024 multiclassées
+
+Version corrective issue de la recette de gel Work V0.20.96. Aucun nouveau système de jeu n'est ajouté.
+
+### V2096-01 — aptitudes calculées par niveau de classe
+- Le niveau total du personnage n'est plus utilisé pour débloquer les aptitudes de la classe principale en D&D 2024.
+- Les aptitudes sont désormais affichées dans un groupe distinct pour chaque classe de `classes[]`.
+- Chaque groupe utilise son propre `classId` et son propre `level`.
+- Le niveau total reste affiché séparément et continue de servir au bonus de maîtrise.
+
+Test exact Work :
+- Guerrier 3 / Paladin 2, niveau total 5 :
+  - Guerrier : aptitudes N1 à N3 uniquement ;
+  - Paladin : aptitudes N1 à N2 uniquement ;
+  - aucune aptitude Guerrier N4 ou N5 ;
+  - aucune `Attaque supplémentaire` de Guerrier au simple niveau total 5.
+- Guerrier 4 / Roublard 3, niveau total 7 :
+  - Guerrier : aptitudes N1 à N4 uniquement ;
+  - Roublard : aptitudes N1 à N3 uniquement ;
+  - aucune aptitude Guerrier N5/N6/N7.
+- Passage Guerrier 4 → 5 :
+  - `N5 · Attaque supplémentaire` et `N5 · Déplacement tactique` apparaissent seulement à Guerrier 5.
+- Guerrier monoclassé 5 :
+  - comportement conservé ; les aptitudes N5 apparaissent normalement.
+
+### Panneau « Accès lié à la classe »
+- Le panneau utilise maintenant le niveau réel de la classe principale et non le niveau total.
+- Exemple Guerrier 4 / Roublard 3 :
+  - panneau : `Guerrier · niveau 4` ;
+  - note distincte : `Niveau de classe : 4 · niveau total du personnage : 7`.
+- Le niveau total n'est donc plus présenté comme le niveau de Guerrier.
+
+### Nettoyage des clés auxiliaires 2024 dans la variante 2014
+- `classes`, `class_N`, `classLevel_N` et `classSubclass_N` sont des données auxiliaires du formulaire 2024.
+- Elles sont désormais retirées des snapshots `editionVariants.2014`.
+- Les fiches existantes contenant ces clés dans la variante 2014 sont nettoyées automatiquement au chargement.
+- Aucun champ mécanique 2014 (niveau, Champion, PV, historique de PV) n'est supprimé.
+- Les variantes restent plates : une seule clé `editionVariants` dans le `systemData`.
+
+### Persistance et non-régression
+- 5 cycles sur le personnage Work Guerrier 4 / Roublard 3 :
+  - fermeture Annuler 2024 → 2014 ;
+  - réouverture 2024 ;
+  - sauvegarde ;
+  - rechargement.
+- À chacun des 5 cycles :
+  - Guerrier 4 / Roublard 3 conservé ;
+  - groupes d'aptitudes max N4 / N3 ;
+  - PV 14/57 conservés dans le jeu de test ;
+  - historique d10/d8 et jets bruts inchangés ;
+  - `editionVariants` reste unique ;
+  - taille du `systemData` stable à 4366 octets.
+
+### Export/import
+- Sauvegarde → rechargement → export → import retesté sur les profils multiclassés.
+- Les niveaux de classe et les groupes d'aptitudes restent cohérents après import.
+- La variante 2014 reste dépourvue des clés auxiliaires 2024.
+- `editionVariants` reste non récursif.
+
+### V0.20.96 conservée
+Les corrections précédemment validées restent présentes :
+- Annuler / × / arrière-plan / Échap sans perte de variante ;
+- PV multiclassés d10/d8 par classe réelle ;
+- migration déterministe des anciens jets impossibles ;
+- Constitution sans reroll ;
+- Changer de lieu actualisé à chaque ouverture ;
+- Trousse de soins D&D 2024 ;
+- résumé unique des ressources ;
+- Fresque joueurs ;
+- voyages normal et anticipé.
+
+### Contrôle visuel
+- Fiche D&D 2024 multiclassée contrôlée à 1366, 900 et 700 px.
+- Aucun débordement horizontal global de page ou de modal observé.
+- Les groupes d'aptitudes par classe restent présents aux trois largeurs.
+
+### Contrôles techniques
+- `node --check` sur `js/app.js` et `js/db.js`.
+- Vérification de tous les scripts JavaScript embarqués.
+- Structure interne ZIP inchangée :
+  - `jdr-assistant/index.html`
+  - `jdr-assistant/README.md`
+  - `jdr-assistant/css/app.css`
+  - `jdr-assistant/js/app.js`
+  - `jdr-assistant/js/db.js`
+
+
 # Assistant JDR — V0.20.96
 
 ## V0.20.96 — Sécurisation D&D et lieux
