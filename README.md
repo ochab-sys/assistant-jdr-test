@@ -1,3 +1,111 @@
+# Assistant JDR — V0.20.96
+
+## V0.20.96 — Sécurisation D&D et lieux
+
+Version corrective issue de la recette de gel Work V0.20.95. Aucun nouveau système de jeu n'est ajouté.
+
+### V2095-01 — Annuler / fermeture de la fiche D&D
+- Le brouillon D&D est désormais explicitement détruit lors de :
+  - Annuler ;
+  - bouton × ;
+  - clic sur l'arrière-plan de la fenêtre ;
+  - touche Échap.
+- À chaque nouvelle ouverture d'une fiche D&D, l'ancien rendu spécifique est vidé avant reconstruction.
+- L'édition affichée, le formulaire spécifique et le catalogue sont donc reconstruits depuis `character.systemData.rulesEdition` persisté.
+- Test avec l'export Work V0.20.95 :
+  - fiche enregistrée en 2024 : Guerrier 4 / Roublard 3, niveau total 7 ;
+  - passage 2024 → 2014 → Annuler ;
+  - réouverture : 2024, niveau 7, deux classes, héritage, dons et `École de l’Ombre` intacts ;
+  - catalogue 2024 : 17 entrées, et non l'ancien catalogue 2014 de 136 entrées ;
+  - sauvegarde après le parcours : aucune perte.
+- Les quatre modes de fermeture ci-dessus laissent `dndEditionDraftV2091` et l'édition rendue à `null` avant toute réouverture.
+
+### V2095-02 — PV D&D 2024 multiclassés
+- L'historique des PV 2024 enregistre désormais, pour chaque niveau de personnage :
+  - la classe réellement prise ;
+  - le niveau atteint dans cette classe ;
+  - le dé de vie de cette classe ;
+  - le jet brut ;
+  - le bonus de Constitution ;
+  - le gain et le total.
+- Le premier niveau utilise le maximum du dé de la classe de départ.
+- Les niveaux suivants utilisent le dé de la classe réellement augmentée.
+- Une hausse de niveau dans une classe après multiclassage est ajoutée à la fin de la chronologie sans réécrire les jets antérieurs.
+- Une modification de Constitution recalcule uniquement les bonus ; aucun jet existant n'est relancé.
+
+#### Migration des anciennes fiches
+Les anciennes fiches ne stockaient pas l'ordre de prise des niveaux de classe.
+- Lors de la première lecture d'une ancienne fiche 2024 multiclassée, l'ordre est inféré une fois à partir de l'ordre des classes de la fiche.
+- Les jets compatibles avec le nouveau dé sont conservés exactement.
+- Un ancien jet impossible pour le dé réel n'est pas relancé aléatoirement : il est ramené au maximum du dé et marqué comme correction de migration.
+- L'interface affiche une note de migration et marque les lignes corrigées avec `*`.
+
+Test exact issu du rapport Work :
+- Guerrier 4 / Roublard 3 ;
+- ancien historique : sept d10, dont un jet de 9 au premier niveau de Roublard ;
+- V0.20.96 : niveaux 1–4 Guerrier en d10, niveaux 5–7 Roublard en d8 ;
+- le jet impossible 9/d8 devient 8/d8 sans relance ;
+- PV max corrigés : 58 → 57, PV actuels conservés à 21 ;
+- historique sauvegardé avec `classId` et `classLevel`.
+
+Tests de progression :
+- Roublard 3 → 4 : nouveau niveau en d8 ;
+- puis Guerrier 4 → 5 : nouveau niveau en d10 après le niveau de Roublard ;
+- tous les anciens jets restent inchangés ;
+- changement de Constitution : jets bruts inchangés, seuls les bonus et totaux évoluent.
+- test de deux classes à même dé (Guerrier / Paladin) : historique et jets conservés.
+
+### Combat et export/import D&D
+- Le combat utilise le PV maximum multiclassé corrigé.
+- Test : personnage Guerrier 4 / Roublard 3 engagé avec max 57 ; fin de combat à 17 PV ; fiche réouverte à 17/57.
+- Export → import → réexport :
+  - niveau 7 conservé ;
+  - deux classes et sous-classes conservées ;
+  - historique d10/d8 conservé ;
+  - `editionVariants` reste à un seul niveau, sans récursion.
+- Dix cycles supplémentaires 2014 ↔ 2024 avec sauvegarde/rechargement :
+  - taille `systemData` stable à 4211 octets dans le jeu de test ;
+  - exactement une clé `editionVariants` ;
+  - aucun reroll et aucune perte de classe, texte ou PV.
+
+### V2095-03 — Changer de lieu
+- Le dialogue `Changer de lieu` reconstruit maintenant sa liste à chaque ouverture.
+- L'import d'un lieu Rokugan rafraîchit également immédiatement le sélecteur global.
+- Tests sans rechargement :
+  - ajout de Otosan Uchi + Kyuden Doji → deux options immédiatement ;
+  - ajout de Shiro Hida → troisième option immédiatement.
+- Changement de campagne :
+  - le dialogue ne montre que les lieux actifs de la campagne courante ;
+  - un lieu archivé n'est pas proposé ;
+  - aucun lieu d'une autre campagne ne fuit dans la liste.
+
+### Non-régression
+- D&D 2014 reste inchangé dans le test : niveau 3, Champion, 19/25 PV et historique d10 conservés.
+- La variante 2024 reste distincte et plate.
+- Les correctifs V0.20.95 restent présents :
+  - libellé `Champion` / identifiant interne `champion` ;
+  - sous-classes personnalisées ;
+  - Trousse de soins 2024 ;
+  - résumé unique des ressources de combat ;
+  - fresques joueurs et confidentialité ;
+  - voyages et badge `Lieu actuel`.
+
+### Contrôle visuel
+- Formulaire D&D 2024 multiclassé contrôlé à 1363, 900 et 700 px.
+- Pas de débordement horizontal global de page ou de modal.
+- L'historique de PV multiclassé possède une grille dédiée avec colonne Classe.
+
+### Contrôles techniques
+- `node --check` sur `js/app.js` et `js/db.js`.
+- Vérification de tous les scripts JavaScript embarqués.
+- Structure interne ZIP inchangée :
+  - `jdr-assistant/index.html`
+  - `jdr-assistant/README.md`
+  - `jdr-assistant/css/app.css`
+  - `jdr-assistant/js/app.js`
+  - `jdr-assistant/js/db.js`
+
+
 # Assistant JDR — V0.20.95
 
 ## V0.20.95 — Finition avant base stable

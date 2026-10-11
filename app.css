@@ -3149,3 +3149,17 @@ body[data-game-theme="vampire"] #characterEditModal .extra-section {
   text-align:left;
 }
 .compact-empty-v2093 .btn{margin-top:10px}
+
+
+/* V0.20.96 — historique de PV D&D 2024 multiclassé */
+.hp-history-head-v2096,
+.hp-history-row-v2096 {
+  grid-template-columns: 44px minmax(120px,1.35fr) 52px minmax(72px,.8fr) 58px 62px 72px;
+}
+@media (max-width: 900px) {
+  .hp-history-head-v2096,
+  .hp-history-row-v2096 {
+    grid-template-columns: 40px minmax(110px,1.3fr) 48px minmax(68px,.8fr) 54px 58px 68px;
+    min-width: 610px;
+  }
+}
