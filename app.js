@@ -151,7 +151,7 @@ const SYSTEM_PROFILES = {
 
   ward: {
     id: "ward",
-    label: "W.A.R.D. — Livre V29.123",
+    label: "W.A.R.D. — Livre V29.147",
     skillMode: "rank",
     skillMin: 0,
     skillMax: 4,
@@ -1142,7 +1142,7 @@ const WARD_AGENCIES = {
     ["ussf_engineer","Ingénieur et responsable de programme spatial"],["ussf_odic","Opérateur de combat orbital — ODIC"]]},
   army:{label:"U.S. Army",country:"usa",professions:[
     ["army_combat","Soldat et officier des armes de combat"],["army_delta","Delta Force"],
-    ["army_aviation","Pilote et officier d’aviation de l’U.S. Army"],["army_intel","Spécialiste du renseignement militaire"],
+    ["army_aviation","Pilote et officier d’aviation de l’U.S. Army"],
     ["army_engineer","Ingénieur et technicien des systèmes militaires"]]},
   navy:{label:"U.S. Navy",country:"usa",professions:[
     ["navy_seal","Navy SEAL"],["navy_aviator","Aviateur naval"]]},
@@ -1161,7 +1161,7 @@ const WARD_AGENCIES = {
     ["fema_risk","Spécialiste des risques et infrastructures"]]},
   usms:{label:"U.S. Marshals Service",country:"usa",professions:[["usms_deputy","Deputy U.S. Marshal"]]},
   dea:{label:"DEA",country:"usa",professions:[
-    ["dea_special","Agent spécial de la DEA"],["dea_analyst","Analyste du renseignement de la DEA"],["dea_forensic","Scientifique criminalistique de la DEA"]]},
+    ["dea_special","Agent spécial de la DEA"],["dea_analyst","Analyste du renseignement de la DEA"]]},
   doe:{label:"DOE / NNSA",country:"usa",professions:[
     ["doe_scitech","Scientifique et spécialiste technique du DOE/NNSA"],["doe_intel","Spécialiste du renseignement et du contre-espionnage du DOE"]]},
   state:{label:"U.S. Department of State",country:"usa",professions:[
@@ -4358,8 +4358,9 @@ function rand(list) {
 function normalizedSystemKey(value){
   const system=String(value||"").toLowerCase();
   if(system.includes("l5r")||system.includes("l5a")||system.includes("legend")||system.includes("cinq anneaux")) return "l5r1";
-  // V0.20.97 — D&D devient l’unique famille active : les anciennes valeurs AD&D sont migrées vers D&D.
-  if(system.includes("ad&d")||system.includes("adnd")||system.includes("advanced dungeons")) return "dnd5";
+  // V0.20.98 — AD&D 2e redevient un système distinct : son profil, ses PV,
+  // THAC0 et ses tables de magie étaient encore présents mais rendus inaccessibles.
+  if(system.includes("ad&d")||system.includes("adnd")||system.includes("advanced dungeons")) return "adnd";
   if(system.includes("d&d")||system.includes("dnd")||system.includes("dungeons")) return "dnd5";
   if(system.includes("vampire")) return "vampire2";
   if(system.includes("ward")||system.includes("w.a.r.d")) return "ward";
@@ -4371,7 +4372,7 @@ function setSelectedSystem(key,{fromCampaign=false}={}){
   localStorage.setItem("jdr-selected-system",state.selectedSystem);
   const sel=document.getElementById("gameSystemSelect"); if(sel) sel.value=state.selectedSystem;
   if(!fromCampaign){
-    const theme={l5r1:"l5r",dnd5:"dnd",vampire2:"vampire",ward:"ward"}[state.selectedSystem]||"neutral";
+    const theme={l5r1:"l5r",dnd5:"dnd",adnd:"dnd",vampire2:"vampire",ward:"ward"}[state.selectedSystem]||"neutral";
     state.gameTheme=theme; localStorage.setItem("jdr-game-theme",theme);
     const themeSel=document.getElementById("gameThemeSelect"); if(themeSel) themeSel.value=theme;
     document.body.dataset.gameTheme=theme;
@@ -7826,7 +7827,7 @@ function closeModal(el) {
 
 function systemDefaultTheme(system) {
   const key=normalizedSystemKey(system);
-  return {l5r1:"l5r",dnd5:"dnd",vampire2:"vampire",ward:"ward"}[key]||"neutral";
+  return {l5r1:"l5r",dnd5:"dnd",adnd:"dnd",vampire2:"vampire",ward:"ward"}[key]||"neutral";
 }
 
 function campaignStatusLabel(value) {
@@ -8993,26 +8994,9 @@ async function openCharacterEditor(id = null, presetType = null) {
   const key = profileKeyForCampaign();
   let context = c?.generationContext || {};
   if (!Object.keys(context).length) {
-    if(key==="adnd"){
-    const classId=ctx.profession||"fighter", cls=adndClassData(classId), slots=adndSlots(classId,data.level), isWizard=["mage","specialist_wizard","bard"].includes(classId);
-    $("#systemValuesTitle").textContent=`AD&D 2e — ${cls.label}`;
-    box.innerHTML=`<div class="system-values-grid">
-      ${systemInputField("Niveau","level",data.level,{min:1,max:20})}
-      ${systemInputField("PV actuels","hpCurrent",data.hpCurrent,{min:0,max:data.hpMax})}
-      ${systemInputField("PV maximum","hpMax",data.hpMax,{min:1})}
-      ${systemInputField("THAC0","thac0",adndThac0(cls.group,data.level),{min:1,max:20})}
-    </div>
-    <div class="system-derived"><strong>Progression des PV — ${cls.label}</strong>${adndHpHistoryHtml(data.hpHistory)}
-      <div class="system-note">Chaque jet de PV est conservé par niveau. Après le dernier niveau à dé de vie de la classe, le gain devient fixe et le bonus de Constitution ne s’applique plus.</div></div>
-    <div class="system-derived"><strong>Emplacements de sorts mémorisables</strong>${adndSlotsHtml(classId,data.level)}
-      ${isWizard?adndWizardIntHtml(characteristics.intelligence):""}
-      ${systemInputField("Sorts connus / grimoire","spellsKnownText",data.spellsKnownText||"",{type:"text"})}
-    </div>
-    <div class="system-note"><strong>AD&D 2e :</strong> les emplacements sont ceux de la classe et du niveau. Pour Magicien/Magicien spécialiste, la limite de sorts appris par niveau dépend de l’Intelligence ; elle ne doit pas être confondue avec les emplacements mémorisables.</div>`;
-    return;
-  }
-
-  if (key === "l5r1") {
+    if (key === "adnd") {
+      context = {ancestry:"human",profession:"fighter"};
+    } else   if (key === "l5r1") {
       context = c?.name === "Mirumoto Ren"
         ? {clan:"dragon",profession:"mirumoto_bushi"}
         : {clan:"dragon",profession:"mirumoto_bushi"};
@@ -12993,8 +12977,8 @@ renderWorkspaceModule=function(view){_renderWorkspaceModuleV2088(view);if(view==
 /* V0.20.97 — consolidation des référentiels et du routage */
 const WARD_VALIDATED_FACTIONS_V2089=[{"key":"architecture_europeenne","name":"Architecture européenne","version":"V1.12","sourceTitle":"Faction_Architecture_Europeenne-V1.12.docx","driveId":"1Fr58TPQDLjw_-0CrzwnnMDcB_ixb6GaP","url":"https://docs.google.com/document/d/1Fr58TPQDLjw_-0CrzwnnMDcB_ixb6GaP/edit"},{"key":"archontes_silencieux","name":"Archontes Silencieux","version":"V1.5","sourceTitle":"Faction_Archontes_Silencieux-V1.5.docx","driveId":"1DgtGEi-qajgeh7AhvfTuICa8U0wTO0rH","url":"https://docs.google.com/document/d/1DgtGEi-qajgeh7AhvfTuICa8U0wTO0rH/edit"},{"key":"atriants","name":"Atriants / Atlantes","version":"V1.22","sourceTitle":"Faction_Atriants_Atlantes-V1.22.docx","driveId":"1wsgWSAExzyw3DlC2MAr1TmI5sMVyMZtQ","url":"https://docs.google.com/document/d/1wsgWSAExzyw3DlC2MAr1TmI5sMVyMZtQ/edit"},{"key":"azathoth","name":"Azathoth","version":"V1.4","sourceTitle":"Faction_Azathoth-V1.4.docx","driveId":"1H6Dh4sPUhKC0jGIMMfmAilu8VtRiRKtf","url":"https://docs.google.com/document/d/1H6Dh4sPUhKC0jGIMMfmAilu8VtRiRKtf/edit"},{"key":"bresil","name":"Brésil","version":"V1.6","sourceTitle":"Faction_Bresil-V1.6.docx","driveId":"11rgPWZlI18poHYysm8s8Ld7qJMWu6x0O","url":"https://docs.google.com/document/d/11rgPWZlI18poHYysm8s8Ld7qJMWu6x0O/edit"},{"key":"cadena_umbral","name":"Cadena Umbral","version":"V1.3","sourceTitle":"Faction_Cadena_Umbral-V1.3.docx","driveId":"1UKGu4denWmPoPXvOi42Qf2ba3BfhSbWU","url":"https://docs.google.com/document/d/1UKGu4denWmPoPXvOi42Qf2ba3BfhSbWU/edit"},{"key":"cellule_jordanienne","name":"Cellule jordanienne","version":"V1.7","sourceTitle":"Faction_Cellule_jordanienne-V1.7.docx","driveId":"1h4bZYwfO37p_Og72v02f27KDc1Ds7oSc","url":"https://docs.google.com/document/d/1h4bZYwfO37p_Og72v02f27KDc1Ds7oSc/edit"},{"key":"cercle_promethee","name":"Cercle de Prométhée","version":"V1.13","sourceTitle":"Faction_Cercle_de_Promethee-V1.13.docx","driveId":"1205mxMOo76-s1vLzgyaZ0M3BHruTBj3o","url":"https://docs.google.com/document/d/1205mxMOo76-s1vLzgyaZ0M3BHruTBj3o/edit"},{"key":"chine","name":"Chine","version":"V1.14","sourceTitle":"Faction_Chine-V1.14.docx","driveId":"1Fy5KIErF099CsA3HFNG7L2zS5XaiXlxB","url":"https://docs.google.com/document/d/1Fy5KIErF099CsA3HFNG7L2zS5XaiXlxB/edit"},{"key":"chuchoteur_glace","name":"Chuchoteur dans la Glace","version":"V1.10","sourceTitle":"Faction_Chuchoteur_dans_la_Glace-V1.10.docx","driveId":"1CJXfxZzOK7DD4HOk7S9EX5SVwTlPwTAb","url":"https://docs.google.com/document/d/1CJXfxZzOK7DD4HOk7S9EX5SVwTlPwTAb/edit"},{"key":"complexe_nyarlathotepien","name":"Complexe cultuel nyarlathotepien","version":"V1.3","sourceTitle":"Faction_Complexe_cultuel_nyarlathotepien-V1.3.docx","driveId":"1arbFGqiGGLxXiitH2vXg6TcdlboPtOKm","url":"https://docs.google.com/document/d/1arbFGqiGGLxXiitH2vXg6TcdlboPtOKm/edit"},{"key":"complexe_dagonique","name":"Complexe dagonique","version":"V1.3","sourceTitle":"Faction_Complexe_dagonique-V1.3.docx","driveId":"15WIQYbrEpAQk-jlJmoh6Y-Lw16TgEBrI","url":"https://docs.google.com/document/d/15WIQYbrEpAQk-jlJmoh6Y-Lw16TgEBrI/edit"},{"key":"obsidian","name":"Consortium Obsidienne","version":"V1.14","sourceTitle":"Faction_Consortium_Obsidienne-V1.14.docx","driveId":"1W8YBQjm8v1np6l72JVf5rKr1kQ2Wb7_T","url":"https://docs.google.com/document/d/1W8YBQjm8v1np6l72JVf5rKr1kQ2Wb7_T/edit"},{"key":"koryo","name":"Corée du Nord / Complexe KORYO","version":"V1.8","sourceTitle":"Faction_Coree_du_Nord_Complexe_KORYO-V1.8.docx","driveId":"1ZbXC8CQ1x0jER_SjYZRiQuXlaAAyFvx-","url":"https://docs.google.com/document/d/1ZbXC8CQ1x0jER_SjYZRiQuXlaAAyFvx-/edit"},{"key":"coree_sud","name":"Corée du Sud","version":"V1.6","sourceTitle":"Faction_Coree_du_Sud-V1.6.docx","driveId":"1ug1BnC3GMm-F6pb04utU--o1DidIbHX4","url":"https://docs.google.com/document/d/1ug1BnC3GMm-F6pb04utU--o1DidIbHX4/edit"},{"key":"cthulhu","name":"Cthulhu","version":"V1.6","sourceTitle":"Faction_Cthulhu-V1.6.docx","driveId":"1u0sY7d91aiO0_qaFuuWaBZ5-U9FOwpw5","url":"https://docs.google.com/document/d/1u0sY7d91aiO0_qaFuuWaBZ5-U9FOwpw5/edit"},{"key":"cultes_shub","name":"Cultes de Shub-Niggurath","version":"V1.6","sourceTitle":"Faction_Cultes_de_Shub_Niggurath-V1.6.docx","driveId":"1DVJHz2-09AYR3Aksi8dKDFRionOHqC3K","url":"https://docs.google.com/document/d/1DVJHz2-09AYR3Aksi8dKDFRionOHqC3K/edit"},{"key":"afrique_subsaharienne","name":"Dispositif africain subsaharien","version":"V1.11","sourceTitle":"Faction_Dispositif_Africain_Subsaharien-V1.11.docx","driveId":"1pbuoLAVtlJvF2UbR8p3Aj4lBjtATWAOr","url":"https://docs.google.com/document/d/1pbuoLAVtlJvF2UbR8p3Aj4lBjtATWAOr/edit"},{"key":"egypte","name":"Dispositif égyptien","version":"V1.7","sourceTitle":"Faction_Dispositif_egyptien-V1.7.docx","driveId":"1f8uh36-6slWi3ZtT7VjpOn1FEoptcVie","url":"https://docs.google.com/document/d/1f8uh36-6slWi3ZtT7VjpOn1FEoptcVie/edit"},{"key":"arabie_saoudite","name":"Dispositif saoudien","version":"V1.6","sourceTitle":"Faction_Dispositif_saoudien-V1.6.docx","driveId":"16p4DjF4oT3n-9tFMdk9kij8ZgwX2SvN5","url":"https://docs.google.com/document/d/16p4DjF4oT3n-9tFMdk9kij8ZgwX2SvN5/edit"},{"key":"turquie","name":"Dispositif turc","version":"V1.8","sourceTitle":"Faction_Dispositif_turc-V1.8.docx","driveId":"1BOzoxB-lsKx0iu4pWKhtH1ZFnfvp3gie","url":"https://docs.google.com/document/d/1BOzoxB-lsKx0iu4pWKhtH1ZFnfvp3gie/edit"},{"key":"post_sovietique","name":"Écosystème post-soviétique","version":"V1.9","sourceTitle":"Faction_Ecosysteme_post_sovietique-V1.9.docx","driveId":"1eP0xMNvNEnY8IcpMWKYtygrtfW7qFyh6","url":"https://docs.google.com/document/d/1eP0xMNvNEnY8IcpMWKYtygrtfW7qFyh6/edit"},{"key":"enfants_aneantissement","name":"Enfants de l’Anéantissement","version":"V1.7","sourceTitle":"Faction_Enfants_de_l_Aneantissement-V1.7.docx","driveId":"1XMeU8g7aoU4HBFLfvfXk3_CNgWhGJl5Y","url":"https://docs.google.com/document/d/1XMeU8g7aoU4HBFLfvfXk3_CNgWhGJl5Y/edit"},{"key":"fils_liberte","name":"Fils de la Liberté","version":"V1.12","sourceTitle":"Faction_Fils_de_la_Liberte-V1.12.docx","driveId":"1cfDCYF_4EqyHP2vIdVxPk-wqSeiG8VgS","url":"https://docs.google.com/document/d/1cfDCYF_4EqyHP2vIdVxPk-wqSeiG8VgS/edit"},{"key":"dae","name":"France / DAE","version":"V1.10","sourceTitle":"Faction_France_DAE-V1.10.docx","driveId":"1pQDtIWwZy1VvYVCTYbvN1lyriVlCHBg7","url":"https://docs.google.com/document/d/1pQDtIWwZy1VvYVCTYbvN1lyriVlCHBg7/edit"},{"key":"devoiles_carcosa","name":"Dévoilés de Carcosa (fichier historique « Fraternité du Signe Jaune »)","version":"V1.8","sourceTitle":"Faction_Fraternite_du_Signe_Jaune-V1.8.docx","driveId":"1OhSzzz2BHz0T4fgbJ6i5xAoFcAgoMtvI","url":"https://docs.google.com/document/d/1OhSzzz2BHz0T4fgbJ6i5xAoFcAgoMtvI/edit"},{"key":"vaelna","name":"Greys / Réticulans / Vael’na","version":"V2.7","sourceTitle":"Faction_Greys_Reticulans_Vaelna-V2.7.docx","driveId":"1GWTcCuMSRV2k82Gc8s4rZSXF_85MkVLQ","url":"https://docs.google.com/document/d/1GWTcCuMSRV2k82Gc8s4rZSXF_85MkVLQ/edit"},{"key":"hastur","name":"Hastur","version":"V1.4","sourceTitle":"Faction_Hastur-V1.4.docx","driveId":"1l3E1s91SAZE79EMLpqcppqfoTzYX0XEm","url":"https://docs.google.com/document/d/1l3E1s91SAZE79EMLpqcppqfoTzYX0XEm/edit"},{"key":"hommes_silex","name":"Hommes de Silex","version":"V1.11","sourceTitle":"Faction_Hommes_de_Silex-V1.11.docx","driveId":"177YQEu_Kr2hnCLyV5E-NKioGiBflKdnd","url":"https://docs.google.com/document/d/177YQEu_Kr2hnCLyV5E-NKioGiBflKdnd/edit"},{"key":"inde","name":"Inde","version":"V1.10","sourceTitle":"Faction_Inde-V1.10.docx","driveId":"1DfHnBdE6o9PAMDMvUij_uZ0Roi71SEIi","url":"https://docs.google.com/document/d/1DfHnBdE6o9PAMDMvUij_uZ0Roi71SEIi/edit"},{"key":"iran","name":"Iran","version":"V1.6","sourceTitle":"Faction_Iran-V1.6.docx","driveId":"1_OBFwZ8zfUIXSM7-YmlpC94nZW1uDe0y","url":"https://docs.google.com/document/d/1_OBFwZ8zfUIXSM7-YmlpC94nZW1uDe0y/edit"},{"key":"israel","name":"Israël","version":"V1.10","sourceTitle":"Faction_Israel-V1.10.docx","driveId":"1__jr-Nuc_oB2pemDopnj-jZTxxW4Wzh2","url":"https://docs.google.com/document/d/1__jr-Nuc_oB2pemDopnj-jZTxxW4Wzh2/edit"},{"key":"kagami","name":"Japon / KAGAMI","version":"V1.24","sourceTitle":"Faction_Japon_KAGAMI-V1.24.docx","driveId":"1nrM8rUYic64pexeVmDSev0rs-IGI0xUh","url":"https://docs.google.com/document/d/1nrM8rUYic64pexeVmDSev0rs-IGI0xUh/edit"},{"key":"jead","name":"JEAD","version":"V1.13","sourceTitle":"Faction_JEAD-V1.13.docx","driveId":"1qQPiTovlcL_BGq9r38Tzeesem5NHzk9v","url":"https://docs.google.com/document/d/1qQPiTovlcL_BGq9r38Tzeesem5NHzk9v/edit"},{"key":"ouroboros","name":"Machine d’Ouroboros","version":"V1.10","sourceTitle":"Faction_Machine_d_Ouroboros-V1.10.docx","driveId":"1QIQC0zrD7XH9pvMnwCMzIu68dSXfCeYx","url":"https://docs.google.com/document/d/1QIQC0zrD7XH9pvMnwCMzIu68dSXfCeYx/edit"},{"key":"majestic","name":"MAJESTIC / MJ-12","version":"V2.24","sourceTitle":"Faction_MAJESTIC-V2.24.docx","driveId":"1OYe7ml-rq8UksiUERH2wJzOfdvllIYM_","url":"https://docs.google.com/document/d/1OYe7ml-rq8UksiUERH2wJzOfdvllIYM_/edit"},{"key":"malthrax","name":"Malthrax","version":"V1.7","sourceTitle":"Faction_Malthrax-V1.7.docx","driveId":"1ZFlzmQXyWLE_H6ubVX2eCelQMm3Hj5BM","url":"https://docs.google.com/document/d/1ZFlzmQXyWLE_H6ubVX2eCelQMm3Hj5BM/edit"},{"key":"marche_golfe","name":"Marché gris du Golfe","version":"V1.6","sourceTitle":"Faction_Marche_gris_du_Golfe-V1.6.docx","driveId":"1YeWmKI6iillFEb5VFoFwr6q0FA6MmFlZ","url":"https://docs.google.com/document/d/1YeWmKI6iillFEb5VFoFwr6q0FA6MmFlZ/edit"},{"key":"mexique","name":"Mexique","version":"V1.8","sourceTitle":"Faction_Mexique-V1.8.docx","driveId":"1zoGOS97o62exQpWJKnvZ0CpTlmizybHf","url":"https://docs.google.com/document/d/1zoGOS97o62exQpWJKnvZ0CpTlmizybHf/edit"},{"key":"nachterbe","name":"NACHTERBE","version":"V1.7","sourceTitle":"Faction_NACHTERBE-V1.7.docx","driveId":"1Ms1qxrND_75EhO3A5PtwhayOGIPPksct","url":"https://docs.google.com/document/d/1Ms1qxrND_75EhO3A5PtwhayOGIPPksct/edit"},{"key":"nyarlathotep","name":"Nyarlathotep","version":"V1.5","sourceTitle":"Faction_Nyarlathotep-V1.5.docx","driveId":"1PH0rpbyCKsRpJie5XiZFmk3m9cLkg46t","url":"https://docs.google.com/document/d/1PH0rpbyCKsRpJie5XiZFmk3m9cLkg46t/edit"},{"key":"aequitas","name":"Ordre Æquitas","version":"V1.10","sourceTitle":"Faction_Ordre_Aequitas-V1.10.docx","driveId":"1cLwxPDh4GFY7FzE7vdBLNnqwdP3rGGZK","url":"https://docs.google.com/document/d/1cLwxPDh4GFY7FzE7vdBLNnqwdP3rGGZK/edit"},{"key":"scission","name":"Ordre de la Scission","version":"V1.8","sourceTitle":"Faction_Ordre_de_la_Scission-V1.8.docx","driveId":"14r6bTk_H6Id9dytoM-rqo5mLLW1w_2-6","url":"https://docs.google.com/document/d/14r6bTk_H6Id9dytoM-rqo5mLLW1w_2-6/edit"},{"key":"pakistan","name":"Pakistan","version":"V1.11","sourceTitle":"Faction_Pakistan-V1.11.docx","driveId":"14lU4QHuSMocRKOUurrgSEb7zO2jcabfr","url":"https://docs.google.com/document/d/14lU4QHuSMocRKOUurrgSEb7zO2jcabfr/edit"},{"key":"profonds","name":"Profonds","version":"V1.14","sourceTitle":"Faction_Profonds-V1.14.docx","driveId":"1WzDPdFl0oOUa_8lPSelhcemHVSuYxVQe","url":"https://docs.google.com/document/d/1WzDPdFl0oOUa_8lPSelhcemHVSuYxVQe/edit"},{"key":"orphee","name":"Protocole Orphée","version":"V1.8","sourceTitle":"Faction_Protocole_Orphee-V1.8.docx","driveId":"1w5bsd1IkHmnfPo8HWOuSOBcTVqDXBs7q","url":"https://docs.google.com/document/d/1w5bsd1IkHmnfPo8HWOuSOBcTVqDXBs7q/edit"},{"key":"red_phoenix","name":"Red Phoenix","version":"V1.9","sourceTitle":"Faction_Red_Phoenix-V1.9.docx","driveId":"1zhYcMhVOQoKnYb85-5VJYBG_aj7yS8n5","url":"https://docs.google.com/document/d/1zhYcMhVOQoKnYb85-5VJYBG_aj7yS8n5/edit"},{"key":"neurone","name":"Réseau Neurone","version":"V1.10","sourceTitle":"Faction_Reseau_Neurone-V1.10.docx","driveId":"1m2Dd1rT-iZTCCuHrkXzXXJGW1yA0AZb2","url":"https://docs.google.com/document/d/1m2Dd1rT-iZTCCuHrkXzXXJGW1yA0AZb2/edit"},{"key":"gardes_mythe","name":"Réseaux africains de garde du Mythe","version":"V1.5","sourceTitle":"Faction_Reseaux_africains_de_garde_du_Mythe-V1.5.docx","driveId":"1RdUf6hQfGyHJk5PFMxAsOzcHfXgvZWjF","url":"https://docs.google.com/document/d/1RdUf6hQfGyHJk5PFMxAsOzcHfXgvZWjF/edit"},{"key":"russie","name":"Russie / MUOU","version":"V1.7","sourceTitle":"Faction_Russie-V1.7.docx","driveId":"1c06_B7gTKiZBgPNiBzqh3Y16riCDry5f","url":"https://docs.google.com/document/d/1c06_B7gTKiZBgPNiBzqh3Y16riCDry5f/edit"},{"key":"sauriens","name":"Sauriens","version":"V2.15","sourceTitle":"Faction_Sauriens-V2.15.docx","driveId":"1UJuj16y2rQdzC7QW-OtLRTyEuXhos-Im","url":"https://docs.google.com/document/d/1UJuj16y2rQdzC7QW-OtLRTyEuXhos-Im/edit"},{"key":"sentinel","name":"Sentinel","version":"V1.16","sourceTitle":"Faction_Sentinel-V1.16.docx","driveId":"1PMhgICZHJrBeVJjXknK2G_kl0b9ACpEi","url":"https://docs.google.com/document/d/1PMhgICZHJrBeVJjXknK2G_kl0b9ACpEi/edit"},{"key":"shub_niggurath","name":"Shub-Niggurath","version":"V1.9","sourceTitle":"Faction_Shub_Niggurath-V1.9.docx","driveId":"1z2bi-k7LXuXac_4B8Xr6iPejt3NkH8m0","url":"https://docs.google.com/document/d/1z2bi-k7LXuXac_4B8Xr6iPejt3NkH8m0/edit"},{"key":"silex_ia","name":"Silex IA","version":"V1.12","sourceTitle":"Faction_Silex_IA-V1.12.docx","driveId":"1smV5Ya3rmOaT7prFB6K64_GO1XUEI_Ne","url":"https://docs.google.com/document/d/1smV5Ya3rmOaT7prFB6K64_GO1XUEI_Ne/edit"},{"key":"dorchester","name":"Syndicat de Dorchester","version":"V1.7","sourceTitle":"Faction_Syndicat_de_Dorchester-V1.7.docx","driveId":"1JVrSFR0lfQZeqjaPn5NZUyKF7KROdlCT","url":"https://docs.google.com/document/d/1JVrSFR0lfQZeqjaPn5NZUyKF7KROdlCT/edit"},{"key":"taiwan","name":"Taïwan","version":"V1.5","sourceTitle":"Faction_Taiwan-V1.5.docx","driveId":"15x5i38sHUNT7PnX0fLX-1kdoKMDysZK-","url":"https://docs.google.com/document/d/15x5i38sHUNT7PnX0fLX-1kdoKMDysZK-/edit"},{"key":"themis","name":"THM-X / Projet THEMIS","version":"V1.10","sourceTitle":"Faction_THM-X_Projet_THEMIS-V1.10.docx","driveId":"1vfIi_WxE4OJOE445RbTsWZATedglNKnj","url":"https://docs.google.com/document/d/1vfIi_WxE4OJOE445RbTsWZATedglNKnj/edit"},{"key":"tr4ce_nul","name":"TR4CE_NUL","version":"V1.13","sourceTitle":"Faction_TR4CE_NUL-V1.13.docx","driveId":"1I-Zd2C9k-FrKaLkLs-Fc8kRtYrnfVCDI","url":"https://docs.google.com/document/d/1I-Zd2C9k-FrKaLkLs-Fc8kRtYrnfVCDI/edit"},{"key":"custodia","name":"Vatican / CUSTODIA","version":"V1.11","sourceTitle":"Faction_Vatican_CUSTODIA-V1.11.docx","driveId":"16O9nsRV2K0IC1jUinL0puTQqDWw5mTJK","url":"https://docs.google.com/document/d/16O9nsRV2K0IC1jUinL0puTQqDWw5mTJK/edit"},{"key":"virulence","name":"VIRULENCE","version":"V1.9","sourceTitle":"Faction_VIRULENCE-V1.9.docx","driveId":"1G3VlepZXdKlZuOdNHV4ejVIzOZhmiq40","url":"https://docs.google.com/document/d/1G3VlepZXdKlZuOdNHV4ejVIzOZhmiq40/edit"},{"key":"ward","name":"W.A.R.D.","version":"V1.6","sourceTitle":"Faction_WARD-V1.6_2026-10-06_GEL_FINAL_PRET_INTEGRATION_LIVRE_PERSONNAGES_COMPLETS.docx","driveId":"1NHO_YvCBjaXNoxYwxUOpEq8KSchvfKxI","url":"https://docs.google.com/document/d/1NHO_YvCBjaXNoxYwxUOpEq8KSchvfKxI/edit"}];
 const WARD_REFERENCE_AUTHORITY_V2089={
-  checked:"2026-10-07",
-  book:"Livre de base V29.130",
+  checked:"2026-10-10",
+  book:"Livre de base V29.147",
   bookUrl:"https://docs.google.com/document/d/1oRqqDVrv-jozW_Ci8WgHBL57Gikmy--s/edit",
   standard:"Standard Factions V1.11",
   standardUrl:"https://docs.google.com/document/d/1mADAshKaY27Dt6NLE7_EndlgxzfRmubs/edit",
@@ -13002,15 +12986,15 @@ const WARD_REFERENCE_AUTHORITY_V2089={
   registryUrl:"https://docs.google.com/document/d/1B6enVwujpqLu1CjkZ5Yyg3ZQdQDb_8st/edit",
   bible:"Bible factions V1.90",
   bibleUrl:"https://docs.google.com/document/d/1mZTylQ63h9EEdJaFl3ExXKTEXEo1361C/edit",
-  recovery:"État de reprise global V1.63",
-  recoveryUrl:"https://docs.google.com/document/d/12vBvcersFtf4mIqPGZ0t4k_L3_JCT0qsJKKKs5qg_wA/edit",
+  recovery:"État de reprise global V1.116",
+  recoveryUrl:"https://docs.google.com/document/d/1IqmhDouw98SU_D_2iXLXxG0AuzjGaVbMDcbyQhXo0ow/edit",
   factionsFolderUrl:"https://drive.google.com/drive/folders/1n-HDCnwOFAdNBHmqmXEI41ioLP_7DT_R"
 };
 
 
 
 /* =========================================================
-   V0.20.97 — routage Rokugan prudent + référentiels complets
+   V0.20.98 — routage Rokugan prudent + référentiels complets
    ========================================================= */
 function travelV2089Dijkstra(graph, source, target){
   const dist=new Map([...graph.keys()].map(k=>[k,Infinity])),prev=new Map(),edgePrev=new Map(),open=new Set(graph.keys());
@@ -15055,5 +15039,275 @@ reloadActiveCampaign=async function(...args){
   const result=await _reloadActiveCampaignV2097(...args);
   await dndCleanLoaded2014AuxiliaryFieldsV2097();
   return result;
+};
+
+
+
+/* =========================================================
+   V0.20.98 — consolidation des référentiels
+   Sources D&D 2024 : SRD 5.2.1 FR (CC BY 4.0).
+   W.A.R.D. : Livre maître V29.147 / état de reprise V1.116.
+   ========================================================= */
+
+const DND_2024_DATA_SOURCE_V2098="SRD 5.2.1 FR — CC BY 4.0";
+
+/* Sorts 2024 manquants : listes officielles SRD. */
+Object.assign(DND_SPELL_CATALOG,{"druid":[[0,"Assistance"],[0,"Bouffée de poison"],[0,"Crosse des druides"],[0,"Druidisme"],[0,"Élémentalisme"],[0,"Flammes"],[0,"Réparation"],[0,"Message"],[0,"Poussière d’étoile"],[0,"Résistance"],[0,"Stabilisation"],[1,"Amitié avec les animaux"],[1,"Baies nourricières"],[1,"Charme-personne"],[1,"Communication avec les animaux"],[1,"Couteau de glace"],[1,"Création ou destruction d’eau"],[1,"Détection de la magie"],[1,"Détection du poison et des maladies"],[1,"Enchevêtrement"],[1,"Grande foulée"],[1,"Lueurs féeriques"],[1,"Mot de guérison"],[1,"Nappe de brouillard"],[1,"Protection contre le mal et le bien"],[1,"Purification de la nourriture et de l’eau"],[1,"Saut"],[1,"Soins"],[1,"Vague tonnante"],[2,"Agrandissement/Rapetissement"],[2,"Aide"],[2,"Amélioration de caractéristique"],[2,"Augure"],[2,"Bourrasque"],[2,"Croissance d’épines"],[2,"Détection des pièges"],[2,"Peau d’écorce"],[2,"Flamme éternelle"],[2,"Immobilisation de personne"],[2,"Lame de feu"],[2,"Localisation d’animaux ou de plantes"],[2,"Localisation d’objet"],[2,"Messager animal"],[2,"Métal brûlant"],[2,"Passage sans trace"],[2,"Protection contre le poison"],[2,"Rayon de lune"],[2,"Restauration partielle"],[2,"Sphère de feu"],[2,"Vision dans le noir"],[3,"Appel de la foudre"],[3,"Communication avec les plantes"],[3,"Croissance végétale"],[3,"Dissipation de la magie"],[3,"Fusion dans la pierre"],[3,"Invocation d’animaux"],[3,"Lumière du jour"],[3,"Marche sur l’onde"],[3,"Mur de vent"],[3,"Protection contre l’énergie"],[3,"Respiration aquatique"],[3,"Retour à la vie"],[3,"Tempête de neige"],[4,"Bouclier de feu"],[4,"Charme-monstre"],[4,"Confusion"],[4,"Contrôle de l’eau"],[4,"Divination"],[4,"Domination de bête"],[4,"Façonnage de la pierre"],[4,"Flétrissement"],[4,"Insecte géant"],[4,"Invocation d’élémentaires mineurs"],[4,"Invocation d’êtres sylvestres"],[4,"Liberté de mouvement"],[4,"Localisation de créature"],[4,"Métamorphose"],[4,"Mur de feu"],[4,"Peau de pierre"],[4,"Tempête de grêle"],[4,"Terrain hallucinatoire"],[5,"Communion avec la nature"],[5,"Cône de froid"],[5,"Contagion"],[5,"Coquille antivie"],[5,"Entrave planaire"],[5,"Éveil"],[5,"Fléau d’insectes"],[5,"Invocation d’élémentaire"],[5,"Mur de pierre"],[5,"Passage par les arbres"],[5,"Quête"],[5,"Réincarnation"],[5,"Restauration suprême"],[5,"Scrutation"],[5,"Soins de groupe"],[6,"Festin des héros"],[6,"Glissement de terrain"],[6,"Guérison"],[6,"Invocation de fée"],[6,"Mur d’épines"],[6,"Orientation"],[6,"Pétrification"],[6,"Rayon de soleil"],[6,"Vent divin"],[6,"Voie végétale"],[7,"Changement de plan"],[7,"Inversion de la gravité"],[7,"Mirage"],[7,"Régénération"],[7,"Symbole"],[7,"Tempête de feu"],[8,"Aliénation"],[8,"Aversion/Attirance"],[8,"Contrôle du climat"],[8,"Éclat du soleil"],[8,"Métamorphose animale"],[8,"Nuage incendiaire"],[8,"Tremblement de terre"],[8,"Tsunami"],[9,"Changement de forme"],[9,"Prémonition"],[9,"Résurrection suprême"],[9,"Tempête vengeresse"]],"sorcerer":[[0,"Aspersion acide"],[0,"Bouffée de poison"],[0,"Contact glacial"],[0,"Coup au but"],[0,"Élémentalisme"],[0,"Éruption ensorcelée"],[0,"Illusion mineure"],[0,"Lumière"],[0,"Lumières dansantes"],[0,"Main du mage"],[0,"Message"],[0,"Poigne électrique"],[0,"Prestidigitation"],[0,"Rayon de givre"],[0,"Réparation"],[0,"Trait de feu"],[1,"Armure du mage"],[1,"Bouclier"],[1,"Charme-personne"],[1,"Compréhension des langues"],[1,"Couleurs dansantes"],[1,"Couteau de glace"],[1,"Déguisement"],[1,"Détection de la magie"],[1,"Feuille morte"],[1,"Graisse"],[1,"Image silencieuse"],[1,"Mains brûlantes"],[1,"Nappe de brouillard"],[1,"Orbe chromatique"],[1,"Projectile magique"],[1,"Rayon empoisonné"],[1,"Repli expéditif"],[1,"Saut"],[1,"Simulacre de vie"],[1,"Sommeil"],[1,"Vague tonnante"],[2,"Agrandissement/Rapetissement"],[2,"Amélioration de caractéristique"],[2,"Arme magique"],[2,"Bourrasque"],[2,"Cécité/Surdité"],[2,"Déblocage"],[2,"Détection de l’invisibilité"],[2,"Détection des pensées"],[2,"Flou"],[2,"Foulée brumeuse"],[2,"Fracassement"],[2,"Image miroir"],[2,"Immobilisation de personne"],[2,"Invisibilité"],[2,"Lame de feu"],[2,"Lévitation"],[2,"Modification d’apparence"],[2,"Pattes d’araignée"],[2,"Rayon ardent"],[2,"Souffle du dragon"],[2,"Sphère de feu"],[2,"Suggestion"],[2,"Ténèbres"],[2,"Toile d’araignée"],[2,"Vision dans le noir"],[3,"Boule de feu"],[3,"Caresse du vampire"],[3,"Clignotement"],[3,"Clairvoyance"],[3,"Contresort"],[3,"Dissipation de la magie"],[3,"Don des langues"],[3,"Éclair"],[3,"Forme gazeuse"],[3,"Hâte"],[3,"Image majeure"],[3,"Lenteur"],[3,"Lumière du jour"],[3,"Marche sur l’onde"],[3,"Motif hypnotique"],[3,"Nuage nauséabond"],[3,"Protection contre l’énergie"],[3,"Respiration aquatique"],[3,"Tempête de neige"],[3,"Terreur"],[3,"Vol"],[4,"Bannissement"],[4,"Bouclier de feu"],[4,"Charme-monstre"],[4,"Confusion"],[4,"Domination de bête"],[4,"Flétrissement"],[4,"Invisibilité suprême"],[4,"Métamorphose"],[4,"Mur de feu"],[4,"Peau de pierre"],[4,"Porte dimensionnelle"],[4,"Sphère de vitriol"],[4,"Tempête de grêle"],[5,"Animation des objets"],[5,"Apparence trompeuse"],[5,"Brume mortelle"],[5,"Cercle de téléportation"],[5,"Cône de froid"],[5,"Création"],[5,"Domination de personne"],[5,"Fléau d’insectes"],[5,"Immobilisation de monstre"],[5,"Main arcanique"],[5,"Mur de pierre"],[5,"Télékinésie"],[6,"Cercle de mort"],[6,"Chaîne d’éclairs"],[6,"Désintégration"],[6,"Glissement de terrain"],[6,"Globe d’invulnérabilité"],[6,"Mauvais œil"],[6,"Pétrification"],[6,"Rayon de soleil"],[6,"Sphère glacée"],[6,"Suggestion de groupe"],[6,"Vision suprême"],[7,"Boule de feu à retardement"],[7,"Changement de plan"],[7,"Doigt de mort"],[7,"Embruns prismatiques"],[7,"Forme éthérée"],[7,"Inversion de la gravité"],[7,"Téléportation"],[7,"Tempête de feu"],[8,"Demi-plan"],[8,"Domination de monstre"],[8,"Éclat du soleil"],[8,"Mot de pouvoir étourdissant"],[8,"Nuage incendiaire"],[8,"Tremblement de terre"],[9,"Arrêt du temps"],[9,"Mot de pouvoir mortel"],[9,"Nuée de météores"],[9,"Portail"],[9,"Souhait"]],"warlock":[[0,"Bouffée de poison"],[0,"Contact glacial"],[0,"Coup au but"],[0,"Décharge occulte"],[0,"Illusion mineure"],[0,"Main du mage"],[0,"Prestidigitation"],[1,"Charme-personne"],[1,"Compréhension des langues"],[1,"Communication avec les animaux"],[1,"Détection de la magie"],[1,"Fou rire"],[1,"Imprécation"],[1,"Maléfice"],[1,"Protection contre le mal et le bien"],[1,"Repli expéditif"],[1,"Représailles infernales"],[1,"Serviteur invisible"],[1,"Texte illusoire"],[2,"Discours captivant"],[2,"Épine mentale"],[2,"Foulée brumeuse"],[2,"Image miroir"],[2,"Immobilisation de personne"],[2,"Invisibilité"],[2,"Pattes d’araignée"],[2,"Rayon affaiblissant"],[2,"Suggestion"],[2,"Ténèbres"],[3,"Caresse du vampire"],[3,"Cercle magique"],[3,"Contresort"],[3,"Délivrance des malédictions"],[3,"Dissipation de la magie"],[3,"Don des langues"],[3,"Forme gazeuse"],[3,"Image majeure"],[3,"Motif hypnotique"],[3,"Terreur"],[3,"Vol"],[4,"Bannissement"],[4,"Charme-monstre"],[4,"Flétrissement"],[4,"Porte dimensionnelle"],[4,"Terrain hallucinatoire"],[5,"Cercle de téléportation"],[5,"Contact avec les plans"],[5,"Double illusoire"],[5,"Entrave planaire"],[5,"Immobilisation de monstre"],[5,"Scrutation"],[5,"Songe"],[6,"Cercle de mort"],[6,"Création de mort-vivant"],[6,"Mauvais œil"],[6,"Vision suprême"],[7,"Cage de force"],[7,"Changement de plan"],[7,"Doigt de mort"],[7,"Forme éthérée"],[8,"Aliénation"],[8,"Bagou"],[8,"Demi-plan"],[8,"Domination de monstre"],[8,"Mot de pouvoir étourdissant"],[9,"Emprisonnement"],[9,"Ennemi subconscient"],[9,"Métamorphose suprême"],[9,"Mot de pouvoir mortel"],[9,"Portail"],[9,"Prémonition"],[9,"Projection astrale"]],"paladin":[[1,"Bénédiction"],[1,"Bouclier de la foi"],[1,"Châtiment de fournaise"],[1,"Châtiment divin"],[1,"Détection de la magie"],[1,"Détection du mal et du bien"],[1,"Détection du poison et des maladies"],[1,"Faveur divine"],[1,"Héroïsme"],[1,"Injonction"],[1,"Protection contre le mal et le bien"],[1,"Purification de la nourriture et de l’eau"],[1,"Soins"],[2,"Aide"],[2,"Appel de destrier"],[2,"Arme magique"],[2,"Châtiment de révélation"],[2,"Doux repos"],[2,"Lien de protection"],[2,"Localisation d’objet"],[2,"Prière de guérison"],[2,"Protection contre le poison"],[2,"Restauration partielle"],[2,"Zone de vérité"],[3,"Cercle magique"],[3,"Création de nourriture et d’eau"],[3,"Délivrance des malédictions"],[3,"Dissipation de la magie"],[3,"Lumière du jour"],[3,"Retour à la vie"],[4,"Aura de vie"],[4,"Bannissement"],[4,"Localisation de créature"],[4,"Protection contre la mort"],[5,"Dissipation du mal et du bien"],[5,"Quête"],[5,"Rappel à la vie"],[5,"Restauration suprême"]]});
+
+/* Explication générique des listes préparées : ne plus présenter toutes les
+   classes préparant des sorts comme des Clercs. */
+const _dndSpellChoicesHtmlV2098=dndSpellChoicesHtml;
+dndSpellChoicesHtml=function(classId,subclass,level,selected=[],customSpells="",characteristics={}){
+  const html=_dndSpellChoicesHtmlV2098(classId,subclass,level,selected,customSpells,characteristics);
+  if(!isDnd2024()||!html)return html;
+  return html.replace(
+    "Clerc : la liste représente les sorts préparés du jour ; les sorts de sa liste de classe restent accessibles pour une autre préparation.",
+    "Cette classe prépare une liste de sorts ; les sorts de sa liste de classe restent accessibles pour une autre préparation."
+  );
+};
+
+/* Maîtrises et noms français conformes au SRD 5.2.1. Les IDs internes
+   existants sont conservés pour ne casser aucune sauvegarde. */
+const DND_2024_WEAPON_SPECS_V2098={"club":["Gourdin","1d4","contondant",["Légère"],"Ralentissement"],"dagger":["Dague","1d4","perforant",["Finesse","Lancer (6/18 m)","Légère"],"Coup double"],"greatclub":["Massue","1d8","contondant",["À deux mains"],"Poussée"],"handaxe":["Hachette","1d6","tranchant",["Lancer (6/18 m)","Légère"],"Ouverture"],"javelin":["Javeline","1d6","perforant",["Lancer (9/36 m)"],"Ralentissement"],"light_hammer":["Marteau léger","1d4","contondant",["Lancer (6/18 m)","Légère"],"Coup double"],"mace":["Masse d’armes","1d6","contondant",[],"Sape"],"quarterstaff":["Bâton de combat","1d6","contondant",["Polyvalente (1d8)"],"Renversement"],"sickle":["Serpe","1d4","tranchant",["Légère"],"Coup double"],"spear":["Lance","1d6","perforant",["Lancer (6/18 m)","Polyvalente (1d8)"],"Sape"],"dart":["Fléchette","1d4","perforant",["Finesse","Lancer (6/18 m)"],"Ouverture"],"light_crossbow":["Arbalète légère","1d8","perforant",["Munitions (24/96 m)","Chargement","À deux mains"],"Ralentissement"],"shortbow":["Arc court","1d6","perforant",["Munitions (24/96 m)","À deux mains"],"Ouverture"],"sling":["Fronde","1d4","contondant",["Munitions (9/36 m)"],"Ralentissement"],"battleaxe":["Hache d’armes","1d8","tranchant",["Polyvalente (1d10)"],"Renversement"],"flail":["Fléau d’armes","1d8","contondant",[],"Sape"],"glaive":["Coutille","1d10","tranchant",["Allonge","À deux mains","Lourde"],"Écorchure"],"greataxe":["Hache à deux mains","1d12","tranchant",["À deux mains","Lourde"],"Enchaînement"],"greatsword":["Épée à deux mains","2d6","tranchant",["À deux mains","Lourde"],"Écorchure"],"halberd":["Hallebarde","1d10","tranchant",["Allonge","À deux mains","Lourde"],"Enchaînement"],"lance":["Lance d’arçon","1d10","perforant",["Allonge","Lourde","À deux mains sauf monté"],"Renversement"],"longsword":["Épée longue","1d8","tranchant",["Polyvalente (1d10)"],"Sape"],"maul":["Maillet d’armes","2d6","contondant",["À deux mains","Lourde"],"Renversement"],"morningstar":["Étoile du matin","1d8","perforant",[],"Sape"],"pike":["Pique","1d10","perforant",["Allonge","À deux mains","Lourde"],"Poussée"],"rapier":["Rapière","1d8","perforant",["Finesse"],"Ouverture"],"scimitar":["Cimeterre","1d6","tranchant",["Finesse","Légère"],"Coup double"],"shortsword":["Épée courte","1d6","perforant",["Finesse","Légère"],"Ouverture"],"trident":["Trident","1d8","perforant",["Lancer (6/18 m)","Polyvalente (1d10)"],"Renversement"],"war_pick":["Pic de guerre","1d8","perforant",["Polyvalente (1d10)"],"Sape"],"warhammer":["Marteau de guerre","1d8","contondant",["Polyvalente (1d10)"],"Poussée"],"whip":["Fouet","1d4","tranchant",["Allonge","Finesse"],"Ralentissement"],"blowgun":["Sarbacane","1","perforant",["Munitions (7,5/30 m)","Chargement"],"Ouverture"],"hand_crossbow":["Arbalète de poing","1d6","perforant",["Munitions (9/36 m)","Chargement","Légère"],"Ouverture"],"heavy_crossbow":["Arbalète lourde","1d10","perforant",["Munitions (30/120 m)","Chargement","À deux mains","Lourde"],"Poussée"],"longbow":["Arc long","1d8","perforant",["Munitions (45/180 m)","À deux mains","Lourde"],"Ralentissement"],"musket":["Mousquet (arme à feu)","1d12","perforant",["Munitions (12/36 m)","Chargement","À deux mains"],"Ralentissement"],"pistol":["Pistolet (arme à feu)","1d10","perforant",["Munitions (9/27 m)","Chargement"],"Ouverture"]};
+for(const row of DND_2024_WEAPONS){
+  const spec=DND_2024_WEAPON_SPECS_V2098[row[0]];
+  if(spec){row[1]=spec[0];row[2]=spec[4];}
+}
+
+/* Catalogue 2024 : armes complètes + protections et matériel d'aventure
+   disponibles dans le SRD. Les métadonnées 2014 identiques sont réutilisées
+   uniquement comme gabarit de prix/poids puis marquées édition 2024. */
+(function consolidateDnd2024EquipmentV2098(){
+  const prior2014=new Map(DND_EQUIPMENT_2014.map(x=>[x[0],x]));
+  const rows=[];
+  for(const [id,label] of DND_2024_WEAPONS){
+    const spec=DND_2024_WEAPON_SPECS_V2098[id];
+    const legacy=prior2014.get(label)
+      || (id==="quarterstaff"?prior2014.get("Bâton"):null)
+      || (id==="sickle"?prior2014.get("Serpe"):null)
+      || (id==="flail"?prior2014.get("Fléau"):null)
+      || (id==="morningstar"?prior2014.get("Morgenstern"):null);
+    const rules={...(legacy?.[3]||{}),edition:"2024",source:DND_2024_DATA_SOURCE_V2098,
+      category:(legacy?.[3]?.category||"Arme"),damage:spec[1],damageType:spec[2],
+      properties:[...spec[3]],mastery:spec[4]};
+    if(id==="musket")Object.assign(rules,{price:"500 po",weightKg:5});
+    if(id==="pistol")Object.assign(rules,{price:"250 po",weightKg:1.5});
+    rows.push([label,"weapon","Arme — règles 2024.",rules]);
+  }
+  for(const name of ["Armure matelassée","Armure de cuir","Armure de cuir clouté","Armure de peau","Chemise de mailles","Armure d’écailles","Cuirasse","Demi-plate","Broigne","Cotte de mailles","Clibanion","Harnois","Bouclier","Bélier portable","Billes","Chausse-trappes","Corde de chanvre","Corde de soie","Eau bénite","Feu grégeois / feu d’alchimiste","Huile","Lampe","Lanterne à capote","Lanterne sourde","Longue-vue","Loupe","Menottes","Miroir en acier","Pied-de-biche","Piège de chasse","Potion de soins","Trousse de soins","Torche","Sac de cambrioleur","Sac de diplomate","Sac d’ecclésiastique","Sac d’artiste","Sac d’explorateur","Sac d’érudit","Sac d’exploration souterraine","Matériel de déguisement","Matériel d’herboriste","Matériel d’empoisonneur","Matériel de faussaire","Outils de navigateur","Outils de voleur","Focaliseur arcanique","Symbole sacré","Grimoire","Instrument de musique"]){
+    const legacy=prior2014.get(name);
+    if(legacy){
+      rows.push([legacy[0],legacy[1],legacy[2],{...(legacy[3]||{}),edition:"2024",source:DND_2024_DATA_SOURCE_V2098}]);
+    } else if(name==="Trousse de soins"){
+      rows.push(["Trousse de soins","tool","Matériel de premiers secours — règles 2024.",{edition:"2024",category:"Matériel d’aventurier",source:DND_2024_DATA_SOURCE_V2098}]);
+    }
+  }
+  const existingByName=new Map(rows.map((x,i)=>[x[0],i]));
+  for(const old of DND_EQUIPMENT_2024){
+    if(!existingByName.has(old[0]))rows.push([old[0],old[1],old[2],{...(old[3]||{}),edition:"2024",source:old[3]?.source||DND_2024_DATA_SOURCE_V2098}]);
+  }
+  DND_EQUIPMENT_2024.splice(0,DND_EQUIPMENT_2024.length,...rows);
+})();
+
+/* W.A.R.D. — les deux entrées devenues obsolètes ont été retirées de la
+   liste d'agence : Army Intelligence n'est plus une Profession autonome ;
+   le scientifique criminalistique DEA est une capacité institutionnelle. */
+Object.assign(WARD_ORIENTATIONS,{
+  doe_scitech:[["research_engineering","Recherche et ingénierie"],["nuclear_response","Sécurité nucléaire et réponse radiologique"]]
+});
+
+Object.assign(WARD_PROFESSION_RULES,{
+  bop_officer:{
+    primary:["stamina","perception","dexterity"],secondary:["wits","strength","charisma"],
+    orientationRules:{
+      prison_security:{essential:["Athlétisme","Bureaucratie","Observation","Premiers secours","Tir : Pistolet","Vigilance"]},
+      crisis_control:{essential:["Athlétisme","Bagarre","Observation","Tactique","Tir : Pistolet","Vigilance"]}
+    }
+  },
+  bop_sis:{
+    primary:["perception","wits","intelligence"],secondary:["charisma","dexterity","stamina"],
+    orientationRules:{
+      internal_investigation:{essential:["Bureaucratie","Droit","Investigation","Interroger","Observation","Vigilance"]},
+      prison_intel:{essential:["Bureaucratie","Investigation","Intuition","Interroger","Psychologie","Observation"]}
+    }
+  },
+  bop_warden:{
+    primary:["intelligence","charisma","wits"],secondary:["perception","stamina","manipulation"],
+    orientationRules:{
+      direction_security:{essential:["Bureaucratie","Commandement","Droit","Négociation","Observation","Vigilance"]},
+      inmate_coordination:{essential:["Bureaucratie","Droit","Intuition","Négociation","Persuasion","Psychologie"]}
+    }
+  },
+  doe_scitech:{
+    primary:["intelligence","perception","wits"],secondary:["dexterity","stamina"],
+    orientationRules:{
+      research_engineering:{essential:["Informatique","Mathématiques appliquées","Observation","Recherche"],oneOf:[["Physique","Chimie","Biologie","Géologie / Géophysique","Sciences environnementales"],["Ingénierie (choisir une spécialité)","Ingénierie nucléaire","Ingénierie électronique","Ingénierie mécanique"]] },
+      nuclear_response:{essential:["Observation","Physique nucléaire","Premiers secours","Recherche","Sciences environnementales","Vigilance"]}
+    }
+  },
+  interpol_analyst:{
+    primary:["intelligence","perception","wits"],secondary:["manipulation","charisma"],
+    essential:["Bureaucratie","Informatique","Investigation","Observation","Recherche","Vigilance"]
+  },
+  sis_action:{
+    primary:["dexterity","wits","perception"],secondary:["stamina","manipulation"],
+    essential:["Athlétisme","Discrétion","Furtivité","Observation","Vigilance"],
+    oneOf:[["Bagarre","Arts martiaux (choisir un art martial)","Conduite","Tir : Pistolet","Tir : Fusil"],["Bagarre","Arts martiaux (choisir un art martial)","Conduite","Tir : Pistolet","Tir : Fusil"]]
+  },
+  rcmp_analyst:{
+    primary:["intelligence","wits","perception"],secondary:["charisma"],
+    essential:["Bureaucratie","Informatique","Investigation","Observation","Recherche"],
+    oneOf:[["Comptabilité","Politique","Relations internationales"]]
+  }
+});
+
+/* AD&D : l'application gère emplacements et limites, mais aucun corpus de
+   sorts/équipement AD&D n'a été fourni dans les sources du projet. On rend
+   cette limite explicite plutôt que d'afficher un faux catalogue. */
+const ADND_REFERENCE_STATUS_V2098={
+  spells:"Référentiel de noms de sorts AD&D 2e non fourni dans les sources disponibles.",
+  equipment:"Référentiel d’équipement AD&D 2e non fourni dans les sources disponibles."
+};
+
+const _renderSystemSpecificEditorV2098=renderSystemSpecificEditor;
+renderSystemSpecificEditor=function(character=null){
+  _renderSystemSpecificEditorV2098(character);
+  if(profileKeyForCampaign()==="adnd"){
+    const box=$("#systemSpecificEditor");
+    if(box&&!box.querySelector(".adnd-reference-status-v2098")){
+      const note=document.createElement("div");
+      note.className="system-note adnd-reference-status-v2098";
+      note.innerHTML=`<strong>Référentiels AD&D 2e :</strong> ${esc(ADND_REFERENCE_STATUS_V2098.spells)} ${esc(ADND_REFERENCE_STATUS_V2098.equipment)} La saisie libre reste disponible ; aucune donnée non sourcée n’est inventée.`;
+      box.appendChild(note);
+    }
+  }
+};
+
+/* Métadonnées d'audit consultables en développement. */
+const JDR_DATA_AUDIT_V2098={
+  dnd2024:{source:DND_2024_DATA_SOURCE_V2098,spellClasses:Object.keys(DND_SPELL_CATALOG),equipmentCount:DND_EQUIPMENT_2024.length,weaponCount:DND_2024_WEAPONS.length},
+  ward:{book:"Livre de base V29.147",recovery:"État de reprise global V1.116",removedObsoleteProfessions:["army_intel","dea_forensic"]},
+  adnd:{sourceComplete:false,reason:"Aucun corpus AD&D 2e source retrouvé dans les fichiers du projet."}
+};
+
+
+
+/* V0.20.98 — isolation des listes de sorts par édition.
+   Les quatre catalogues ajoutés ci-dessus sont issus du SRD 2024 et ne sont
+   donc pas injectés silencieusement dans une fiche 2014. */
+const DND_2024_ONLY_SPELL_CATALOG_CLASSES_V2098=new Set(["druid","paladin","sorcerer","warlock"]);
+const _dndSpellLevelForNameV2098=dndSpellLevelForName;
+dndSpellLevelForName=function(classId,subclass,name){
+  const catalogClass=dndSpellCatalogClass(classId,subclass);
+  if(!isDnd2024()&&DND_2024_ONLY_SPELL_CATALOG_CLASSES_V2098.has(catalogClass))return null;
+  return _dndSpellLevelForNameV2098(classId,subclass,name);
+};
+const _dndSpellChoicesHtmlEditionV2098=dndSpellChoicesHtml;
+dndSpellChoicesHtml=function(classId,subclass,level,selected=[],customSpells="",characteristics={}){
+  const catalogClass=dndSpellCatalogClass(classId,subclass);
+  if(!isDnd2024()&&DND_2024_ONLY_SPELL_CATALOG_CLASSES_V2098.has(catalogClass)){
+    return `<div class="spell-selection-box">
+      <div class="system-note"><strong>Catalogue 2014 :</strong> aucune liste de sorts sourcée n’est embarquée pour ${esc(dndClassData(classId).label)} dans cette version. Aucune liste 2024 n’est mélangée à la fiche 2014.</div>
+      <div class="system-value-field">
+        <label>Sorts personnalisés / hors catalogue</label>
+        <input data-system-key="customSpells" type="text" value="${esc(customSpells || "")}" placeholder="Séparer les noms par des virgules" />
+      </div>
+    </div>`;
+  }
+  return _dndSpellChoicesHtmlEditionV2098(classId,subclass,level,selected,customSpells,characteristics);
+};
+
+/* W.A.R.D. — profil Vael’na V2.6 désormais chiffré et exploitable.
+   Le dossier V2.6 validé prime sur les anciens profils Grey du Livre. */
+Object.assign(WARD_NONHUMAN_PROFILES.vaelna,{
+  status:"TERMINÉE — V2.6 — profil mécanique validé B-MEC-01",
+  source:"Dossier Vael’na V2.6 — B-MEC-01",
+  incomplete:false,
+  characteristics:{strength:2,dexterity:5,stamina:3,charisma:3,manipulation:4,appearance:2,perception:6,intelligence:6,wits:5},
+  willpower:8,
+  mentalResilience:4,
+  hpMax:16,
+  armor:0,
+  psychicResistance:0,
+  telepathy:2,
+  humanityNA:true,
+  pemMax:20,
+  note:"Profil standard V2.6 validé : F2 / Dex5 / Vig3 / Cha3 / Man4 / App2 / Per6 / Int6 / Ast5 / Vol8 / RM4 ; 16 PV ; 20 PEM ; RA0 ; Humanité N/A ; SM Référence 80. Télépathie 2 de référence et contact noétique basal volontaire entre Vael’na proches ; aucun autre domaine psi ni SR racial générique automatique."
+});
+
+/* Profonds : synchroniser l'état canonique sans inventer de valeurs absentes
+   du corpus source actuellement chargé dans l'assistant. */
+Object.assign(WARD_NONHUMAN_PROFILES.deep_one,{
+  status:"TERMINÉE — Faction Profonds V1.14 — mécanique comparative validée",
+  source:"Faction_Profonds-V1.14 / base autoritaire Dossier Profonds V1.13",
+  incomplete:true,
+  note:"Canon V1.14 : civilisation marine préhumaine terrestre N1, Profonds naturels, hybrides héréditaires et humains transformés rituellement ; aucun psi naturel. Les profils comparatifs, griffes, morsure, adaptation amphibie/hyperbare et vulnérabilités chaleur/dessiccation/acoustique sont validés. Les valeurs détaillées du profil standard ne sont pas recopiées automatiquement ici tant que le tableau source exact n’est pas embarqué dans le référentiel local."
+});
+
+/* Vampire V2 : couverture explicitement bornée aux données réellement
+   présentes ; pas de pouvoirs détaillés inventés sans corpus source. */
+const VAMPIRE_REFERENCE_STATUS_V2098={
+  clans:7,
+  disciplines:10,
+  detail:"Les clans, Disciplines de clan, valeurs de Disciplines, Humanité/Voies, santé et profils de génération sont intégrés. Aucun catalogue sourcé des pouvoirs de Discipline niveau par niveau ni bestiaire/PNJ nommé V2 n’a été trouvé dans les sources disponibles."
+};
+const _renderSystemSpecificEditorV2098b=renderSystemSpecificEditor;
+renderSystemSpecificEditor=function(character=null){
+  _renderSystemSpecificEditorV2098b(character);
+  if(profileKeyForCampaign()==="vampire2"){
+    const box=$("#systemSpecificEditor");
+    if(box&&!box.querySelector(".vampire-reference-status-v2098")){
+      const note=document.createElement("div");
+      note.className="system-note vampire-reference-status-v2098";
+      note.innerHTML=`<strong>Référentiel Vampire V2 :</strong> ${esc(VAMPIRE_REFERENCE_STATUS_V2098.detail)}`;
+      box.appendChild(note);
+    }
+  }
+};
+
+/* L5R : état de couverture documentaire. Les PNJ sans bloc mécanique 1e
+   vérifié restent des références documentaires et ne sont pas transformés
+   artificiellement en fiches de règles. */
+const L5R_REFERENCE_STATUS_V2098={
+  spellMechanics:"128 sorts structurés dans le corpus intégré ; les blocs mécaniques existants sont conservés.",
+  npcPolicy:"Les personnalités documentées sans bloc mécanique 1e vérifié restent des références de source ; aucune caractéristique n’est inventée.",
+  authority:"L5R 1e > maître 1e constitué > suppléments de clan 1e > éditions ultérieures adaptées avec provenance."
+};
+
+
+
+/* V0.20.98 — restauration effective du module AD&D 2e.
+   Le code mécanique était encore présent en V0.20.97 mais le routage AD&D
+   avait été forcé vers D&D 5e et le rendu spécifique avait été déplacé dans
+   un emplacement inatteignable. */
+const _renderSystemSpecificEditorV2098Adnd=renderSystemSpecificEditor;
+renderSystemSpecificEditor=function(character=null){
+  if(profileKeyForCampaign()!=="adnd"){
+    return _renderSystemSpecificEditorV2098Adnd(character);
+  }
+  const data=defaultSystemDataForCharacter(character);
+  const characteristics=readCurrentCharacteristics();
+  const ctx=readContextFields($("#characterContextEditor"));
+  const box=$("#systemSpecificEditor");
+  const classId=ctx.profession||data.classId||"fighter";
+  const cls=adndClassData(classId);
+  const isWizard=["mage","specialist_wizard","bard"].includes(classId);
+  $("#systemValuesTitle").textContent=`AD&D 2e — ${cls.label}`;
+  box.innerHTML=`<div class="system-values-grid">
+    ${systemInputField("Niveau","level",data.level,{min:1,max:20})}
+    ${systemInputField("PV actuels","hpCurrent",data.hpCurrent,{min:0,max:data.hpMax})}
+    ${systemInputField("PV maximum","hpMax",data.hpMax,{min:1})}
+    ${systemInputField("THAC0","thac0",adndThac0(cls.group,data.level),{min:1,max:20})}
+  </div>
+  <div class="system-derived"><strong>Progression des PV — ${esc(cls.label)}</strong>${adndHpHistoryHtml(data.hpHistory)}
+    <div class="system-note">Chaque jet de PV est conservé par niveau. Après le dernier niveau à dé de vie de la classe, le gain devient fixe et le bonus de Constitution ne s’applique plus.</div>
+  </div>
+  <div class="system-derived"><strong>Emplacements de sorts mémorisables</strong>${adndSlotsHtml(classId,data.level)}
+    ${isWizard?adndWizardIntHtml(characteristics.intelligence):""}
+    ${systemInputField("Sorts connus / grimoire","spellsKnownText",data.spellsKnownText||"",{type:"text"})}
+  </div>
+  <div class="system-note"><strong>AD&D 2e :</strong> les emplacements sont calculés selon la classe et le niveau. Pour Magicien/Magicien spécialiste, la limite d’apprentissage dépend de l’Intelligence.</div>
+  <div class="system-note adnd-reference-status-v2098"><strong>Référentiels AD&D 2e :</strong> ${esc(ADND_REFERENCE_STATUS_V2098.spells)} ${esc(ADND_REFERENCE_STATUS_V2098.equipment)} La saisie libre reste disponible ; aucune donnée non sourcée n’est inventée.</div>`;
+  bindSystemSpecificEditorEvents(character);
 };
 

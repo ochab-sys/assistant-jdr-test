@@ -1,3 +1,182 @@
+# Assistant JDR — V0.20.98
+
+## V0.20.98 — Consolidation des référentiels
+
+Cette version repart strictement de la base stable officielle V0.20.97 validée par Work. Elle consolide les données embarquées et restaure le module AD&D 2e qui était encore présent dans le code mais n'était plus sélectionnable.
+
+### D&D 2024 — sorts
+Quatre catalogues de sorts 2024 auparavant absents sont désormais embarqués :
+- Druide : 124 entrées ;
+- Ensorceleur : 138 entrées ;
+- Occultiste : 72 entrées ;
+- Paladin : 38 entrées.
+
+Ils complètent les catalogues déjà présents :
+- Magicien : 84 ;
+- Clerc : 42 ;
+- Barde : 36 ;
+- Rôdeur : 21.
+
+Les quatre nouveaux catalogues sont explicitement isolés à l'édition 2024. Une fiche 2014 Druide, Paladin, Ensorceleur ou Occultiste ne reçoit donc jamais silencieusement une liste de sorts 2024. Lorsque le catalogue 2014 correspondant n'est pas sourcé dans les données disponibles, l'application l'indique et conserve la saisie libre « Sorts personnalisés / hors catalogue ».
+
+Les textes 2024 des classes préparant des sorts utilisent désormais une formulation générique et ne présentent plus toutes les classes comme des Clercs.
+
+### D&D 2024 — armes, maîtrises et équipement
+Le catalogue 2024 contient maintenant :
+- 38 armes structurées ;
+- 88 entrées d'équipement au total dans le catalogue de sélection ;
+- Mousquet et Pistolet ;
+- Trousse de soins ;
+- protections et matériel d'aventure disponibles dans le corpus SRD exploité.
+
+Les huit termes de maîtrise d'armes sont harmonisés en français :
+- Coup double ;
+- Écorchure ;
+- Enchaînement ;
+- Ouverture ;
+- Poussée ;
+- Ralentissement ;
+- Renversement ;
+- Sape.
+
+Aucun doublon de nom n'a été détecté dans le catalogue 2024 final.
+
+**Source D&D 2024 :** données dérivées du *System Reference Document 5.2.1*, © Wizards of the Coast LLC, utilisé sous licence Creative Commons Attribution 4.0 International (CC BY 4.0).
+
+### D&D — non-régression de la base stable
+Retest ciblé sur Guerrier 4 / Roublard 3 :
+- aptitudes limitées respectivement aux niveaux 4 et 3 ;
+- historique de PV d10/d8 inchangé ;
+- bascule 2024 → 2014 → Annuler → réouverture correcte ;
+- deux classes conservées ;
+- export/import réel conservant les deux classes ;
+- exactement une clé `editionVariants` ;
+- aucune récursion de `editionVariants`.
+
+Le catalogue visible passe correctement de 88 entrées en 2024 à 136 en 2014.
+
+### AD&D 2e — système restauré
+L'audit V0.20.98 a découvert que le code AD&D 2e était toujours présent, mais que V0.20.97 routait les campagnes AD&D vers D&D 5e et ne proposait plus AD&D dans les sélecteurs.
+
+V0.20.98 restaure AD&D 2e comme système distinct :
+- entrée AD&D 2e dans le sélecteur principal ;
+- entrée AD&D 2e à la création/modification d'une campagne ;
+- profil de caractéristiques et compétences AD&D ;
+- 9 classes déjà structurées ;
+- progression des PV ;
+- THAC0 ;
+- tables d'emplacements de sorts ;
+- limites d'apprentissage des Magiciens selon l'Intelligence ;
+- saisie libre du grimoire / des sorts connus ;
+- fiche de personnage AD&D déjà existante de nouveau accessible.
+
+Test navigateur :
+- nouveau Guerrier AD&D niveau 1 → THAC0 20 ;
+- Magicien niveau 5 → panneau d'emplacements visible ;
+- Intelligence 10 → niveau de sort maximal 5, chance d'apprentissage 40 %, maximum 7 sorts connus par niveau ;
+- saisie libre `Projectile magique` conservée.
+
+Aucun corpus source complet de noms de sorts et d'équipement AD&D 2e n'a été retrouvé dans les sources disponibles du projet. V0.20.98 l'indique explicitement et n'invente pas de données de règles.
+
+### W.A.R.D. — synchronisation du canon et des professions
+Références mises à jour :
+- Livre de base : V29.147 ;
+- Standard Factions : V1.11 ;
+- Registre factions : V1.9 ;
+- Bible factions : V1.90 ;
+- État de reprise global : V1.116 ;
+- contrôle : 10 octobre 2026.
+
+Deux entrées devenues obsolètes ont été retirées des listes d'agence conformément au référentiel récent :
+- `army_intel` — le renseignement Army n'est plus une Profession autonome ;
+- `dea_forensic` — le scientifique criminalistique DEA est traité comme capacité institutionnelle et non comme Profession autonome.
+
+Les règles de profession manquantes ont été ajoutées pour :
+- agent correctionnel fédéral BOP ;
+- spécialiste SIS du BOP ;
+- directeur / Warden BOP ;
+- scientifique / ingénieur DOE ;
+- analyste INTERPOL ;
+- officier d'action SIS ;
+- analyste du renseignement criminel GRC.
+
+Résultat : 103 professions actuellement proposées par les agences, **103 disposant d'une règle structurée**, soit aucun identifiant proposé sans règle.
+
+### W.A.R.D. — profils non humains
+**Vael'na / Réticulan V2.6** est maintenant exploitable avec son profil mécanique validé :
+- Force 2 ;
+- Dextérité 5 ;
+- Vigueur 3 ;
+- Charisme 3 ;
+- Manipulation 4 ;
+- Apparence 2 ;
+- Perception 6 ;
+- Intelligence 6 ;
+- Astuce 5 ;
+- Volonté 8 ;
+- RM 4 ;
+- 16 PV ;
+- 20 PEM ;
+- RA 0 ;
+- Humanité N/A ;
+- Télépathie 2.
+
+Le profil est marqué complet et peut donc être appliqué par le générateur aux nouveaux profils appropriés.
+
+**Profonds :** le statut documentaire est synchronisé sur `Faction_Profonds-V1.14`, avec les trois voies (naturel, hybride héréditaire, transformation rituelle), l'absence de psi naturel, les adaptations et vulnérabilités validées. Les valeurs numériques détaillées ne sont pas imposées automatiquement tant que le tableau source exact n'est pas présent dans le référentiel local exploitable ; aucune valeur n'est inventée.
+
+### L5R 1e — état documentaire vérifié
+Le corpus embarqué conserve :
+- 128 sorts structurés ;
+- 51 PNJ de référence directement utilisables ;
+- 120 entrées dans l'index documentaire des PNJ des livres ;
+- 48 blocs mécaniques de PNJ documentaires déjà structurés ;
+- 5 profils partiels identifiés.
+
+Les personnalités sans bloc mécanique 1e vérifié restent des références documentaires : V0.20.98 ne leur invente aucune caractéristique.
+
+Autorité maintenue :
+1. L5R 1e ;
+2. maître 1e constitué ;
+3. suppléments de clan 1e ;
+4. éditions ultérieures uniquement adaptées avec provenance.
+
+### Vampire V2 — état de couverture explicite
+Le moteur conserve :
+- 7 clans ;
+- 10 Disciplines ;
+- Humanité / Voies ;
+- génération, santé, sang et Volonté ;
+- professions et profils rapides.
+
+Aucun corpus source exploitable n'a été trouvé pour ajouter sans invention :
+- les pouvoirs détaillés de chaque Discipline niveau par niveau ;
+- un bestiaire ;
+- une bibliothèque de PNJ nommés V2.
+
+L'application affiche désormais cette limite documentaire au lieu de donner l'impression que ces référentiels sont déjà complets.
+
+### Contrôles finaux effectués
+- aucune erreur JavaScript de page ou console durant la recette interne ;
+- D&D export/import contrôlé ;
+- `editionVariants` plat ;
+- D&D 2024 / D&D 2014 correctement séparés ;
+- AD&D 2e sélectionnable et rendu comme système distinct ;
+- professions W.A.R.D. sans identifiant orphelin ;
+- profil Vael'na appliqué correctement par la fonction de profil ;
+- contrôles visuels D&D et AD&D à 1366, 900 et 700 px sans débordement horizontal global.
+
+### Structure de livraison
+Structure interne du ZIP inchangée :
+- `jdr-assistant/index.html`
+- `jdr-assistant/README.md`
+- `jdr-assistant/css/app.css`
+- `jdr-assistant/js/app.js`
+- `jdr-assistant/js/db.js`
+
+V0.20.97 reste la base stable officielle tant que V0.20.98 n'a pas passé une nouvelle recette de gel Work.
+
+
 # Assistant JDR — V0.20.97
 
 ## V0.20.97 — Aptitudes D&D 2024 multiclassées
