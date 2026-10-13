@@ -4,7 +4,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-<title>Assistant JDR — V0.20.98 — Consolidation des référentiels</title>
+<title>Assistant JDR — V0.20.99 — Correctifs recette V0.20.98</title>
 <style id="embeddedAppCss">
 * { box-sizing: border-box; }
 
@@ -14042,6 +14042,11 @@ async function saveCharacterEntity() {
   if(profileKeyForCampaign()==="dnd5" && isDnd2024()){
     const probe=readSystemSpecificEditor();
     if(dnd2024TotalLevel(probe.classes||[])>20){showToast("D&D 2024 : le total des niveaux de multiclassage ne peut pas dépasser 20.");return;}
+    const spellValidation=dndSpellSelectionValidationV2099(probe,readContextFields($("#characterContextEditor")),readCurrentCharacteristics());
+    if(!spellValidation.ok){
+      showToast(spellValidation.message);
+      return;
+    }
   }
   const id = $("#characterEditId").value || JDRDB.uuid("character");
   const existing = state.characters.find(c => c.id === id);
@@ -20300,6 +20305,115 @@ renderSystemSpecificEditor=function(character=null){
   <div class="system-note"><strong>AD&D 2e :</strong> les emplacements sont calculés selon la classe et le niveau. Pour Magicien/Magicien spécialiste, la limite d’apprentissage dépend de l’Intelligence.</div>
   <div class="system-note adnd-reference-status-v2098"><strong>Référentiels AD&D 2e :</strong> ${esc(ADND_REFERENCE_STATUS_V2098.spells)} ${esc(ADND_REFERENCE_STATUS_V2098.equipment)} La saisie libre reste disponible ; aucune donnée non sourcée n’est inventée.</div>`;
   bindSystemSpecificEditorEvents(character);
+};
+
+
+
+/* =========================================================
+   V0.20.99 — correctifs de recette Work V0.20.98
+   ========================================================= */
+
+/* V2098-01 — Occultiste 2024 :
+   la colonne "sorts préparés" de la progression doit être un quota réel.
+   L'ancien mode "pact" n'était pas reconnu par le contrôle de sélection. */
+const _dndSpellLimitsV2099=dndSpellLimits;
+dndSpellLimits=function(classId,subclass,level,characteristics={}){
+  const out=_dndSpellLimitsV2099(classId,subclass,level,characteristics);
+  if(isDnd2024() && classId==="warlock"){
+    const lvl=Math.max(1,Math.min(20,Number(level||1)));
+    return {
+      ...out,
+      mode:"prepared",
+      prepared:DND_2024_PREPARED.warlock[lvl]||0
+    };
+  }
+  return out;
+};
+
+function dndSpellSelectionValidationV2099(data={},ctx={},characteristics={}){
+  const classId=ctx.profession||data.hpClassId||"fighter";
+  const subclass=data.subclass||"";
+  const summary=dndSpellLimitSummary(
+    classId,
+    subclass,
+    data.level||1,
+    characteristics,
+    Array.isArray(data.spells)?data.spells:[]
+  );
+  if(summary.selectedCantrips>Number(summary.cantrips||0)){
+    return {
+      ok:false,
+      message:`D&D 2024 : trop de tours de magie sélectionnés (${summary.selectedCantrips}/${summary.cantrips}).`
+    };
+  }
+  const leveledLimit=summary.mode==="known"
+    ? Number(summary.known||0)
+    : summary.mode==="prepared"
+      ? Number(summary.prepared||0)
+      : null;
+  if(Number.isFinite(leveledLimit) && summary.selectedLeveled>leveledLimit){
+    return {
+      ok:false,
+      message:`D&D 2024 : trop de sorts sélectionnés pour ${dndClassData(classId).label} (${summary.selectedLeveled}/${leveledLimit}).`
+    };
+  }
+  return {ok:true,summary};
+}
+
+/* V2098-02 — le générateur professionnel W.A.R.D. ne doit jamais écraser
+   le profil biologique Vael'na V2.6. Les compétences/formations continuent
+   d'être générées, mais les neuf caractéristiques restent celles du profil. */
+const _wardNpcBuildByExpertiseV2099=wardNpcBuildByExpertise;
+wardNpcBuildByExpertise=function(ctx,systemData={}){
+  const out=_wardNpcBuildByExpertiseV2099(ctx,systemData);
+  const speciesKey=String(ctx?.alienSpecies||"");
+  if((ctx?.nature==="nonhuman"||ctx?.nature==="alien") && (speciesKey==="vaelna"||speciesKey==="grey")){
+    out.characteristics=wardApplyNonhumanProfile(ctx,out.characteristics||{});
+  }
+  return out;
+};
+
+/* V2098-03 — libellé Vael'na cohérent avec le profil mécanique validé. */
+(function updateVaelnaLabelV2099(){
+  const field=CHARACTER_CONTEXT_CONFIG?.ward?.fields?.find(f=>f.key==="alienSpecies");
+  if(!field?.options)return;
+  const row=field.options.find(x=>x[0]==="vaelna");
+  if(row)row[1]="Vael’na / Réticulan — extraterrestre (profil V2.6 validé)";
+})();
+
+/* V2098-04 — aide des maîtrises entièrement en français. */
+DND_2024_MASTERY_PROPERTIES.splice(
+  0,
+  DND_2024_MASTERY_PROPERTIES.length,
+  "Enchaînement","Écorchure","Coup double","Poussée","Sape","Ralentissement","Renversement","Ouverture"
+);
+
+/* V2098-05 — rappel Profonds complet sans ajouter de valeur numérique. */
+WARD_NONHUMAN_PROFILES.deep_one.note=
+  "Canon V1.14 : civilisation marine préhumaine terrestre N1, Profonds naturels, hybrides héréditaires et humains transformés rituellement ; aucun psi naturel. Adaptations validées : physiologie amphibie, nage prolongée, eaux froides, faible luminosité et variations importantes de pression / environnement hyperbare. Vulnérabilités validées : dessiccation, chaleur, contaminants biologiques et industriels, traumatismes sonores et transitions de pression mal gérées. Les profils comparatifs, griffes et morsure sont validés. Les valeurs détaillées du profil standard ne sont pas recopiées automatiquement ici tant que le tableau source exact n’est pas embarqué dans le référentiel local.";
+
+/* Référence W.A.R.D. — rendre V1.116 vérifiable localement, sans ouvrir Drive. */
+const _wardRulesLibraryV2099=wardRulesLibraryV2089;
+wardRulesLibraryV2089=function(){
+  _wardRulesLibraryV2099();
+  const host=$("#placeholderView .empty-state");
+  const section=host?.querySelector("section.system-derived");
+  if(section && !section.querySelector(".ward-recovery-local-v2099")){
+    const p=document.createElement("p");
+    p.className="ward-recovery-local-v2099";
+    p.innerHTML=`<strong>État de reprise local :</strong> ${esc(WARD_REFERENCE_AUTHORITY_V2089.recovery)}.`;
+    const firstP=section.querySelector("p");
+    if(firstP)firstP.insertAdjacentElement("afterend",p);
+    else section.prepend(p);
+  }
+};
+
+/* Marqueur de recette. */
+const JDR_CORRECTIVE_AUDIT_V2099={
+  sourceCandidate:"V0.20.98",
+  workIssues:["V2098-01","V2098-02","V2098-03","V2098-04","V2098-05"],
+  stableBase:"V0.20.97",
+  wardRecovery:WARD_REFERENCE_AUTHORITY_V2089.recovery
 };
 
 

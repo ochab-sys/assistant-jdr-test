@@ -1,3 +1,101 @@
+# Assistant JDR — V0.20.99
+
+## V0.20.99 — Correctifs de recette Work V0.20.98
+
+Version strictement corrective issue de la recette Work de V0.20.98.  
+La base stable officielle reste V0.20.97 tant que cette V0.20.99 n'a pas passé une nouvelle recette de gel.
+
+### V2098-01 — Occultiste D&D 2024
+- Le quota de sorts ordinaires de l'Occultiste 2024 est maintenant traité comme un quota de sorts préparés.
+- Niveau 5 : limite attendue et appliquée = 6 sorts ordinaires.
+- Le compteur n'affiche plus `13 / —` : il affiche le nombre sélectionné sur la limite réelle.
+- Le 7e choix est refusé par l'interface.
+- Une sauvegarde est également refusée si une ancienne fiche V0.20.98 contient déjà plus de sorts que le quota, afin d'éviter de rendre durable une sélection mécaniquement invalide.
+- Les tours de magie restent contrôlés séparément.
+- Les emplacements de Pacte restent inchangés : niveau 5 = deux emplacements de niveau 3.
+
+### V2098-02 — profil biologique Vael'na
+Le générateur PNJ W.A.R.D. peut toujours calculer compétences et formations selon le métier / niveau d'expertise, mais il ne peut plus remplacer les neuf caractéristiques biologiques du profil Vael'na V2.6.
+
+Profil conservé après génération :
+- Force 2
+- Dextérité 5
+- Vigueur 3
+- Charisme 3
+- Manipulation 4
+- Apparence 2
+- Perception 6
+- Intelligence 6
+- Astuce 5
+
+Les valeurs dérivées V2.6 restent :
+- Volonté 8
+- RM 4
+- 16 PV
+- 20 PEM
+- RA 0
+- Humanité N/A
+- Télépathie 2
+
+### V2098-03 — libellé Vael'na
+Le menu affiche désormais :
+`Vael’na / Réticulan — extraterrestre (profil V2.6 validé)`
+
+La mention « profil chiffré en reconstruction » n'est plus affichée.
+
+### V2098-04 — maîtrises d'armes D&D 2024
+La ligne d'aide utilise désormais les mêmes termes français que les options :
+- Enchaînement
+- Écorchure
+- Coup double
+- Poussée
+- Sape
+- Ralentissement
+- Renversement
+- Ouverture
+
+Les anciens termes anglais ne sont plus utilisés dans cette aide.
+
+### V2098-05 — rappel Profonds
+Le rappel local Profonds V1.14 cite maintenant explicitement :
+- physiologie amphibie ;
+- nage prolongée ;
+- eaux froides ;
+- faible luminosité ;
+- variations importantes de pression / environnement hyperbare ;
+- vulnérabilités dessiccation, chaleur, contaminants, acoustique et transitions de pression ;
+- absence de psi naturel.
+
+Aucune valeur mécanique détaillée non présente dans le tableau source local n'est inventée.
+
+### W.A.R.D. — État de reprise visible localement
+La bibliothèque W.A.R.D. affiche maintenant directement :
+`État de reprise local : État de reprise global V1.116`
+
+Work peut donc vérifier cette référence sans ouvrir Google Drive.
+
+### Non-régressions à conserver
+V0.20.99 doit préserver toutes les validations acquises en V0.20.98 :
+- D&D Guerrier 4 / Roublard 3 ;
+- aptitudes par niveau de classe ;
+- PV d10/d8 ;
+- Annuler 2024 → 2014 → réouverture ;
+- `editionVariants` plat ;
+- export/import ;
+- catalogues D&D 2024 et 2014 ;
+- AD&D 2e comme système distinct ;
+- 103 professions W.A.R.D. sans règle orpheline ;
+- L5R, Vampire, lieux, Fresque joueurs et voyages.
+
+### Structure de livraison
+Structure interne du ZIP inchangée :
+- `jdr-assistant/index.html`
+- `jdr-assistant/README.md`
+- `jdr-assistant/css/app.css`
+- `jdr-assistant/js/app.js`
+- `jdr-assistant/js/db.js`
+
+
 # Assistant JDR — V0.20.98
 
 ## V0.20.98 — Consolidation des référentiels
