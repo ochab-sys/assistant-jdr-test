@@ -308,7 +308,7 @@ const CHARACTER_CONTEXT_CONFIG = {
     label: "W.A.R.D. — nature, profession, organisation et faction",
     fields: [
       { key:"nature", label:"Nature du personnage", type:"select", options:[["human","Humain"],["nonhuman","Non-humain"]] },
-      { key:"alienSpecies", label:"Espèce / origine non humaine", type:"select", options:[["unknown","Inconnue / non identifiée"],["atriant","Atriant — diaspora extraterrestre"],["saurian","Saurien — civilisation préhumaine liée à la Terre"],["vaelna","Vael’na / Réticulan — extraterrestre (profil chiffré en reconstruction)"],["deep_one","Profond — civilisation marine préhumaine N1 (mécanique à auditer)"],["other","Autre / personnalisée"]] },
+      { key:"alienSpecies", label:"Espèce / origine non humaine", type:"select", options:[["unknown","Inconnue / non identifiée"],["atriant","Atriant — diaspora extraterrestre"],["saurian","Saurien — civilisation préhumaine liée à la Terre"],["vaelna","Vael’na / Réticulan — extraterrestre (profil chiffré en reconstruction)"],["deep_one","Profond — civilisation marine préhumaine N1 (mécanique comparative V1.14 validée)"],["other","Autre / personnalisée"]] },
       { key:"faction", label:"Appartenance factionnelle", type:"select", options:[["none","Aucune"],["unknown","Inconnue / à déterminer"],["ward","W.A.R.D."],["majestic","MAJESTIC / MJ-12"],["dae","DAE — France"],["custodia","CUSTODIA — Vatican"],["kagami","KAGAMI — Japon"],["obsidian","Consortium Obsidienne"],["other","Autre faction / personnalisée"]] },
       { key:"factionDetail", label:"Faction / cellule / couverture (précision)", type:"text", placeholder:"Nom libre, cellule, degré de connaissance…" },
       { key:"country", label:"Pays", type:"select", options:[
@@ -6229,7 +6229,7 @@ function adndThac0(group,level){
  return 20-Math.floor((level-1)/3);
 }
 function adndHpHistoryHtml(history){
- return `<div id="adndHpHistory" data-history='${esc(JSON.stringify(history||[]))}' class="hp-history">${(history||[]).map(r=>`<div class="hp-level-row"><span>Niv. ${r.level}</span><span>${r.fixed?`gain fixe +${r.gain}`:`d${r.die} : ${r.roll}${r.conBonus?` ${r.conBonus>0?"+":""}${r.conBonus} CON`:""} = +${r.gain}`}</span></div>`).join("")}</div>`;
+ return `<div data-adnd-hp-history="true" data-history='${esc(JSON.stringify(history||[]))}' class="hp-history adnd-hp-history">${(history||[]).map(r=>`<div class="hp-level-row"><span>Niv. ${r.level}</span><span>${r.fixed?`gain fixe +${r.gain}`:`d${r.die} : ${r.roll}${r.conBonus?` ${r.conBonus>0?"+":""}${r.conBonus} CON`:""} = +${r.gain}`}</span></div>`).join("")}</div>`;
 }
 function adndSlotsHtml(classId,level){
  const slots=adndSlots(classId,level); if(!slots.length)return `<div class="system-note">Cette classe n’a pas d’emplacements de sorts à ce niveau.</div>`;
@@ -6640,7 +6640,8 @@ function readSystemSpecificEditor() {
   }
 
   if(profileKeyForCampaign()==="adnd"){
-    try{data.hpHistory=JSON.parse($("#adndHpHistory")?.dataset.history||"[]");}catch{data.hpHistory=[];}
+    const editorHistory=$("#systemSpecificEditor [data-adnd-hp-history='true']");
+    try{data.hpHistory=JSON.parse(editorHistory?.dataset.history||"[]");}catch{data.hpHistory=[];}
     data.classId=readContextFields($("#characterContextEditor")).profession||"fighter";
   }
 
@@ -7389,7 +7390,7 @@ function characterSystemSheetHtml(c) {
   }
   if(key==='vampire2'){
     const disciplines=Object.entries(sd.disciplines||{}).filter(([,v])=>Number(v)>0);
-    return base+`<section class="sheet-section"><h3>Vampire V2 — état de jeu</h3><div class="sheet-stat-grid"><div><span>Génération</span><strong>${sd.generation??'—'}e</strong></div><div><span>${esc(sd.moralityPath||"Humanité")}</span><strong>${sd.morality??'—'}</strong></div><div><span>Volonté</span><strong>${sd.willpowerCurrent??'—'} / ${sd.willpowerPermanent??'—'}</strong></div><div><span>Santé</span><strong>${sd.healthCurrent??'—'} / ${sd.healthMax??7}</strong></div><div><span>Sang</span><strong>${sd.bloodCurrent??'—'} / ${sd.bloodMax??'—'}</strong></div><div><span>Sang / tour</span><strong>${sd.bloodPerTurn??'—'}</strong></div></div><h4>Disciplines</h4>${disciplines.length?`<div class="sheet-skill-grid">${disciplines.map(([n,v])=>`<div><span>${esc(n)}</span><strong>${v}</strong></div>`).join("")}</div>`:`<div class="sheet-empty">Aucune Discipline enregistrée.</div>`}</section>${equipmentHtml}`;
+    return base+`<section class="sheet-section"><h3>Vampire V2 — état de jeu</h3><div class="sheet-stat-grid"><div><span>Génération</span><strong>${sd.generation??'—'}e</strong></div><div><span>${esc(vampireMoralityPathLabelV20100(sd.moralityPath))}</span><strong>${sd.morality??'—'}</strong></div><div><span>Volonté</span><strong>${sd.willpowerCurrent??'—'} / ${sd.willpowerPermanent??'—'}</strong></div><div><span>Santé</span><strong>${sd.healthCurrent??'—'} / ${sd.healthMax??7}</strong></div><div><span>Sang</span><strong>${sd.bloodCurrent??'—'} / ${sd.bloodMax??'—'}</strong></div><div><span>Sang / tour</span><strong>${sd.bloodPerTurn??'—'}</strong></div></div><h4>Disciplines</h4>${disciplines.length?`<div class="sheet-skill-grid">${disciplines.map(([n,v])=>`<div><span>${esc(n)}</span><strong>${v}</strong></div>`).join("")}</div>`:`<div class="sheet-empty">Aucune Discipline enregistrée.</div>`}</section>${equipmentHtml}`;
   }
   if(key==='ward'){
     const agency=ctx.agency||"civil", agencyLabel=WARD_AGENCIES?.[agency]?.label||agency;
@@ -15423,5 +15424,37 @@ const JDR_CORRECTIVE_AUDIT_V2099={
   workIssues:["V2098-01","V2098-02","V2098-03","V2098-04","V2098-05"],
   stableBase:"V0.20.97",
   wardRecovery:WARD_REFERENCE_AUTHORITY_V2089.recovery
+};
+
+
+
+/* =========================================================
+   V0.20.100 — correctifs finaux avant gel
+   ========================================================= */
+
+/* V2099-01 : historique PV AD&D strictement scoped à l'éditeur actif.
+   Les fiches de consultation utilisent le même rendu mais ne portent plus
+   d'identifiant HTML dupliqué susceptible d'être lu lors d'une sauvegarde. */
+function adndEditorHpHistoryV20100(){
+  return $("#systemSpecificEditor [data-adnd-hp-history='true']");
+}
+
+/* V2099-02 : statut Profonds cohérent partout avec V1.14. */
+(function normalizeDeepOneLabelV20100(){
+  const field=CHARACTER_CONTEXT_CONFIG?.ward?.fields?.find(f=>f.key==="alienSpecies");
+  const row=field?.options?.find(x=>x[0]==="deep_one");
+  if(row)row[1]="Profond — civilisation marine préhumaine N1 (mécanique comparative V1.14 validée)";
+})();
+
+/* V2099-03 : libellé lisible de l'Humanité / des Voies sur les fiches. */
+function vampireMoralityPathLabelV20100(value){
+  return labelForOption(VAMPIRE_PATHS,value||"humanity")||"Humanité";
+}
+
+const JDR_CORRECTIVE_AUDIT_V20100={
+  sourceCandidate:"V0.20.99",
+  fixes:["V2099-01","V2099-02","V2099-03"],
+  stableBase:"V0.20.97",
+  target:"gel après recette Work"
 };
 

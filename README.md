@@ -1,3 +1,53 @@
+# Assistant JDR — V0.20.100
+
+## V0.20.100 — Correctifs finaux avant gel
+
+Cette version repart de la candidate V0.20.99. La base stable officielle reste V0.20.97 tant que V0.20.100 n'a pas passé la recette Work.
+
+### V2099-01 — contamination de l'historique de PV AD&D
+Cause confirmée : `adndHpHistoryHtml()` produisait toujours le même identifiant HTML `adndHpHistory`, aussi bien dans l'éditeur que dans la fiche de consultation. Une ancienne fiche AD&D cachée dans le DOM pouvait donc être lue par la sauvegarde d'un autre personnage.
+
+Correction :
+- suppression de l'identifiant HTML global du rendu d'historique AD&D ;
+- ajout de `data-adnd-hp-history="true"` ;
+- lecture strictement limitée à `#systemSpecificEditor [data-adnd-hp-history='true']` ;
+- les fiches de consultation peuvent rester dans le DOM sans contaminer l'éditeur actif.
+
+Le test de non-régression doit reproduire le cas Work : ouvrir la fiche d'un Magicien possédant plusieurs d4, puis créer et sauvegarder un nouveau Guerrier. Le Guerrier doit conserver uniquement son historique d10.
+
+### V2099-02 — libellé Profond
+Le menu W.A.R.D. affiche maintenant :
+`Profond — civilisation marine préhumaine N1 (mécanique comparative V1.14 validée)`
+
+La mention « mécanique à auditer » a été supprimée.
+
+### V2099-03 — Vampire V2
+La fiche de consultation traduit désormais la valeur interne `humanity` en :
+`Humanité`
+
+Les autres Voies utilisent également leur libellé français du catalogue `VAMPIRE_PATHS`.
+
+### Non-régressions à préserver
+V0.20.100 doit conserver les correctifs validés de V0.20.99 :
+- Occultiste D&D 2024 niveau 5 limité à 6 sorts ordinaires ;
+- refus du 7e sort et garde à la sauvegarde ;
+- Vael'na V2.6 inchangé après génération, sauvegarde et export/import ;
+- libellé Vael'na « profil V2.6 validé » ;
+- maîtrises D&D 2024 entièrement en français ;
+- rappel Profonds V1.14 complet ;
+- État de reprise W.A.R.D. V1.116 visible localement ;
+- multiclassage D&D et `editionVariants` plats ;
+- AD&D 2e comme système distinct.
+
+### Structure de livraison
+Structure interne du ZIP inchangée :
+- `jdr-assistant/index.html`
+- `jdr-assistant/README.md`
+- `jdr-assistant/css/app.css`
+- `jdr-assistant/js/app.js`
+- `jdr-assistant/js/db.js`
+
+
 # Assistant JDR — V0.20.99
 
 ## V0.20.99 — Correctifs de recette Work V0.20.98
