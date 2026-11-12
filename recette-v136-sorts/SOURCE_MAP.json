@@ -1,0 +1,39 @@
+{
+  "origin": "Candidate prive V0.20.136 — jdr-assistant/js/app.js",
+  "scope": "fonctions extraites uniquement ; constantes des livres remplacées par un jeu de donnees fictives",
+  "functions": [
+    {
+      "name": "l5rOccupationValues",
+      "sha256": "d226e4a876d3eca8844416a4a525301797a8a2829791186e29f59bb0e5b5246d",
+      "lines": 5
+    },
+    {
+      "name": "l5rIsIshikenSchool",
+      "sha256": "5f9a7aef3fc9352bfc5dd1368aae83388cda1805d85934e0f49a6081c4bd0f8a",
+      "lines": 1
+    },
+    {
+      "name": "l5rSpellAccessAllowed",
+      "sha256": "0ee3a992d7e35b39d9b0a64169978471116aa04486fb10b92b79f58d21169ca3",
+      "lines": 7
+    },
+    {
+      "name": "l5rSpellStartAllowedElementsV02035",
+      "sha256": "06b877185847a32d17879b3e974a80bb5707010e1739d7ba23be617e7fd31bef",
+      "lines": 7
+    },
+    {
+      "name": "l5rSpellOptions",
+      "sha256": "de94505d1eaedb4b74a7b687aabf4c60b6e2a69448a8acd88155bf66e39b84b5",
+      "lines": 26
+    },
+    {
+      "name": "l5rSpellSelectionStatus",
+      "sha256": "ff15da4551961f316e9029b0bac859a5e54c4e242dd8e9fd97c2303d1cb17fda",
+      "lines": 32
+    }
+  ],
+  "catalog": "2 entrees de demonstration et regle de quota inventee",
+  "no_corpus": true,
+  "not_full_app": true
+}
