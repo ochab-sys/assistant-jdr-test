@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow,noarchive">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<title>Assistant JDR — Recette limitée V136-01 (sorts historiques)</title>
+<link rel="stylesheet" href="style.css">
+<script src="core-v136.js" defer></script><script src="app.js" defer></script>
+</head>
+<body>
+<main>
+  <header><div><small class="eyebrow">ASSISTANT JDR / TEST NAVIGATEUR</small><h1>Conservation des sorts historiques — V136-01</h1><p class="muted">Banc HTTPS expurgé · fonctions authentiques extraites de V136 · catalogue et fiche fictifs · IndexedDB isolée</p></div><span id="storage" class="status">Stockage : en cours…</span></header>
+  <section class="notice"><h2>Portée et confidentialité</h2><p><strong>Ce n'est pas l'application V136 complète.</strong> Ce banc ne contient ni PDF, ni corpus de règles, ni campagnes réelles. Il reproduit uniquement les fonctions de génération d'options et de contrôle des sorts de la V136, avec des données inventées. N'entre jamais de données réelles ici.</p><p>La réussite du banc prouvera le comportement de ces fonctions dans un navigateur, pas la bonne intégration de tous les formulaires de l'application complète.</p></section>
+  <div class="grid">
+   <section class="panel"><h2>1 — Préparer le PJ fictif</h2><p>Le PJ témoin possède un sort déjà enregistré mais absent du petit catalogue de test : <strong>Essence de la Terre</strong>.</p><div class="actions"><button id="seed">Créer / réinitialiser les données fictives</button><button id="reload" class="secondary">Recharger la page</button><button id="secondTab" class="secondary">Ouvrir un deuxième onglet</button></div><p id="summary" class="muted">Aucune fiche chargée.</p></section>
+   <section class="panel"><h2>2 — Modifier puis enregistrer</h2><label for="charName">Nom fictif</label><input id="charName" maxlength="80" autocomplete="off"><label for="charNote">Note fictive</label><input id="charNote" maxlength="120" autocomplete="off"><h3>Sorts de la fiche</h3><div id="spellList" class="checks"></div><p id="warning" aria-live="polite" class="warning"></p><div class="actions"><button id="save">Enregistrer la fiche</button><button id="refresh" class="secondary">Relire IndexedDB</button></div></section>
+   <section class="panel"><h2>3 — Export / import fictif</h2><p>Exporter, modifier le nom de test, réimporter puis recharger. Le fichier JSON ne contient qu'un personnage inventé.</p><div class="actions"><button id="export">Exporter JSON fictif</button><label class="filebutton" for="importFile">Importer ce JSON</label><input type="file" id="importFile" accept="application/json,.json"></div><p class="muted">Les archives de l'application complète et les JSON d'autres versions sont refusés.</p></section>
+   <section class="panel"><h2>4 — Diagnostics navigateur</h2><p>Vérifie IndexedDB et les fonctions extraites de V136 avec les mêmes données fictives.</p><button id="diagnose">Exécuter les contrôles</button><pre id="testResults" class="results" aria-live="polite">Non exécutés.</pre></section>
+  </div>
+  <section class="panel"><h2>Contenu réellement relu dans IndexedDB</h2><pre id="preview" class="results">—</pre></section>
+  <section class="panel"><h2>Journal</h2><div id="log" role="status" aria-live="polite"></div></section>
+  <footer>V136-01 · Banc de recette expurgé, non représentatif de l'interface MJ complète · Aucune transmission réseau prévue</footer>
+</main>
+</body></html>
