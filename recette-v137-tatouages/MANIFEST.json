@@ -1,0 +1,39 @@
+{
+  "version": "0.20.137-WEB-TATTOOS-TEST",
+  "status": "public_expurgated_browser_test_candidate",
+  "public_root": "recette-v137-tatouages/",
+  "storage": "JDRRecetteV137Tatouages",
+  "format": "JDR_V137_TATTOOS_PUBLIC_TEST_ONLY",
+  "source_full_app_version": "0.20.137",
+  "contains_full_app": false,
+  "contains_private_pdf": false,
+  "contains_rules_corpus": false,
+  "contains_real_campaign": false,
+  "files_sha256": {
+    "index.html": "e9d81d535c4801f5f19af30f01d235791da913cb12e1abf1086ef8cf2c96dc63",
+    "style.css": "4df21e651057af2204ab78279d9087e1f196682fd30b0be270852fac32ee717b",
+    "core-v137.js": "7390df2980338ace6fe06e552626f15e8f4be8688afcc0903aeeb77b1643a1fc",
+    "app.js": "019036e7e0171b1b55af97f595e8731b5dc28e5899441595a23142d81f7f73fb",
+    "README.md": "8ed6b48500e28bb3f8fcb72c604e0b2524ab86d5c2e3df6344f369016a2568f0",
+    "SOURCE_MAP.json": "4f56ed5339e456398b658f44920a64a004c78e85624434086b7b8419bb787ae2"
+  },
+  "tests": {
+    "private_source_unit": {
+      "passed": 16,
+      "failed": 0
+    },
+    "fixture_unit": {
+      "passed": 12,
+      "failed": 0
+    },
+    "browser": {
+      "status": "not_run"
+    }
+  },
+  "limitations": [
+    "sandbox functions only; no full V137 form",
+    "same origin public demo is not MJ/player security",
+    "do not enter genuine data",
+    "no automatic mechanics for historic tattoos"
+  ]
+}
