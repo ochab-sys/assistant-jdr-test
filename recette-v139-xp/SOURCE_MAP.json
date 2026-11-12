@@ -1,0 +1,14 @@
+{
+  "version": "0.20.139-XP-TEST",
+  "source": "jdr-assistant/js/app.js dans le candidat privé V139",
+  "coreSHA256": "0ad2a34b6e1196e966173392abc676508b117890cd1840b6e393a3d0b703ca9f",
+  "extractedFunctions": [
+    "l5rXpLedgerV139",
+    "l5rXpPlanV139",
+    "l5rXpSaveV139",
+    "l5rXpBalanceHtmlV139",
+    "v139L5rCreateProgression"
+  ],
+  "syntheticDataOnly": true,
+  "scope": "XP ledger atomique, pas de règles officielles de tarification"
+}
