@@ -1,0 +1,12 @@
+{
+  "name": "Assistant JDR V136-01 — recette de fonctions expurgée",
+  "version": "0.20.136-P0",
+  "scope": "conservation des noms de sorts historiques et persistance d'une fiche factice",
+  "not_full_application": true,
+  "database": "JDRRecetteV136Sorts",
+  "export_schema": "JDR_V136_SPELLS_SYNTHETIC_ONLY",
+  "rule_corpus_included": false,
+  "private_campaign_included": false,
+  "browser_validation": "pending_Work",
+  "test_targets": ["retained historical spell", "explicit deselection", "storage persistence", "export/import", "rejected invalid JSON", "second tab"]
+}
