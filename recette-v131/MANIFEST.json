@@ -1,0 +1,24 @@
+{
+  "version": "0.20.131-P0",
+  "build": "public-browsing-sandbox",
+  "source": "V0.20.130-P0-A01-A02",
+  "scope": "stockage seulement ; aucune validation application complète",
+  "files": {
+    "index.html": {
+      "size": 6647,
+      "sha256": "c2938cc8c88243ca5ff045936f2fe3a8e6158461474aae5b727ff61c8c02a52b"
+    },
+    "app.js": {
+      "size": 9286,
+      "sha256": "72f55e1180e8fa2971f65fc5809d30301b5cba8d51b89a780910aee4fd5437d8"
+    },
+    "db.js": {
+      "size": 16016,
+      "sha256": "dc806b65eb31c51df970695bd50f78bd2e02f6578a99fce88914bd0ebc34225d"
+    },
+    "README.md": {
+      "size": 2681,
+      "sha256": "16afc0f9416ba7369112be587f4d0e936947fcb1988cedc827f29bb73546e453"
+    }
+  }
+}
