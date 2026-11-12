@@ -1,0 +1,74 @@
+{
+  "schema": "ASSISTANT_JDR_V132_R2_PUBLIC_CANDIDATE",
+  "version": "0.20.132-R2",
+  "json_import_compatibility": {
+    "schema": "JDR_V132_FUNCTIONAL_TEST_ONLY",
+    "version": "0.20.132"
+  },
+  "purpose": "corrections P1 V132-01 (scène courante) et P2 V132-02 (premier tour à zéro) du banc fonctionnel navigateur",
+  "status": "27/27 tests Node VM simulés réussis (14 scènes + 13 combat) ; recette Chrome Work encore nécessaire",
+  "source": "copie V132-R1 expurgée ; db.js et core.js inchangés, patch comportement premier tour dans app.js",
+  "safety": {
+    "pdf": false,
+    "corpus_official": false,
+    "private_campaigns": false,
+    "player_security_validated": false,
+    "indexeddb_name": "JDRRecetteV132",
+    "shared_browser_test_database_with_v132": true
+  },
+  "fixes": [
+    "activation de scène mise à jour atomique campagne+scènes",
+    "pointeur currentSceneId et heure de campagne révisés",
+    "statuts actifs uniques après activation",
+    "badge Scène courante",
+    "enregistrement depuis éditeur cohérent",
+    "sélection du combat par currentSceneId",
+    "diagnostics 12 contrôles après correction des données anciennes",
+    "le premier tour ignore un participant à zéro PV/santé ; affichage TOUR ACTIF seulement si éligible"
+  ],
+  "local_regression_tests": {
+    "mode": "Node VM + stockage simulé, non navigateur",
+    "passed": 27,
+    "total": 27,
+    "scenes": 14,
+    "combat": 13
+  },
+  "files": [
+    {
+      "name": "index.html",
+      "bytes": 6911,
+      "sha256": "f34b72f60be1f5b1b08040fd6327bdd229c095a0c9ff44b13c99cfdb605b5a2b"
+    },
+    {
+      "name": "style.css",
+      "bytes": 6350,
+      "sha256": "bd490bb098075e85419f308de7c95b84aa7db67f7b8af7b0d5771a7c89712101"
+    },
+    {
+      "name": "db.js",
+      "bytes": 16016,
+      "sha256": "686a1ecf599a8ab5d4a64cf5c1296825d4d522211833f6cc8bccc149f9693318"
+    },
+    {
+      "name": "core.js",
+      "bytes": 2985,
+      "sha256": "8e72ffe7bbc98cfa57d9df675e969826ba6f7d8eb2dfbb8b298eaab689247f92"
+    },
+    {
+      "name": "app.js",
+      "bytes": 40433,
+      "sha256": "f2caf6c0b3675bce260b027f22c9e15af30a8b646b19aa5dfb8572c99e039207"
+    },
+    {
+      "name": "README.md",
+      "bytes": 9390,
+      "sha256": "d687b6512e07ed7d0a63ce65828a56ed28d0b8b6e30ce1131eb0594395e20dfc"
+    },
+    {
+      "name": "SOURCE_MAP.json",
+      "bytes": 1504,
+      "sha256": "1091a8f67aebc88e4db756a89a211754d0100bb55a00190a44698e896752fc6a"
+    }
+  ],
+  "browser_tested": false
+}
