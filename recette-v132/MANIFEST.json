@@ -1,0 +1,52 @@
+{
+  "schema": "ASSISTANT_JDR_V132_PUBLIC_CANDIDATE",
+  "version": "0.20.132",
+  "purpose": "navigateur réel Work, recette fonctionnelle ciblée; données fictives seulement",
+  "status": "à tester dans Work",
+  "source": "moteur DB V131/V130 et huit fonctions exactes V130; interface de recette distincte",
+  "safety": {
+    "corpus_official": false,
+    "pdf": false,
+    "private_campaigns": false,
+    "separate_indexeddb": "JDRRecetteV132",
+    "source_functions_unchanged": 8,
+    "player_security_validated": false
+  },
+  "files": [
+    {
+      "name": "index.html",
+      "bytes": 6883,
+      "sha256": "5098b1ff3b624527ff470955b2f950485540b72c1ba60f65f903db5293d44a88"
+    },
+    {
+      "name": "style.css",
+      "bytes": 6350,
+      "sha256": "bd490bb098075e85419f308de7c95b84aa7db67f7b8af7b0d5771a7c89712101"
+    },
+    {
+      "name": "db.js",
+      "bytes": 16016,
+      "sha256": "686a1ecf599a8ab5d4a64cf5c1296825d4d522211833f6cc8bccc149f9693318"
+    },
+    {
+      "name": "core.js",
+      "bytes": 2985,
+      "sha256": "8e72ffe7bbc98cfa57d9df675e969826ba6f7d8eb2dfbb8b298eaab689247f92"
+    },
+    {
+      "name": "app.js",
+      "bytes": 34792,
+      "sha256": "ec6b858797ae76dd507b2c20b5509e28bf26e9605d6449d86dcbbdb71c97e5ed"
+    },
+    {
+      "name": "README.md",
+      "bytes": 4771,
+      "sha256": "93112a3622a928524afb3b232d5b7b46b44dc90c0578ebcda2ce494e2b066bb8"
+    },
+    {
+      "name": "SOURCE_MAP.json",
+      "bytes": 1504,
+      "sha256": "1091a8f67aebc88e4db756a89a211754d0100bb55a00190a44698e896752fc6a"
+    }
+  ]
+}
