@@ -1,0 +1,26 @@
+{
+  "version": "V0.20.137-WEB-TATTOOS",
+  "test_site": "public-synthetic-fixture",
+  "description": "Isolated browser acceptance test, not complete Assistant JDR",
+  "core_functions": [
+    {
+      "name": "l5rOccupationValues",
+      "source_sha256": "d226e4a876d3eca8844416a4a525301797a8a2829791186e29f59bb0e5b5246d"
+    },
+    {
+      "name": "l5rIsTogashiSchool",
+      "source_sha256": "ff532b2a5648b7f4580bb5a101784640203759db7072b41cd067745882904005"
+    },
+    {
+      "name": "l5rTattooOptionsPreservingHistoryV137",
+      "source_sha256": "150ae550b528c0c2fe1da5d132c0afd2b07fd0c0999e54434d26f6dba516da10"
+    },
+    {
+      "name": "l5rTattooAccessV02022",
+      "source_sha256": "4a29deb4ccdb437dd369e62e56c2cc95975dd23362dfa5fa58b2202f0abab3d1"
+    }
+  ],
+  "storage": "JDRRecetteV137Tatouages",
+  "rules_content_included": false,
+  "personal_data_included": false
+}
