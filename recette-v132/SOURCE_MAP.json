@@ -1,0 +1,40 @@
+{
+  "description": "Fonctions exactes issues du js/app.js de V130; uniquement logique de normalisation, santé, initiative et ordre. Aucune donnée documentaire recopiée.",
+  "original_file": "js/app.js",
+  "original_sha256": "71d8ab994aaa9c045e790c959b7dab197e1a318aa6f86e6d60a6a64363008d22",
+  "extracted": [
+    {
+      "function": "normalizedSystemKey",
+      "sha256": "92c146633326baf1fb409447b1558a9c856880c58b2f23ccff370d0c2a9f6c85"
+    },
+    {
+      "function": "selectedSystemKey",
+      "sha256": "b2249a0bbdbddc699fa6a75c20eb1861c95f60e1035cb60932a103211e6d2441"
+    },
+    {
+      "function": "campaignMatchesSelectedSystem",
+      "sha256": "ec2e3bc8a18ff9892002c6cf7b86c46a46e4c0f79666342285e3d2e47905ddcd"
+    },
+    {
+      "function": "profileKeyForCampaign",
+      "sha256": "ad7a069d58a7de864225d1beca9a90f21081da763f42fa459e08abdcd5900ace"
+    },
+    {
+      "function": "combatV2078Health",
+      "sha256": "9f4a0b9f378678d754bd1dc0c560075f1af2fc5c083fd2d4294ccddc282a1b17"
+    },
+    {
+      "function": "combatV2078InitiativeDefault",
+      "sha256": "669672294a5321dccfcc66751e5a134d1b0c3c10659fff7e6243d0c5b3f411c5"
+    },
+    {
+      "function": "combatV2078Order",
+      "sha256": "8efefa71a8a55f59d6c58fd44d9b7c28e28c244fd3967e8a236e125571e54cd2"
+    },
+    {
+      "function": "combatV2078Active",
+      "sha256": "a9bca81ab0517742fb6b0cca28e8c9812a9d55d5a753bc5708196e96a887d36a"
+    }
+  ],
+  "db_source": "V131-P0 db.js (moteur issu V130) avec nom de base isolé V132"
+}
