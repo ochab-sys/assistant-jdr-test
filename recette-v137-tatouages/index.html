@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow,noarchive">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<title>Assistant JDR — Recette V137-01 (tatouages historiques)</title>
+<link rel="stylesheet" href="style.css">
+<script src="core-v137.js" defer></script><script src="app.js" defer></script>
+</head>
+<body><main>
+<header class="hero"><div><p class="eyebrow">ASSISTANT JDR · RECETTE NAVIGATEUR</p><h1>Tatouages historiques L5R <span class="version">V137-01</span></h1><p class="muted">Banc HTTPS expurgé · quatre fonctions du code V137 · fiche fictive · stockage IndexedDB isolé</p></div><span id="storage" class="status">Stockage : contrôle…</span></header>
+<section class="notice"><h2>Ce que vérifie ce banc</h2><p>Ce banc reproduit les fonctions de préservation des tatouages du code V137, <strong>pas l’interface complète de l’Assistant JDR</strong>. Le catalogue comporte trois exemples sans description de règles. Aucune campagne, livre, PDF, PNJ réel, donnée personnelle ni mécanique de tatouage n’est publiée.</p><p class="muted">N’inscris aucune vraie donnée : le site est public. Ce test ne prouve ni l’intégration des écrans de V137 ni la confidentialité de la fenêtre joueur.</p></section>
+<div class="grid">
+<section class="panel"><h2>1. Choisir les données fictives</h2><label for="scenario">Scénario de départ</label><select id="scenario"><option value="legacy">Ancien Sakura + tatouage TEST hors catalogue</option><option value="canonical">Sakura avec nom actuel</option><option value="both">Deux graphies Sakura déjà présentes</option><option value="outside">Tatouages conservés hors école Togashi</option><option value="empty">Sans tatouage</option></select><div class="buttons"><button id="seed">Créer / réinitialiser cette fiche fictive</button><button id="reload" class="secondary">Recharger la page</button><button id="secondTab" class="secondary">Ouvrir un deuxième onglet</button></div><p id="summary" class="muted">Aucune fiche chargée.</p></section>
+<section class="panel"><h2>2. Éditer la fiche fictive</h2><label for="name">Nom (commencer par « TEST »)</label><input type="text" id="name" maxlength="90" placeholder="TEST moine Ise Zumi" autocomplete="off"><label for="note">Note fictive</label><input type="text" id="note" maxlength="160" placeholder="TEST commentaire" autocomplete="off"><label for="profession">École / profession</label><select id="profession"><option value="togashi_monk">Togashi — moine Ise Zumi (test)</option><option value="mirumoto_bushi">Mirumoto — bushi (test)</option></select><h3>Cases de tatouages proposées</h3><div id="tattooOptions" class="checks"></div><p id="warning" class="warning" aria-live="polite"></p><p id="access" class="muted" aria-live="polite"></p><div class="buttons"><button id="save">Enregistrer la fiche</button><button id="reread" class="secondary">Relire IndexedDB</button></div></section>
+<section class="panel"><h2>3. Export et import</h2><p>Export d’une unique fiche fictive, puis modification, réimport et vérification après rechargement.</p><div class="buttons"><button id="export">Exporter JSON fictif</button><label class="filebutton" for="importFile">Importer ce JSON</label><input type="file" id="importFile" accept=".json,application/json"></div><p class="muted">Archives V130/V136/V137 complètes et fichiers malformés refusés avant toute écriture.</p></section>
+<section class="panel"><h2>4. Diagnostics navigateur</h2><p>Contrôles du moteur original des options, d’IndexedDB, de la non-attribution automatique et du refus d’archive.</p><button id="diagnose">Exécuter les 12 contrôles</button><pre id="results" class="results" aria-live="polite">Non exécutés.</pre></section>
+</div>
+<section class="panel"><h2>Fiche relue depuis IndexedDB</h2><pre id="preview" class="results">—</pre></section>
+<section class="panel"><h2>Journal des opérations</h2><div id="log" role="status" aria-live="polite"></div></section>
+<footer>Assistant JDR · V137-01 · Banc de test expurgé · Aucune synchronisation distante · Ne jamais saisir de données réelles</footer>
+</main></body>
+</html>
