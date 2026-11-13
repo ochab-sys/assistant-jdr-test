@@ -1,0 +1,12 @@
+{
+  "id": "JDR_V139_R1_XP_DISPLAY_FIXTURE",
+  "interface_version": "0.20.139-R1",
+  "json_format": "0.20.139",
+  "database": "JDRRecetteV139XP",
+  "public_fixture": true,
+  "synthetic_only": true,
+  "real_campaigns": false,
+  "scripts": ["core-v139.js", "app.js"],
+  "source": "V140 private candidate for XP presentation helpers; other functions from V139",
+  "scope": ["chronological history", "legacy timestamp ties", "Endurance label", "IndexedDB", "JSON export/import"]
+}
