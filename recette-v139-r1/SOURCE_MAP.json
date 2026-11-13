@@ -1,0 +1,8 @@
+{
+  "private_source": "jdr-assistant/js/app.js V140",
+  "source_sha256": "ade101506dbff86ff106579fa12cee2b0cd8cd4f271ad74ed71758abc3aa4b91",
+  "fixture_file": "app.js",
+  "fixture_sha256": "ade101506dbff86ff106579fa12cee2b0cd8cd4f271ad74ed71758abc3aa4b91",
+  "exact_match": true,
+  "note": "Deux helpers de présentation. Le moteur XP reste dans core-v139.js."
+}
